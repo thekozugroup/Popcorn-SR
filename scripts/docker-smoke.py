@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import secrets
 import subprocess
 import tempfile
@@ -106,6 +107,16 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 time.sleep(1)
             else:
                 raise RuntimeError("Manager did not start: " + docker("logs", manager)[-1200:])
+            page = client.get("/")
+            page.raise_for_status()
+            assets = re.findall(r'(?:src|href)="(/assets/bundles/[^" ]+)"', page.text)
+            if len(assets) < 2:
+                raise RuntimeError("Built Web UI assets are missing from the image.")
+            for asset in assets:
+                client.get(asset).raise_for_status()
+            policy = client.get("/assets/ui-policy.json").json()
+            if not all(value in page.headers["Content-Security-Policy"] for value in policy["style_hashes"]):
+                raise RuntimeError("Web UI stylesheet policy is missing from the image.")
             code = client.post("/api/pair-codes").json()["code"]
             worker_env = root / "worker.env"
             worker_env.write_text(

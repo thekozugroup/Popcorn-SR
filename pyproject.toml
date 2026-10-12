@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "popcorn-sr"
-version = "0.1.1"
+version = "0.2.0"
 description = "Pair your library with your processing power. Self-hosted video transcoding and enhancement."
 requires-python = ">=3.12"
 license = "AGPL-3.0-or-later"
@@ -17,8 +17,17 @@ dev = ["pytest>=8,<10", "ruff>=0.11,<1", "av>=14,<18"]
 [project.scripts]
 popcorn-sr = "popcorn_sr.__main__:main"
 
+[tool.hatch.build]
+exclude = ["popcorn_sr/static/**"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["popcorn_sr"]
+
+[tool.hatch.build.targets.sdist.force-include]
+"popcorn_sr/static" = "popcorn_sr/static"
+
+[tool.hatch.build.targets.wheel.force-include]
+"popcorn_sr/static" = "popcorn_sr/static"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

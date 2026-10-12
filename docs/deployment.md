@@ -12,7 +12,7 @@ Use `unraid/popcorn-sr.xml` as a local Docker template, or run Compose. The CPU-
 4. Run `docker compose up -d --no-build --pull always manager` from this checkout. Open `http://NAS-IP:8787`.
 5. Sign in, then select **Processing → Connect a worker**. The code expires in ten minutes; it is not your permanent access key.
 
-The template uses the public `ghcr.io/thekozugroup/popcorn-sr:0.1.1` image. Anonymous pulls need no GitHub account. Source builds remain available with `docker build -t popcorn-sr:dev .`. Do not expose port 8787 directly to the internet. Use a reverse proxy with HTTPS or a VPN for remote use; HTTP on a trusted LAN sends credentials/video without encryption.
+The template uses the public `ghcr.io/thekozugroup/popcorn-sr:0.2.0` image. Anonymous pulls need no GitHub account. Source builds remain available with `docker build -t popcorn-sr:dev .`. Do not expose port 8787 directly to the internet. Use a reverse proxy with HTTPS or a VPN for remote use; HTTP on a trusted LAN sends credentials/video without encryption.
 
 ## Linux worker on DGX Spark or RTX 5080 desktop
 
@@ -33,10 +33,10 @@ PGID=1000
 Use the worker user's actual numeric UID/GID. Create the state directory. Mount your external drive, then create a scratch subfolder **on that mounted drive**. Initialize it:
 
 ```sh
-docker pull ghcr.io/thekozugroup/popcorn-sr:0.1.1
+docker pull ghcr.io/thekozugroup/popcorn-sr:0.2.0
 docker run --rm --user "$(id -u):$(id -g)" \
   --mount type=bind,src=/mnt/optane/popcorn-scratch,dst=/scratch \
-  ghcr.io/thekozugroup/popcorn-sr:0.1.1 init-scratch /scratch
+  ghcr.io/thekozugroup/popcorn-sr:0.2.0 init-scratch /scratch
 docker compose -f compose.worker.yaml -f compose.nvidia.yaml up -d --no-build --pull always
 ```
 

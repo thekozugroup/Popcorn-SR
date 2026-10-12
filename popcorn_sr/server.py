@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import secrets
 import shutil
 import time
@@ -51,6 +52,15 @@ def create_app(settings: Settings | None = None):
     app = FastAPI(title="Popcorn SR", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.store, app.state.settings = store, cfg
 
+    # Built UI policy permits only Astryx's exact static selector-placement sheet.
+    policy_file = Path(__file__).parent / "static" / "ui-policy.json"
+    style_hashes = []
+    if policy_file.is_file():
+        for value in json.loads(policy_file.read_text()).get("style_hashes", []):
+            if re.fullmatch(r"sha256-[A-Za-z0-9+/]{43}=", value):
+                style_hashes.append("'" + value + "'")
+    style_sources = " ".join(["'self'", *style_hashes])
+
     @app.middleware("http")
     async def security(request, call_next):
         origin = request.headers.get("origin")
@@ -62,7 +72,7 @@ def create_app(settings: Settings | None = None):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; media-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+            f"default-src 'self'; style-src {style_sources}; script-src 'self'; img-src 'self' data:; media-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
         if request.url.path.startswith("/api"):
             response.headers["Cache-Control"] = "no-store"
@@ -403,6 +413,8 @@ def create_app(settings: Settings | None = None):
 
     @app.get("/")
     def index():
+        if not (static / "index.html").is_file():
+            return Response("Build the Web UI with npm ci and npm run build before starting the manager.", status_code=503)
         return FileResponse(static / "index.html")
 
     return app

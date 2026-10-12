@@ -1,8 +1,8 @@
 ---
 version: 1
 slug: "popcorn-sr-static-index-html"
-primary_target: "popcorn_sr/static/index.html"
-related_targets: ["popcorn_sr/static/app.js","ui.css"]
+primary_target: "web/main.jsx"
+related_targets: ["web/styles.css","web/themes/popcorn.mjs","web/index.html"]
 ---
 
 # Popcorn SR workspace
@@ -13,7 +13,7 @@ Mode: Operate. Code-led implementation. Target: the authenticated web workspace.
 
 THESIS: Make remote video processing feel like a simple local library task. Keep the next action clear and put technical setup in short guidance.
 
-OWN-WORLD: Neutral Tailwind zinc surfaces, blue-500 actions with accessible dark text, restrained system sans, flat sections, thin dividers and familiar 44px controls. Honor light/dark system preference and reduced motion.
+OWN-WORLD: Neutral Tailwind zinc surfaces, blue-500 actions with accessible dark text, restrained system sans, flat sections, thin dividers and familiar 44px controls through official Astryx components and its compiled theme system. Honor light/dark system preference and reduced motion.
 
 STORY: Choose a library video, connect verified processing, make a short preview, then continue the full copy using saved settings. Every original stays separate and protected.
 

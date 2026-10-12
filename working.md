@@ -39,3 +39,11 @@ Physical RTX 5080 encode/inference, the optional AI image, representative librar
 - fast-rtxvsr is MIT wrapper code with separately licensed NVIDIA runtimes; Windows requirements.
 - Merserk Visual Enhancer is Windows/D3D12, source-available proprietary; reference and separately installed CLI only.
 - Ordinary host USB-C ports do not provide a standard host-to-host network. Use Ethernet or an OS-supported bridge adapter.
+
+## Iteration 2 — Astryx Web UI
+
+Migrated the workspace to official Astryx 0.6.8 components on React 19, with a compiled Neutral extension preserving zinc surfaces, blue-500 actions, system fonts and 44px targets. Vite emits local static assets; the NAS still needs no Node server. Preserved one-use pairing, saved recipes, preview/full continuation, queue actions and capability-based choices. Worker enhancement labels now show every verified engine, including Real-ESRGAN.
+
+Current local evidence: both Chromium workflows pass real preview/full processing, 390/768/1440 light/dark accessibility and overflow checks, heartbeat edit retention, mobile drawer navigation, zero JavaScript/CSP violations, and 44px activation targets. Nine Python tests pass. The selector’s fixed runtime stylesheet is permitted by its exact build-generated hash; arbitrary inline code remains blocked. A built wheel includes UI assets and policy. Docker packaging, independent finish review and public 0.2.0 publication are being completed.
+
+Public 0.1.1 was anonymously pulled and passed a paired ARM64 Docker roundtrip. Its release includes the physical Spark and publication verification receipts. This iteration changes the UI and packaging; hardware limits above remain.

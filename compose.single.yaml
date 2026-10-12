@@ -1,7 +1,7 @@
 # Layer over compose.yaml to run manager and worker on the same computer.
 services:
   worker:
-    image: ghcr.io/thekozugroup/popcorn-sr:0.1.1
+    image: ghcr.io/thekozugroup/popcorn-sr:0.2.0
     build: .
     command: [worker]
     restart: unless-stopped

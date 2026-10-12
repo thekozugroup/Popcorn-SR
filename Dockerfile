@@ -3,8 +3,9 @@ FROM node:24-slim AS ui
 WORKDIR /build
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
-COPY ui.css ./
-COPY popcorn_sr/static ./popcorn_sr/static
+COPY vite.config.js ./
+COPY web ./web
+COPY scripts/build-ui-policy.mjs ./scripts/build-ui-policy.mjs
 RUN npm run build
 
 FROM python:3.12-slim-trixie
@@ -21,7 +22,7 @@ COPY pyproject.toml uv.lock ./
 COPY LICENSE THIRD-PARTY-NOTICES.md ./
 COPY licenses ./licenses
 COPY popcorn_sr ./popcorn_sr
-COPY --from=ui /build/popcorn_sr/static/style.css ./popcorn_sr/static/style.css
+COPY --from=ui /build/popcorn_sr/static ./popcorn_sr/static
 RUN pip install uv==0.8.22 && uv sync --frozen --no-dev --no-editable --python /usr/local/bin/python
 ENV PATH="/app/.venv/bin:$PATH"
 USER 1000:1000

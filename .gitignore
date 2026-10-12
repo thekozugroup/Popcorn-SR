@@ -24,3 +24,10 @@ playwright-report/
 !.impeccable/surfaces/
 .impeccable/surfaces/*
 !.impeccable/surfaces/*.md
+
+web/themes/popcorn.css
+web/themes/popcorn.js
+web/themes/popcorn.d.ts
+
+popcorn_sr/static/*
+!popcorn_sr/static/.gitkeep

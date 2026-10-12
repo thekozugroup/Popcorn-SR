@@ -43,3 +43,9 @@ Default images build for Linux AMD64/ARM64. NVIDIA encoders need driver librarie
 ## Integration direction
 
 The HTTP API and versioned recipe schema are independent of the UI. Future Popcorn family tools can submit jobs and observe results using authenticated endpoints. Automatic folder policies, resumable transfers, verified HDR/color pipelines, schedules, multi-GPU concurrency, metrics and a first-party Linux DLSS renderer remain future extensions.
+
+## Web interface
+
+The official Astryx 0.6.8 components run on React 19. The custom theme extends Astryx Neutral with Tailwind zinc surfaces and blue-500 actions. System fonts need no download. The theme is compiled before Vite bundles the app; the NAS serves local assets through FastAPI. Both Docker and wheel builds include the generated static directory. Run `npm ci --ignore-scripts && npm run build` before building a wheel or running the manager from source.
+
+Astryx supplies the navigation drawer, keyboard-aware selectors, buttons, inputs, collapsible sections, notices, typography, layout and progress bar. Recipes use controlled state so polling worker heartbeats retains edits. Capabilities still come from the manager’s verified worker inventory.

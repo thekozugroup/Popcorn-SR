@@ -21,3 +21,7 @@ NVIDIA VFX/RTX Video, DLSS, PyTorch NGC images, CUDA and NVENC APIs retain NVIDI
 ## FFmpeg and package dependencies
 
 FFmpeg is installed from the base distribution's packages, under those build-specific LGPL/GPL terms. Image package-manager metadata and source repositories identify the corresponding source. Python/JS dependencies retain their own licenses; lockfiles list the exact versions. The default UI ships compiled Tailwind CSS only; browser testing packages do not ship in the runtime image.
+
+## Web interface
+
+Astryx Core, Neutral theme and CLI 0.6.8 are MIT-licensed, copyright Meta Platforms, Inc. and affiliates. React/React DOM 19 are MIT-licensed, copyright Meta Platforms, Inc. and affiliates. StyleX is MIT-licensed; Lucide icons are ISC-licensed. Their licenses remain with the bundled dependencies; see `licenses/astryx-MIT.txt`, `licenses/react-MIT.txt`, `licenses/stylex-MIT.txt` and `licenses/lucide-ISC.txt`. Tailwind CSS and Vite retain their MIT licenses.

@@ -59,7 +59,7 @@ docker build -t popcorn-sr:dev .
 uv run python scripts/docker-smoke.py
 ```
 
-The web UI has no runtime Node server or CDN dependency. The manager uses FastAPI and SQLite; workers use FFmpeg and optional independently installed GPU engines. [Architecture](docs/architecture.md) and [current verification](working.md).
+The web UI uses the official [Astryx](https://astryx.atmeta.com/) React components, a compiled zinc/blue theme, and system fonts. Vite builds static assets into the Python package and Docker image. There is no runtime Node server or CDN dependency. Rebuild with `npm run build` after changing the UI. The manager uses FastAPI and SQLite; workers use FFmpeg and optional independently installed GPU engines. [Architecture](docs/architecture.md) and [current verification](working.md).
 
 ## License and credits
 

@@ -1,15 +1,28 @@
 {
   "name": "popcorn-sr-ui",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "scripts": {
-    "build": "tailwindcss -i ui.css -o popcorn_sr/static/style.css --minify",
-    "test:browser": "playwright test"
+    "build": "npm run build:theme && vite build && node scripts/build-ui-policy.mjs",
+    "test:browser": "playwright test",
+    "build:theme": "node node_modules/@astryxdesign/cli/clients/cli/bin/astryx.mjs theme build web/themes/popcorn.mjs --icons-specifier @astryxdesign/theme-neutral/built"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.1.0",
-    "tailwindcss": "^4.1.0",
+    "@astryxdesign/cli": "0.6.8",
+    "@axe-core/playwright": "^4.10.0",
     "@playwright/test": "^1.56.0",
-    "@axe-core/playwright": "^4.10.0"
-  }
+    "@tailwindcss/cli": "^4.1.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@vitejs/plugin-react": "6.1.2",
+    "tailwindcss": "^4.1.0",
+    "vite": "8.3.4"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "0.6.8",
+    "@astryxdesign/theme-neutral": "0.6.8",
+    "@stylexjs/stylex": "0.19.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "type": "module"
 }
