@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#71717a">
+  <meta name="description" content="Connect your video library to your processing power. Popcorn Super Resolution.">
+  <title>Popcorn SR</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <a class="button skip" href="#main">Skip to content</a>
+  <div id="login" class="login-wrap" hidden>
+    <main class="login" id="login-main">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">p</span>Popcorn <small>SR</small></div>
+      <h1>Your library, improved.</h1>
+      <p class="subtitle">Sign in to connect your library and processing devices.</p>
+      <form id="login-form">
+        <div class="field"><label for="access-key">Access key</label><input id="access-key" name="token" type="password" autocomplete="current-password" required><small>Use the key generated during installation.</small></div>
+        <p id="login-error" class="message error" role="alert" hidden></p>
+        <button class="button primary" type="submit">Open Popcorn SR</button>
+      </form>
+      <p class="hint mt-8">Self-hosted. Your videos stay on your devices.</p>
+    </main>
+  </div>
+  <div class="shell" id="app" hidden>
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">p</span>Popcorn <small>SR</small></div>
+      <nav aria-label="Main navigation">
+        <button class="nav" data-view="overview" aria-current="page">Overview</button>
+        <button class="nav" data-view="library">Library</button>
+        <button class="nav" data-view="processing">Processing</button>
+        <button class="nav" data-view="queue">Queue</button>
+        <button class="nav" data-view="settings">Settings</button>
+      </nav>
+      <div class="sidebar-foot">Super Resolution<br><span id="version">Version 0.1</span><br><button id="logout" class="button quiet">Sign out</button></div>
+    </aside>
+    <main class="main" id="main" tabindex="-1">
+      <div class="topline"><span>Library workspace</span><span class="tag" id="connection"><span class="dot"></span>Connecting</span></div>
+      <div id="notice" role="status" aria-live="polite" hidden class="message"></div>
+      <section id="overview-view" class="view">
+        <div class="page-head"><div><h1>A better home for your videos.</h1><p class="subtitle">Your library stays here. The heavy lifting goes wherever you have the power.</p></div></div>
+        <div class="panel welcome">
+          <div><div class="section-label">Popcorn Super Resolution</div><h2>Give your library<br>a clearer picture.</h2><p>Make enhanced copies with a paired computer, or process everything on one device. Keep every original.</p><button class="button primary mt-6" data-view="library">Choose a video <span aria-hidden="true">→</span></button></div>
+          <div class="route-diagram" aria-label="Library to processing device to finished copy">
+            <div class="route-node"><div><strong>Your library</strong><small>NAS or this computer</small></div><span class="tag">Originals</span></div>
+            <div class="route-arrow">Transfer a local copy<br>↓</div>
+            <div class="route-node"><div><strong>Your processing power</strong><small>Paired worker or this computer</small></div><span class="tag" id="overview-workers">No worker</span></div>
+            <div class="route-arrow">Enhance, check, return<br>↓</div>
+            <div class="route-node"><div><strong>A finished video</strong><small>Saved to your output folder</small></div><span class="tag">New copy</span></div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step"><span class="step-number">1</span><h3>Choose your library</h3><p>Browse the folder mounted during installation.</p><button class="button quiet" data-view="library">Browse library →</button></div>
+          <div class="step"><span class="step-number">2</span><h3>Connect processing</h3><p>Pair a computer and choose its temporary drive.</p><button class="button quiet" data-view="processing">Connect a worker →</button></div>
+          <div class="step"><span class="step-number">3</span><h3>Preview, then enhance</h3><p>Try a short clip before processing a full video.</p><button class="button quiet" data-view="queue">View queue →</button></div>
+        </div>
+        <div class="section-head"><h2>Recent activity</h2><button class="button quiet" data-view="queue">All jobs →</button></div><div id="recent-jobs" class="panel"></div>
+      </section>
+      <section id="library-view" class="view" hidden>
+        <div class="page-head"><div><h1>Your library</h1><p class="subtitle">Choose a video to make an enhanced copy. Originals stay untouched.</p></div><button class="button" id="refresh-library">Refresh</button></div>
+        <div id="library-browser" class="panel"><div class="toolbar"><span class="path" id="library-path">/library</span><button class="button quiet" id="parent-folder" hidden>Up a folder</button></div><div id="library-items"><div class="empty"><p>Loading your library…</p></div></div><div class="toolbar" id="pagination" hidden><button class="button quiet" id="previous-page">Previous</button><span class="hint" id="page-count"></span><button class="button quiet" id="next-page">Next</button></div></div>
+        <div id="recipe-panel" class="panel panel-pad mt-6" hidden>
+          <div class="section-head mt-0"><div><h2>Make an enhanced copy</h2><p class="row-meta" id="selected-file"></p></div><button class="button quiet" id="close-recipe">Close</button></div>
+          <form id="recipe-form">
+            <div class="form-grid">
+              <div class="field"><label for="worker">Processing device</label><select id="worker" name="worker_id"></select><small id="worker-hint">Connect a worker to start processing.</small></div>
+              <div class="field"><label for="engine">Enhancement</label><select id="engine" name="engine"><option value="resize">Conventional resizing</option></select><small id="engine-hint">Lanczos resizing. Works without an AI runtime.</small></div>
+              <div class="field"><label for="scale">Output size</label><select id="scale" name="scale"><option value="1">Keep source size (1×)</option><option value="2" selected>Twice the size (2×)</option><option value="3">Three times the size (3×)</option><option value="4">Four times the size (4×)</option></select><small>Aspect ratio stays the same.</small></div>
+              <div class="field"><label for="codec">Video format</label><select id="codec" name="codec"><option value="h264">H.264 · broad compatibility</option><option value="hevc">HEVC · smaller files</option><option value="av1">AV1 · newer players</option></select><small>Finished copies use a Matroska (.mkv) container.</small></div>
+              <div class="field span-2"><label for="output-directory">Save copies to</label><input id="output-directory" name="output_directory" value="enhanced" required maxlength="200"><small>A folder inside your output mount. Example: enhanced/movies</small></div>
+            </div>
+            <div class="message" id="ai-note" hidden>Experimental AI processing can change fine detail or appearance. Preview first and compare with your original.</div>
+            <details><summary>More options</summary><div class="form-grid mt-3">
+              <div class="field"><label for="encoder">Encoding hardware</label><select id="encoder" name="encoder"><option value="cpu">CPU</option><option value="nvidia">NVIDIA GPU</option></select><small>Only verified encoders are available.</small></div>
+              <div class="field"><label for="quality">Quality</label><select id="quality" name="quality"><option value="19">High · larger file</option><option value="23" selected>Balanced</option><option value="28">Compact · smaller file</option></select><small>File size depends on the source and codec.</small></div>
+            </div><div id="cleanup" class="form-grid mt-3"><label class="check"><input name="denoise" type="checkbox">Reduce noise</label><label class="check"><input name="deinterlace" type="checkbox">Deinterlace older video</label><label class="check"><input name="sharpen" type="checkbox">Light sharpening</label><label class="check"><input name="interpolate" type="checkbox">Smooth motion to 60 fps</label></div><p class="hint mt-2">Cleanup and 60 fps motion use conventional filters. Motion interpolation can be slow and changes the original cadence.</p></details>
+            <div class="form-foot"><p class="hint">Audio, subtitles and chapters are carried into the copy.<br>8-bit SDR video supported in this release.</p><div class="actions"><button class="button" type="submit" name="preview" value="5">Preview 5 seconds</button><button class="button primary" type="submit" name="preview" value="0">Enhance full video</button></div></div>
+            <p id="recipe-error" role="alert" class="message error" hidden></p>
+          </form>
+        </div>
+      </section>
+      <section id="processing-view" class="view" hidden>
+        <div class="page-head"><div><h1>Your processing power</h1><p class="subtitle">Connect a computer on your network. It receives a copy, processes it locally, and returns the result.</p></div><button class="button primary" id="new-pair-code">Connect a worker</button></div>
+        <div id="workers" class="worker-grid"></div>
+        <div id="pair-panel" class="panel panel-pad pairing" hidden><div class="section-head mt-0"><h2>Connect your worker</h2><button class="button quiet" id="close-pair">Close</button></div><p class="hint">This code expires in 10 minutes and can be used once.</p><div class="code" id="pair-code"></div><button class="button" id="copy-code">Copy pairing code</button><div class="pair-steps"><div><h3>1. On the processing computer</h3><p>Install the worker using the Docker worker example. Set the manager address to <strong id="manager-address"></strong> and enter this pairing code.</p></div><div><h3>2. Choose its temporary drive</h3><p>Mount your Optane or another drive as the scratch folder. Mark the mounted folder with <code>init-scratch</code>. The worker will stop if that drive is unavailable.</p></div><div><h3>3. Check the connection</h3><p>The device appears here after its hardware tests finish. Use Ethernet for large libraries; Wi-Fi works when both devices can reach each other.</p></div></div><a class="button quiet mt-4" href="https://github.com/thekozugroup/Popcorn-SR/blob/main/docs/deployment.md" target="_blank" rel="noreferrer">Open installation guide ↗</a></div>
+        <div class="setting-list mt-10"><div><h3>Use what your device actually supports</h3><p>Encoding and AI engines appear after a real processing check. Linux containers support conventional enhancement and verified NVIDIA encoders. Windows workers can connect separately installed RTX Video and DLSS engines.</p></div><div><h3>One device works too</h3><p>Run the manager and worker together. Your library and scratch drive remain separate, even when they live on the same computer.</p></div></div>
+      </section>
+      <section id="queue-view" class="view" hidden>
+        <div class="page-head"><div><h1>Your queue</h1><p class="subtitle">Follow each copy from transfer to processing to delivery.</p></div><button class="button primary" data-view="library">Choose a video</button></div><div class="message" id="queue-hint" hidden></div><div id="jobs" class="panel"></div>
+      </section>
+      <section id="settings-view" class="view" hidden>
+        <div class="page-head"><div><h1>Your workspace</h1><p class="subtitle">A small manager, connected processing, and a separate home for every finished copy.</p></div></div>
+        <div class="panel panel-pad setting-list"><div><h3>Library</h3><p id="settings-library"></p><p>Mount this folder read-only. Change the host folder in your Docker configuration.</p></div><div><h3>Finished copies</h3><p id="settings-output"></p><p>Choose a subfolder when creating a job. Originals are never replaced.</p></div><div><h3>Temporary storage</h3><p>Each worker owns its scratch drive. Video downloads, intermediates and uploads use that drive; small pairing credentials use its state folder. Check the host's swap and Docker storage configuration to keep those writes off the built-in drive too.</p></div><div><h3>Network</h3><p>Direct Ethernet or a shared router/switch works. A plain USB-C cable does not establish a network between ordinary host ports. Wi-Fi works, with transfer speed and reliability depending on your network.</p></div><div><h3>Protected sources</h3><p>This release rejects HDR and high-bit-depth input to prevent loss of color or detail. Keep your original and use a verified HDR pipeline for those files.</p></div><div><h3>Access</h3><p>Keep the manager on your trusted network. Use HTTPS through a reverse proxy or VPN for remote access.</p><button id="settings-logout" class="button mt-4">Sign out</button></div></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

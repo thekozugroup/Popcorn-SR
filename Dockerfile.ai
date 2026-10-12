@@ -1,0 +1,16 @@
+# Optional, larger AI worker. NVIDIA's base supplies CUDA PyTorch for AMD64/ARM64.
+# NVIDIA runtime licensing remains separate from Popcorn SR.
+ARG NVIDIA_BASE=nvcr.io/nvidia/pytorch:26.09-py3
+FROM ${NVIDIA_BASE}
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tini \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY pyproject.toml ./
+COPY popcorn_sr ./popcorn_sr
+RUN python -m pip install --no-cache-dir . 'av>=14,<18' 'numpy>=2,<3'
+RUN mkdir -p /state /scratch && chmod 777 /state /scratch
+ENV POPCORN_ESRGAN_MODEL=/scratch/models/RealESRGAN_x4plus.pth \
+    XDG_CACHE_HOME=/scratch/cache TORCH_HOME=/scratch/cache/torch CUDA_CACHE_PATH=/scratch/cache/cuda
+ENTRYPOINT ["/usr/bin/tini", "--", "popcorn-sr"]
+CMD ["worker"]

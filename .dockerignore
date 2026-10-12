@@ -1,0 +1,16 @@
+.git
+.agents
+.codex
+.impeccable
+.venv
+node_modules
+.env*
+state
+scratch
+library
+output
+evidence
+__pycache__
+.pytest_cache
+.ruff_cache
+tests

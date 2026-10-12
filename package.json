@@ -1,0 +1,15 @@
+{
+  "name": "popcorn-sr-ui",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tailwindcss -i ui.css -o popcorn_sr/static/style.css --minify",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0",
+    "@playwright/test": "^1.56.0",
+    "@axe-core/playwright": "^4.10.0"
+  }
+}

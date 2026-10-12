@@ -1,0 +1,15 @@
+# Layer over compose.worker.yaml (paired) or compose.single.yaml (same host).
+services:
+  worker:
+    image: popcorn-sr-ai:0.1.0
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    gpus: all
+    environment:
+      POPCORN_ESRGAN_MODEL: /scratch/models/RealESRGAN_x4plus.pth
+      XDG_CACHE_HOME: /scratch/cache
+      TORCH_HOME: /scratch/cache/torch
+      CUDA_CACHE_PATH: /scratch/cache/cuda
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
+    shm_size: 1gb

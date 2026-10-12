@@ -1,0 +1,28 @@
+services:
+  manager:
+    image: ghcr.io/thekozugroup/popcorn-sr:0.1.0
+    build: .
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "${POPCORN_BIND:-0.0.0.0}:${POPCORN_PORT:-8787}:8787"
+    environment:
+      POPCORN_ADMIN_TOKEN: "${POPCORN_ADMIN_TOKEN:?Generate an access key first}"
+    volumes:
+      - type: bind
+        source: "${STATE_PATH:?Set STATE_PATH}"
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LIBRARY_PATH:?Set LIBRARY_PATH}"
+        target: /library
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${OUTPUT_PATH:?Set OUTPUT_PATH}"
+        target: /output
+        bind: {create_host_path: false}
+    read_only: true
+    tmpfs: ["/tmp:size=64m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]

@@ -1,0 +1,31 @@
+# Layer over compose.yaml to run manager and worker on the same computer.
+services:
+  worker:
+    image: ghcr.io/thekozugroup/popcorn-sr:0.1.0
+    build: .
+    command: [worker]
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    depends_on:
+      manager:
+        condition: service_healthy
+    environment:
+      POPCORN_MANAGER: http://manager:8787
+      POPCORN_PAIR_CODE: "${POPCORN_PAIR_CODE:-}"
+      POPCORN_WORKER_NAME: "${POPCORN_WORKER_NAME:-This computer}"
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
+    volumes:
+      - type: bind
+        source: "${WORKER_STATE_PATH:?Set WORKER_STATE_PATH}"
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${SCRATCH_PATH:?Set SCRATCH_PATH}"
+        target: /scratch
+        bind: {create_host_path: false}
+    read_only: true
+    tmpfs: ["/tmp:size=64m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    healthcheck:
+      disable: true

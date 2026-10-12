@@ -1,0 +1,28 @@
+# Run this on the processing computer. No library share or inbound worker port required.
+services:
+  worker:
+    image: ghcr.io/thekozugroup/popcorn-sr:0.1.0
+    build: .
+    command: [worker]
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      POPCORN_MANAGER: "${POPCORN_MANAGER:?Set the NAS manager URL}"
+      POPCORN_PAIR_CODE: "${POPCORN_PAIR_CODE:-}"
+      POPCORN_WORKER_NAME: "${POPCORN_WORKER_NAME:-Processing computer}"
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
+    volumes:
+      - type: bind
+        source: "${WORKER_STATE_PATH:?Set WORKER_STATE_PATH}"
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${SCRATCH_PATH:?Mount and initialize the scratch drive first}"
+        target: /scratch
+        bind: {create_host_path: false}
+    read_only: true
+    tmpfs: ["/tmp:size=64m"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    healthcheck:
+      disable: true
