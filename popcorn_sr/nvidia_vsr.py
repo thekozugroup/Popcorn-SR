@@ -7,6 +7,8 @@ The NVIDIA SDK and models are installed separately under their own licenses.
 import argparse
 from fractions import Fraction
 
+from .video_pipe import encoded_video, nvidia_options
+
 
 def main():
     parser = argparse.ArgumentParser(description="Popcorn SR NVIDIA Video Super Resolution adapter")
@@ -28,13 +30,10 @@ def main():
         video = next(s for s in source.streams.video if not (s.disposition.value & 1024))
         if not video.average_rate:
             raise RuntimeError("Frame rate unavailable. Refusing to guess video timing.")
-        with av.open(args.output, mode="w", format="matroska") as output:
-            encoded = output.add_stream(f"{args.codec}_nvenc", rate=video.average_rate)
-            encoded.width, encoded.height = args.width, args.height
-            encoded.pix_fmt = "yuv420p"
-            encoded.time_base = video.time_base
-            encoded.options = {"preset": "p6", "rc": "vbr", "cq": str(args.quality), "b": "0"}
-            encoded.codec_context.open()  # Explicit NVENC: initialization failure is never a CPU fallback.
+        with encoded_video(
+            args.output, args.width, args.height, video.average_rate, video.time_base,
+            nvidia_options(args.codec, args.quality),
+        ) as (output, encoded):
             with VideoSuperRes(device=0, quality=VideoSuperRes.QualityLevel.HIGH) as effect:
                 effect.input_width = video.codec_context.width
                 effect.input_height = video.codec_context.height
@@ -84,8 +83,6 @@ def main():
                         f"out_time_us={int((frame.pts - first_pts) * frame.time_base * 1_000_000)}",
                         flush=True,
                     )
-                for packet in encoded.encode(None):
-                    output.mux(packet)
 
 
 if __name__ == "__main__":

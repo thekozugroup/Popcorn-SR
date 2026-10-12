@@ -13,23 +13,25 @@ Ship a usable standalone Docker manager and paired worker, with a guided web int
 - CI tests, Docker smoke, public commits on main as thekozugroup@gmail.com.
 
 ## Evidence and limits
-Version 0.1.0 software implementation is complete. Public repository: https://github.com/thekozugroup/Popcorn-SR. All development commits use main and thekozugroup@gmail.com, with no AI co-author tags.
+Version 0.1.1 software implementation is complete, including the ARM64 AI encoding fix. Public repository: https://github.com/thekozugroup/Popcorn-SR. All development commits use main and thekozugroup@gmail.com, with no AI co-author tags.
 
 Verified on 2026-10-12:
-- Eight media/API tests: real encode/upload/download, checksums, source changes, lease exclusivity, cancel/retry, revoked workers, incompatible codecs, traversal, HDR and 16-bit SDR rejection, subtitle/attachment/chapter preservation, scratch identity changes, preview-to-full guards.
+- Nine automated tests, including timestamp-preserving frame piping and encoder-failure reporting. The media/API coverage includes: real encode/upload/download, checksums, source changes, lease exclusivity, cancel/retry, revoked workers, incompatible codecs, traversal, HDR and 16-bit SDR rejection, subtitle/attachment/chapter preservation, scratch identity changes, preview-to-full guards.
 - Two Chromium workflows: actual five-second preview and full six-second video on a CPU worker, retained device/output/settings, authenticated download, login errors, pairing and keyboard navigation. Axe reported zero violations and no horizontal overflow in tested 390/768/1440 light/dark library/processing views.
 - Linux ARM64 paired Docker containers: generated source → download → 2× resize/noise reduction → upload → validated output. Original checksum unchanged, audio preserved, scratch job files removed. Receipt and UI captures are under gitignored `evidence/`.
 - NVIDIA codecs are absent on this CPU host, as expected; capability discovery genuinely encoded with CPU H.264/HEVC/AV1 instead of inferring support from a codec list.
-- Official RealESRGAN_x4plus checkpoint SHA-256 verified; adapted RRDB architecture loaded it strictly and ran small tiled inference on CPU. This establishes model/network compatibility, not GPU video execution.
+- Official RealESRGAN_x4plus checkpoint SHA-256 verified, strictly loaded network and tiled inference. Physical DGX Spark (Ubuntu 24.04 ARM64, GB10, driver 580.173.02) passed H.264/HEVC/AV1 NVENC checks and two-computer source → processing → return roundtrips for resizing and Real-ESRGAN CUDA + H.264 NVENC. Generated two-second 160×96 SDR+audio clips produced validated 320×192 output with matching transfer hashes and unchanged originals. A localhost SSH reverse tunnel connected the Mac manager and Spark worker; this is not a NAS/LAN throughput benchmark. The worker used an existing vLLM CUDA PyTorch image and temporary PyAV dependencies, not the optional AI Dockerfile.
 - NGC PyTorch 26.09-py3 registry manifest includes Linux AMD64 and ARM64. The larger optional AI image was not built or executed on a GPU here.
 - Ruff, Tailwind build and npm high-severity dependency audit pass. GitHub verification includes Linux AMD64 Docker processing; the release workflow verifies its exact tagged commit before publishing both architectures.
 - The independent Impeccable review scored preview-first setup, direct full-video continuation and queue action hierarchy resolved. Its named roles were unavailable, so fresh general agents used the shipped role instructions. Design context reported legacy PRODUCT.md headings; the established brief is preserved rather than migrated as a side effect.
 
-This Mac has no NVIDIA GPU. Physical DGX Spark and RTX 5080 encode/inference, representative library quality, long jobs, HDR preservation, external-drive hot-unplug and real network throughput remain device acceptance gates. Native Linux DLSS rendering is not implemented; an experimental external engine contract is supplied. Transfers restart from the beginning after interruption.
+All Spark test files, model/dependency copies, temporary caches and container instances were held in RAM and removed afterward; existing images and running services were preserved. ARM64 PyAV lacked NVENC, so the AI adapters now stream timestamped raw frames through an in-memory NUT pipe to system FFmpeg.
+
+Physical RTX 5080 encode/inference, the optional AI image, representative library quality, long jobs, HDR preservation, external-drive hot-unplug and NAS/network throughput remain acceptance gates. Native Linux DLSS rendering is not implemented; an experimental external engine contract is supplied. Transfers restart from the beginning after interruption.
 
 ## Next device acceptance
-1. Inventory Spark/desktop architecture, drivers, Docker GPU access, external drive mount and free space.
-2. Run actual NVENC and optional Real-ESRGAN/VFX engine checks; benchmark short representative SDR clips and compare temporal quality.
+1. Validate the optional AI image and RTX 5080, using scratch on the intended mounted external drive.
+2. Compare representative SDR clips for quality, temporal artifacts and throughput; NVIDIA VFX/DLSS need separate compatible runtimes.
 3. Test Unraid delivery, Optane scratch writes, cancellation, network interruption and mount/service dependencies before a whole-library run.
 
 ## Research

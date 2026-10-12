@@ -9,10 +9,10 @@ Use `unraid/popcorn-sr.xml` as a local Docker template, or run Compose. The CPU-
 1. Create separate host folders for app data and finished copies. Keep the library separate. Example: `/mnt/user/appdata/popcorn-sr`, `/mnt/user/popcorn-output`, `/mnt/user/media`.
 2. Copy `.env.example` to `.env`, set those paths and `PUID=99`, `PGID=100`. They must exist and be writable by that user, except the read-only library.
 3. Generate a key: `openssl rand -hex 32`. Put it in `.env` as `POPCORN_ADMIN_TOKEN`. Keep `.env` private and out of version control.
-4. Run `docker compose up -d --build manager` from this checkout. Open `http://NAS-IP:8787`.
+4. Run `docker compose up -d --no-build --pull always manager` from this checkout. Open `http://NAS-IP:8787`.
 5. Sign in, then select **Processing → Connect a worker**. The code expires in ten minutes; it is not your permanent access key.
 
-The template uses `ghcr.io/thekozugroup/popcorn-sr:0.1.0`, published by the release workflow. Before that tag is available, build locally with `docker build -t popcorn-sr:0.1.0 .` and select that local image in Unraid. Do not expose port 8787 directly to the internet. Use a reverse proxy with HTTPS or a VPN for remote use; HTTP on a trusted LAN sends credentials/video without encryption.
+The template uses the public `ghcr.io/thekozugroup/popcorn-sr:0.1.1` image. Anonymous pulls need no GitHub account. Source builds remain available with `docker build -t popcorn-sr:dev .`. Do not expose port 8787 directly to the internet. Use a reverse proxy with HTTPS or a VPN for remote use; HTTP on a trusted LAN sends credentials/video without encryption.
 
 ## Linux worker on DGX Spark or RTX 5080 desktop
 
@@ -33,11 +33,11 @@ PGID=1000
 Use the worker user's actual numeric UID/GID. Create the state directory. Mount your external drive, then create a scratch subfolder **on that mounted drive**. Initialize it:
 
 ```sh
-docker build -t popcorn-sr:0.1.0 .
+docker pull ghcr.io/thekozugroup/popcorn-sr:0.1.1
 docker run --rm --user "$(id -u):$(id -g)" \
   --mount type=bind,src=/mnt/optane/popcorn-scratch,dst=/scratch \
-  popcorn-sr:0.1.0 init-scratch /scratch
-docker compose -f compose.worker.yaml -f compose.nvidia.yaml up -d --build
+  ghcr.io/thekozugroup/popcorn-sr:0.1.1 init-scratch /scratch
+docker compose -f compose.worker.yaml -f compose.nvidia.yaml up -d --no-build --pull always
 ```
 
 The marker identifies the scratch folder. Docker Compose refuses to create a missing host folder, and the worker refuses to run without the marker. The marker is not proof that the parent is a real mount: configure the host's mount/service dependencies too. After successful pairing, clear `POPCORN_PAIR_CODE` from `.env` and recreate the worker. Its small credential file survives in `WORKER_STATE_PATH`.
@@ -48,7 +48,7 @@ In **Library**, choose a video and select **Preview 5 seconds**. Download and re
 
 ## Add open-source AI on Spark or desktop
 
-The larger AI image uses NVIDIA's CUDA PyTorch base. This path is intended for both Linux AMD64 and ARM64; **physical GPU validation is pending**. Base image availability and GPU support must be checked on the target device.
+The larger AI image uses NVIDIA's CUDA PyTorch base. This image targets Linux AMD64 and ARM64. The application adapter passed short physical DGX Spark CUDA/NVENC jobs in an existing PyTorch runtime; **this larger image recipe and RTX 5080 execution are still unverified**. Check the base image and GPU support on the target device before a library run.
 
 Download the official model onto the initialized scratch drive:
 
@@ -66,13 +66,13 @@ RTX Video uses a separate VFX runtime on Linux x86. See [engines](engines.md); n
 Use `compose.yaml` with `compose.single.yaml`. Set manager paths and worker scratch/state paths in one `.env`.
 
 ```sh
-docker compose up -d --build manager
+docker compose up -d --no-build --pull always manager
 ```
 
 Create a pairing code in the web interface, add it to `.env`, then run:
 
 ```sh
-docker compose -f compose.yaml -f compose.single.yaml -f compose.nvidia.yaml up -d --build
+docker compose -f compose.yaml -f compose.single.yaml -f compose.nvidia.yaml up -d --no-build --pull always
 ```
 
 For AI, use `compose.ai.yaml` in place of `compose.nvidia.yaml` after downloading the model. The internal manager address is `http://manager:8787` and does not depend on your LAN IP.

@@ -1,7 +1,7 @@
 # Layer over compose.worker.yaml (paired) or compose.single.yaml (same host).
 services:
   worker:
-    image: popcorn-sr-ai:0.1.0
+    image: popcorn-sr-ai:0.1.1
     build:
       context: .
       dockerfile: Dockerfile.ai

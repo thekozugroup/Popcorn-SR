@@ -8,9 +8,9 @@ FFmpeg Lanczos scaling is available without AI. Optional `hqdn3d`, `bwdif`, `uns
 
 ## Real-ESRGAN on Linux
 
-The integrated adapter uses the official RealESRGAN_x4plus model, checksum verification, `torch.load(weights_only=True)`, 192-pixel tiles with padding, CUDA inference and explicit PyAV NVENC encoding. It processes one frame at a time and retains timestamps. It writes no PNG frame sequence. Audio/subtitles/attachments are remuxed from the original afterward.
+The integrated adapter uses the official RealESRGAN_x4plus model, checksum verification, `torch.load(weights_only=True)`, 192-pixel tiles with padding, CUDA inference and explicit system-FFmpeg NVENC encoding. PyAV decodes and sends timestamped raw frames through a NUT memory pipe, so its ARM64 wheel does not need NVIDIA encoder support. The pipe retains variable frame timestamps and processes one frame at a time. It writes no PNG frame sequence. Audio/subtitles/attachments are remuxed from the original afterward.
 
-Install a compatible NVIDIA CUDA PyTorch runtime, `av`, `numpy` and Popcorn SR into the same environment. Set `POPCORN_ESRGAN_MODEL` to the checkpoint on the scratch drive. The optional `Dockerfile.ai` starts from `nvcr.io/nvidia/pytorch:26.09-py3`, which NVIDIA lists in its [DGX Spark collection](https://catalog.ngc.nvidia.com/orgs/nvidia/-/collections/dgx-spark/-/artifacts). GPU execution and the image's exact device compatibility still need physical acceptance.
+Install a compatible NVIDIA CUDA PyTorch runtime, `av`, `numpy` and Popcorn SR into the same environment. Set `POPCORN_ESRGAN_MODEL` to the checkpoint on the scratch drive. The optional `Dockerfile.ai` starts from `nvcr.io/nvidia/pytorch:26.09-py3`, which NVIDIA lists in its [DGX Spark collection](https://catalog.ngc.nvidia.com/orgs/nvidia/-/collections/dgx-spark/-/artifacts). The adapter completed physical GB10 CUDA/NVENC processing on Ubuntu ARM64 using an existing CUDA PyTorch runtime. The optional image itself and RTX 5080 execution still need acceptance.
 
 This is image restoration applied frame by frame. It can create flicker or invented fine detail. Preview first. 2×/3× sizes resize the model's 4× result to the requested size. Different models, HDR, temporal restoration and face-specific models are outside this release.
 

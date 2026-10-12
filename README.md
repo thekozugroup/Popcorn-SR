@@ -16,12 +16,12 @@ Popcorn Super Resolution is a self-hosted video manager and processing worker. P
 - Short preview jobs, separate output folders, configurable scratch drive, single-host and paired Docker configurations.
 - Matroska copies with original audio, subtitles, attachments, metadata and chapters; rejects missing streams or wrong duration/size/codec.
 
-**Physical NVIDIA execution is not yet certified.** CPU container processing has an automated acceptance test. GPU codecs and AI engines remain disabled until a real startup smoke check passes on the worker. Quality and speed must be assessed on your own sample clips. HDR and high-bit-depth sources are rejected in this release to prevent destructive color/precision loss.
+**Tested on a physical DGX Spark.** GB10 passed H.264/HEVC/AV1 NVIDIA encoding checks and completed separate two-computer resizing and Real-ESRGAN CUDA/NVENC jobs with intact sources and retained audio. These were short generated SDR clips in an existing CUDA runtime, not a whole-library benchmark or validation of the optional AI image. RTX 5080 and external Optane testing remain pending. GPU codecs and AI engines stay disabled until a real startup smoke check passes. Assess quality and speed on your own previews. HDR and high-bit-depth sources are rejected in this release to prevent destructive color/precision loss.
 
 ## Start on your NAS
 
 1. Copy `.env.example` to `.env`. Set existing library, output and state directories. Generate a random key with `openssl rand -hex 32`; put it in `POPCORN_ADMIN_TOKEN`.
-2. Run `docker compose up -d --build manager`.
+2. Run `docker compose up -d --no-build --pull always manager`.
 3. Open `http://YOUR-NAS:8787`, sign in with your key, and choose **Processing → Connect a worker**.
 4. On the processing computer, configure `compose.worker.yaml`, mount and initialize its scratch drive, and enter the pairing code.
 5. Choose a video and run a five-second preview before processing the full file.

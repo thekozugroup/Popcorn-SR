@@ -4,6 +4,7 @@ import argparse
 from fractions import Fraction
 
 from .media import sha256
+from .video_pipe import encoded_video, nvidia_options
 
 MODEL_SHA256 = "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1"
 
@@ -51,38 +52,34 @@ def main():
     checkpoint = torch.load(args.model, map_location="cpu", weights_only=True)
     model.load_state_dict(checkpoint.get("params_ema", checkpoint.get("params")), strict=True)
     model = model.eval().to("cuda").half()
-    with av.open(args.input) as source, av.open(args.output, mode="w", format="matroska") as output:
+    with av.open(args.input) as source:
         video = next(s for s in source.streams.video if not (s.disposition.value & 1024))
         if not video.average_rate:
             raise RuntimeError("Frame rate unavailable; refusing to guess timing.")
-        encoded = output.add_stream(f"{args.codec}_nvenc", rate=video.average_rate)
-        encoded.width, encoded.height = args.width, args.height
-        encoded.pix_fmt = "yuv420p"
-        encoded.time_base = video.time_base
-        encoded.options = {"preset": "p6", "rc": "vbr", "cq": str(args.quality), "b": "0"}
-        encoded.codec_context.open()
-        first = None
-        for frame in source.decode(video):
-            if frame.pts is None or frame.time_base is None:
-                raise RuntimeError("Missing frame timestamps; refusing to change timing.")
-            first = frame.pts if first is None else first
-            pixels = (
-                torch.from_numpy(frame.to_ndarray(format="rgb24"))
-                .to("cuda")
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .half()
-                .div_(255)
-            )
-            enhanced = restore_tiled(model, pixels, args.width, args.height)
-            image = enhanced.squeeze(0).mul(255).round().byte().permute(1, 2, 0).contiguous().cpu().numpy()
-            result = av.VideoFrame.from_ndarray(image, format="rgb24")
-            result.pts, result.time_base = frame.pts - first, Fraction(frame.time_base)
-            for packet in encoded.encode(result):
-                output.mux(packet)
-            print(f"out_time_us={int((frame.pts - first) * frame.time_base * 1_000_000)}", flush=True)
-        for packet in encoded.encode(None):
-            output.mux(packet)
+        with encoded_video(
+            args.output, args.width, args.height, video.average_rate, video.time_base,
+            nvidia_options(args.codec, args.quality),
+        ) as (output, encoded):
+            first = None
+            for frame in source.decode(video):
+                if frame.pts is None or frame.time_base is None:
+                    raise RuntimeError("Missing frame timestamps; refusing to change timing.")
+                first = frame.pts if first is None else first
+                pixels = (
+                    torch.from_numpy(frame.to_ndarray(format="rgb24"))
+                    .to("cuda")
+                    .permute(2, 0, 1)
+                    .unsqueeze(0)
+                    .half()
+                    .div_(255)
+                )
+                enhanced = restore_tiled(model, pixels, args.width, args.height)
+                image = enhanced.squeeze(0).mul(255).round().byte().permute(1, 2, 0).contiguous().cpu().numpy()
+                result = av.VideoFrame.from_ndarray(image, format="rgb24")
+                result.pts, result.time_base = frame.pts - first, Fraction(frame.time_base)
+                for packet in encoded.encode(result):
+                    output.mux(packet)
+                print(f"out_time_us={int((frame.pts - first) * frame.time_base * 1_000_000)}", flush=True)
 
 
 if __name__ == "__main__":
