@@ -2,139 +2,154 @@
 name: Popcorn SR
 description: A quiet native workspace that makes remote processing feel like a simple local library task.
 colors:
-  accent: "oklch(62.3% 0.214 259.815)"
+  accent: "#3b82f6"
+  accent-text-light: "#1d4ed8"
+  accent-text-dark: "#93c5fd"
   white-surface: "#ffffff"
-  zinc-paper: "oklch(98.5% 0 none)"
-  zinc-subtle: "oklch(96.7% 0.001 286.375)"
-  zinc-divider: "oklch(92% 0.004 286.32)"
-  zinc-dark-muted: "oklch(70.5% 0.015 286.067)"
-  zinc-status: "oklch(55.2% 0.016 285.938)"
-  zinc-muted: "oklch(44.2% 0.017 285.786)"
-  zinc-dark-divider: "oklch(27.4% 0.006 286.033)"
-  zinc-ink: "oklch(21% 0.006 285.885)"
-  zinc-black: "oklch(14.1% 0.005 285.823)"
-  status-connected: "oklch(69.6% 0.17 162.48)"
-  status-warning: "oklch(76.9% 0.188 70.08)"
-  status-error: "oklch(63.7% 0.237 25.331)"
+  zinc-paper: "#fafafa"
+  zinc-subtle: "#f4f4f5"
+  zinc-divider: "#e4e4e7"
+  zinc-dark-muted: "#a1a1aa"
+  zinc-status: "#71717a"
+  zinc-muted: "#52525b"
+  zinc-dark-subtle: "#27272a"
+  zinc-dark-divider: "#3f3f46"
+  zinc-ink: "#18181b"
+  zinc-black: "#09090b"
+  neutral-fill-light: "#1B1B1F1A"
+  neutral-fill-dark: "#E1E2E833"
+  status-connected: "#22c55e"
+  status-warning: "#f59e0b"
 typography:
   headline:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "1.875rem"
+    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontSize: 2rem
     fontWeight: 600
     lineHeight: 1.2
-    letterSpacing: "-0.025em"
   title:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "1.25rem"
+    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontSize: 1.375rem
     fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: "-0.025em"
+    lineHeight: 1.4545
   section:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "1rem"
+    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontSize: 1.125rem
     fontWeight: 600
-    lineHeight: 1.5
+    lineHeight: 1.5556
   body:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "1rem"
+    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontSize: 0.9375rem
     fontWeight: 400
-    lineHeight: 1.5
+    lineHeight: 1.6
   label:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "14px"
-    fontWeight: 550
-    lineHeight: 1.5
-  action:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "0.875rem"
-    fontWeight: 600
-    lineHeight: 1.4285714286
-  navigation:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "0.875rem"
+    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontSize: 0.9375rem
     fontWeight: 500
-    lineHeight: 1.4285714286
-  metadata:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "13px"
+    lineHeight: 1.6
+  action:
+    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontSize: 0.9375rem
+    fontWeight: 500
+    lineHeight: 1.6
+  navigation:
+    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontSize: 0.9375rem
     fontWeight: 400
-    lineHeight: 1.5
-  tag:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-    fontSize: "12px"
+    lineHeight: 1.6
+  supporting:
+    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontSize: 0.8125rem
     fontWeight: 400
-    lineHeight: 1.4
+    lineHeight: 1.5385
+  code:
+    fontFamily: ui-monospace, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace
+    fontSize: 0.9375rem
+    fontWeight: 400
+    lineHeight: 1.6
 rounded:
-  control: "8px"
-  panel: "16px"
-  tag: "6px"
-  progress: "4px"
+  inner: 0.375rem
+  control: 0.625rem
+  panel: 0.75rem
+  full: 9999px
 spacing:
-  field-gap: "8px"
-  group-gap: "16px"
-  form-gap: "20px"
-  section-gap: "24px"
-  panel-padding: "28px"
-  page-gap: "32px"
-  major-gap: "40px"
+  field-gap: 8px
+  control-inset: 12px
+  group-gap: 16px
+  row-block: 20px
+  section-gap: 24px
+  page-head-gap: 28px
+  page-gap: 32px
+  major-gap: 40px
+  welcome-gap: 48px
 components:
   button-primary:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.zinc-black}"
     typography: "{typography.action}"
     rounded: "{rounded.control}"
-    padding: "11px 17px"
+    padding: 8px 12px
+    height: 44px
   button-secondary:
-    backgroundColor: "{colors.white-surface}"
+    backgroundColor: "{colors.neutral-fill-light}"
     textColor: "{colors.zinc-ink}"
     typography: "{typography.action}"
     rounded: "{rounded.control}"
-    padding: "11px 17px"
+    padding: 8px 12px
+    height: 44px
   button-quiet:
-    backgroundColor: "transparent"
-    textColor: "{colors.zinc-muted}"
+    backgroundColor: transparent
+    textColor: "{colors.zinc-ink}"
     typography: "{typography.action}"
     rounded: "{rounded.control}"
-    padding: "11px 10px"
+    padding: 8px 12px
+    height: 44px
   input:
     backgroundColor: "{colors.white-surface}"
     textColor: "{colors.zinc-ink}"
     typography: "{typography.body}"
     rounded: "{rounded.control}"
-    padding: "10px 12px"
-    width: "100%"
+    padding: 4px 8px
+    height: 44px
+    width: 100%
+  selector:
+    backgroundColor: "{colors.white-surface}"
+    textColor: "{colors.zinc-ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.control}"
+    padding: 8px 12px
+    width: 100%
   navigation:
-    backgroundColor: "transparent"
-    textColor: "{colors.zinc-muted}"
+    backgroundColor: transparent
+    textColor: "{colors.zinc-ink}"
     typography: "{typography.navigation}"
     rounded: "{rounded.control}"
-    padding: "12px 14px"
+    padding: 0 8px
+    height: 44px
+    width: 100%
   navigation-current:
-    backgroundColor: "{colors.zinc-subtle}"
+    backgroundColor: "{colors.neutral-fill-light}"
     textColor: "{colors.zinc-ink}"
-  tag:
-    backgroundColor: "{colors.zinc-subtle}"
+  status:
     textColor: "{colors.zinc-muted}"
-    typography: "{typography.tag}"
-    rounded: "{rounded.tag}"
-    padding: "5px 9px"
+    typography: "{typography.supporting}"
   panel:
     backgroundColor: "{colors.white-surface}"
     rounded: "{rounded.panel}"
   panel-padded:
-    padding: "{spacing.panel-padding}"
-  message:
-    backgroundColor: "{colors.zinc-subtle}"
-    rounded: "{rounded.control}"
-    padding: "14px 18px"
+    padding: "{spacing.section-gap}"
+  disclosure:
+    textColor: "{colors.zinc-ink}"
+    typography: "{typography.section}"
+    padding: "0"
+    width: 100%
   progress:
     backgroundColor: "{colors.zinc-subtle}"
-    rounded: "{rounded.progress}"
-    height: "5px"
-    width: "100%"
+    rounded: "{rounded.full}"
+    height: 8px
+    width: 100%
   preview-continuation:
     textColor: "{colors.zinc-ink}"
-    padding: "20px 24px"
+    padding: 20px 24px
 ---
 
 # Design System: Popcorn SR
@@ -147,144 +162,197 @@ Make remote processing feel like a simple local library task. Neutral surfaces, 
 
 The implemented world uses flat sections, thin dividers and one restrained action color. Recipes, worker pairing and queue actions stay inside the workspace. Motion briefly acknowledges navigation and interaction; system light/dark preference and reduced motion belong to the same world.
 
-This record extracts reused styles from `ui.css`, `popcorn_sr/static/index.html` and `popcorn_sr/static/app.js`, resolving imported values against the installed Tailwind theme. The frontmatter is normative; component defaults describe the light theme, while the theme assignments below and sidecar snippets retain both themes. Minimum control heights live in the prose and snippets because the frontmatter's fixed-height property cannot represent them. Inspected evidence is in `evidence/screenshots`; it supports visual comparison, not GPU or AI readiness. The supplied workflow evidence covers CPU processing only.
+This is a source-led refresh of the approved world for the official Astryx migration. Frontmatter records current source values, including inherited Neutral defaults; it does not declare implementation discrepancies approved. Light-theme component defaults are paired with dark assignments in the schema-2 sidecar. Minimum targets, focus, motion and React wiring also live there because frontmatter cannot express them completely.
 
 **Key Characteristics:**
 
 - Quiet zinc surfaces with blue actions and dark action text.
 - Restrained system sans with a clear task hierarchy.
 - Flat navigation, inline work and thin separators.
-- Familiar controls with a minimum target height of 44px.
+- Familiar official controls with a 44px minimum target requirement.
 - System themes and reduced-motion-aware feedback.
+
+### Implementation authority
+
+| Source | Responsibility |
+| --- | --- |
+| `web/themes/popcorn.mjs` | Hand-authored `defineTheme` extension of official `neutralTheme`, using `neutralIconRegistry` from `@astryxdesign/theme-neutral/built`. |
+| `web/themes/popcorn.css` / `popcorn.js` | Generated stylesheet and built theme object. Inspect resolved inherited values here; regenerate rather than edit. |
+| `web/styles.css` | CSS imports/layers, workspace layout, grids, rows, responsive behavior and custom status dots. |
+| `web/main.jsx` / `web/index.html` | React controls, controlled state and entry point. `<Theme theme={popcornTheme} mode="system">` imports the compiled `popcorn.js`. |
+| `package.json` / `package-lock.json` | Exact Astryx core, Neutral and CLI pins (0.6.8), React/React DOM (19.3.0), StyleX (0.19.0) and resolved dependency graph. |
+| `vite.config.js` / `scripts/build-ui-policy.mjs` | Vite root `web`, base `/assets/`, output `popcorn_sr/static` with `bundles`, then exact selector-sheet CSP policy generation. |
+
+`npm run build` runs `build:theme`, `vite build`, then the policy generator. The theme compiler command is:
+
+```sh
+node node_modules/@astryxdesign/cli/clients/cli/bin/astryx.mjs theme build web/themes/popcorn.mjs --icons-specifier @astryxdesign/theme-neutral/built
+```
+
+`web/styles.css` imports Tailwind theme/preflight, official Astryx reset/core CSS, compiled Popcorn CSS, Astryx's Tailwind token bridge and source-scanned utilities. Layer order is `reset, theme, base, astryx-base, astryx-theme, components, utilities`. Docker's Node stage runs the same build and copies its output into the Python image. Generated theme JS/CSS and static bundles are ignored; `popcorn_sr/static/.gitkeep` is tracked and recreated by the policy generator after Vite empties its output directory.
+
+`popcorn_sr/server.py` mounts `/assets` only when the static directory exists. A missing built `index.html` returns a root-page 503 with build guidance; a missing directory no longer prevents app construction. This is source wiring, not fresh Docker proof. Removed `ui.css` and static `app.js` are not token/component authorities.
+
+### Evidence boundary
+
+Inspected supplied captures: `evidence/screenshots/overview-desktop.png`, `library-desktop.png`, `library-390-light.png` and `processing-1440-dark.png`. They show the migrated shell, inline recipe and neutral light/dark presentation. Final recaptures at 390/768/1440 light/dark were reviewed. The independent reviewer scored control readability, path wrapping and missing-build startup recovery resolved; the ship verdict covers those scored fixes. The parent verified ten Python tests, two real CPU browser workflows, zero Axe/CSP/JavaScript violations, complete inner-path wrapping and a paired ARM64 Docker roundtrip. These checks do not prove untested GPU hardware or the optional AI image.
+
+The user reports processing/accessibility and local tests passing, plus the earlier Docker smoke passing; final rendered 44px acceptance and rebuilt captures are not independently confirmed by this pass. This documentation pass inspected source/images and recomputed the selector hash. It did not run browser, processing, Ruff, pytest, build or Docker shipping checks. Main-agent fixes, final build and runtime proof remain separate. Screenshots/device labels do not establish GPU/AI readiness.
 
 ## Colors
 
-The palette is neutral Tailwind zinc with a single Tailwind blue action/focus accent. Values retain the installed theme's canonical OKLCH format.
+Neutral zinc surfaces and a single blue action/focus accent preserve the approved palette character. Current custom values are literal hex in `web/themes/popcorn.mjs` and `web/styles.css`; they replace legacy OKLCH extraction as frontmatter authority.
 
 ### Primary
 
-- **Action Blue** (`accent`): primary task buttons, focus outlines, checkboxes and actual job progress. Its button text remains Zinc Black in both themes.
+- **Action Blue** (`accent`): filled primary tasks, visible focus and actual progress. Filled blue buttons retain Zinc Black text in both themes.
+- **Readable Action Text** (`accent-text-light`, `accent-text-dark`): stronger light-theme and lighter dark-theme blue for text/icons, separate from filled actions.
 
 ### Neutral
 
-- **White Surface** (`white-surface`): light-theme panels, inputs and sidebar.
-- **Zinc Paper** (`zinc-paper`): light page canvas and dark-theme main text.
-- **Zinc Subtle** (`zinc-subtle`): light selected navigation, tags and messages.
-- **Zinc Divider** (`zinc-divider`): light borders and separators.
-- **Zinc Muted** (`zinc-muted`): light supporting text.
-- **Zinc Ink** (`zinc-ink`): light main text and dark panels, inputs and sidebar.
-- **Zinc Black** (`zinc-black`): dark page canvas and text on blue actions.
-- **Zinc Dark Divider** (`zinc-dark-divider`): dark borders, selected navigation, tags and messages.
-- **Zinc Dark Muted** (`zinc-dark-muted`): dark supporting text.
-- **Zinc Status** (`zinc-status`): neutral connection dot.
+White Surface, Zinc Paper, Zinc Ink and Zinc Black define the quiet surface/text hierarchy. Supporting text, divider borders, emphasized field borders and muted fills have distinct roles. Selected navigation and secondary buttons use inherited translucent neutral fill, rather than the muted-fill token.
 
-| Semantic assignment in CSS | Light | Dark |
+| Semantic CSS assignment | Light frontmatter token | Dark frontmatter token |
 | --- | --- | --- |
-| Page | Zinc Paper | Zinc Black |
-| Surface | White Surface | Zinc Ink |
-| Main text | Zinc Ink | Zinc Paper |
-| Supporting text | Zinc Muted | Zinc Dark Muted |
-| Border/divider | Zinc Divider | Zinc Dark Divider |
-| Subtle fill | Zinc Subtle | Zinc Dark Divider |
-| Action fill/focus | Action Blue | Action Blue |
-| Action text | Zinc Black | Zinc Black |
+| Body background | `zinc-paper` | `zinc-black` |
+| Surface / card / popover | `white-surface` | `zinc-ink` |
+| Main text | `zinc-ink` | `zinc-paper` |
+| Supporting text | `zinc-muted` | `zinc-dark-muted` |
+| Disabled text | `zinc-status` | `zinc-dark-muted` |
+| Border/divider | `zinc-divider` | `zinc-dark-divider` |
+| Emphasized field border | `zinc-dark-muted` | `zinc-status` |
+| Muted fill / progress track | `zinc-subtle` | `zinc-dark-subtle` |
+| Selected navigation / secondary button | `neutral-fill-light` | `neutral-fill-dark` |
+| Action fill / focus | `accent` | `accent` |
+| Filled action text | `zinc-black` | `zinc-black` |
+| Action text / icon | `accent-text-light` | `accent-text-dark` |
 
-Connected emerald, warning amber and error red are semantic indicators, not additional action palettes. They appear in small connection dots or message borders; accompanying text uses the ordinary main/supporting text colors. Status always includes words.
+Custom status dots are small semantic markers (8px), always paired with words. Current CSS implements zinc ready, green-500 connected and amber-500 offline/interrupted. PRODUCT.md's approved emerald-500 connected intent differs from the implemented green; no red-500 error-dot variant exists. Official `Banner` feedback inherits Neutral semantic text and muted fills, recorded in the sidecar. These inherited values do not imply the approved semantic-500 palette has been fully applied.
 
 **The One Accent Rule.** Use Action Blue for the next processing action and focus or progress feedback; keep navigation and secondary actions neutral.
 
 ## Typography
 
-**Body and heading font:** the platform system sans stack in the frontmatter. No separate display face is part of this Operate interface. Monospace is confined to the selectable pairing code and literal commands.
+**Body and heading font:** the platform system sans stack in frontmatter, configured for both official theme axes. No downloaded display font is used. `Text type="code"` uses inherited system monospace for pairing codes and literal commands.
 
 **Character:** restrained, familiar and readable. Sentence-case headings and controls establish hierarchy through size and weight. No uppercase eyebrow style is part of the reusable system.
 
-### Hierarchy
+The theme's base is 15px with ratio 1.2; the compiler quantizes the scale. `Heading` levels 1–3 map to headline, title and section. Body/supporting `Text` handles prose and paths; field/button labels use medium weight, navigation regular weight with medium selected state. The explicitly overridden page heading has no mobile size reduction. Pair-code wrapper sizes are local declarations; nested `Text type="code"` sets its own size, so wrapper values alone do not prove enlarged rendered code.
 
-- **Headline:** page headings; reduce to the implemented compact size (28px) at the narrow breakpoint.
-- **Title:** section and panel headings. Settings headings use the smaller section treatment with normal tracking.
-- **Section:** step and small section headings.
-- **Body:** normal content and native input/select text. Supporting paragraphs use relaxed leading (1.6–1.7); subtitles are limited to the observed measure (58ch), settings prose to (68ch).
-- **Label:** field labels; medium emphasis without uppercase styling.
-- **Action / Navigation:** compact button text and lighter navigation labels.
-- **Metadata / Tag:** file paths, job details and status; metadata wraps long paths, while short tags stay on one line. Hints use metadata size with relaxed leading (1.6).
-
-The overview's enlarged panel heading is a local composition, not a new display token. The brand wordmark and its unique measurements are also outside the reused type ramp.
+`Copy` composes `Text as="p" color="secondary" wordBreak="break-word"`. Library mount, worker scratch and job-result text use the `.path` utility: block display, minimum width zero, maximum width 100%, and `overflow-wrap: anywhere`. Astryx applies its `wordBreak` prop only when `maxLines > 0`; unlimited paths therefore need this explicit layout rule. The library path and page-heading stack also use `min-w-0`. Processing guidance is bounded (70ch). iOS coarse-pointer fields/selectors inherit the official 16px text floor.
 
 **The Readable Hierarchy Rule.** Reserve headline and title emphasis for task structure; keep paths, formats and status in the supporting text hierarchy.
 
 ## Layout
 
-The desktop shell pairs a sticky sidebar (228px) with flexible main content. The main container is centered within its column, bounded (1320px) and padded responsively (`clamp(24px, 5vw, 64px)`). Navigation is consistent across Overview, Library, Processing, Queue and Settings.
+Official `AppShell height="auto" variant="section"` supplies a divider-based header/sidebar/main region. `SideNav` inherits desktop width (260px). Below the official `md` point (768px), AppShell exposes a toggle and modal drawer containing the same navigation. `mobileOpen` and `onOpenChange` control it; navigation closes it. This replaces the former five-column compact tab strip.
 
-Fields use two equal columns with the form gap; output destination spans both. Workers use two columns with the section gap. Queue and library rows place content beside actions, use thin bottom dividers and allow long names and paths to wrap. The frontmatter records repeated gaps and padding, not a fabricated universal spacing scale.
+Workspace content is centered and bounded (1160px), with padding (36px 40px 64px). Page headings/actions use gap (24px) and bottom space (28px). Recipe/worker grids start with two equal columns and gap (24px). Welcome uses `1.1fr 1fr` with gap (48px); ordered onboarding uses three columns and gap (32px). Rows use padding (20px 24px) and a single bottom divider. Official stack numeric spacing follows a 4px base.
 
-At the compact-navigation breakpoint (maximum 800px), the sidebar becomes a top bar with five equal navigation columns, main padding becomes (24px 20px 48px), workers stack, and the overview diagram is hidden. At the stacked-controls breakpoint (maximum 520px), page headers, recipe fields and row actions stack; padded panels use (20px), and onboarding becomes a vertical sequence. These are the source's breakpoints, not Tailwind's default breakpoint scale.
+At maximum **1023px**, recipe and worker grids stack to one column, PageHead becomes vertical with 16px gap, and welcome gap reduces to 24px. At maximum **767px**, workspace padding becomes (24px 20px 48px), welcome/onboarding also stack, rows use 16px padding, and file rows stack with 4px gap. The transfer diagram remains present and stacks. AppShell's drawer boundary (below 768px) is distinct from the 1023px tablet composition boundary.
 
-The implemented Overview introduces a library-to-worker-to-output diagram beside the choose-video action and an ordered onboarding sequence below it. This is the first-surface expression of the world, not a mandatory template for every screen. The diagram's absence below the compact breakpoint is recorded behavior, not a general ban on diagrams.
+Buttons have `flexShrink: '0'` in the official theme extension, preserving their labels beside wrapping headings. File-row layout intentionally supplies its own flexible full-row behavior. Paths apply the `.path` utility directly to unlimited text elements, keeping the complete value inside its panel. The overview diagram/steps remain its local expression, not a universal screen template. Login is centered and bounded (420px), with viewport minimum height (100dvh).
 
 **The Inline Work Rule.** Keep recipes, pairing and job actions in their relevant workspace sections, using spacing and dividers to separate steps.
 
 ## Elevation & Depth
 
-No box shadows are defined in the implemented system. Tonal differences, thin borders (1px), whitespace and selected navigation establish separation. Panels enclose real library, recipe, worker or queue content. Dividers group rows and secondary options; they do not imply floating cards.
+Ordinary panels remain flat, separated by tonal hierarchy, thin borders (1px) and whitespace. No decorative panel shadow is defined in `web/styles.css`. Official inputs use inset hover/focus feedback; selector popovers inherit Neutral elevation. The sidecar retains source-derived shadow/focus snippets without authorizing elevated ordinary panels.
 
 **The Flat By Default Rule.** Use neutral surfaces and thin dividers for structure; do not add decorative elevation to ordinary workspace sections.
 
 ## Shapes
 
-Controls and messages use the control radius; major panels use the panel radius; small descriptive tags use the tag radius. Progress tracks use the smaller progress radius. Circular connection dots and numbered onboarding markers communicate state or sequence rather than creating a pill-shaped control system.
+Current compiled Neutral values are recorded in frontmatter: inner, control and panel radii. At normal root size, controls resolve to 10px and panels to 12px. PRODUCT.md's approved 8px control / 16px major-panel choices remain the target; the current theme has no radius overrides enforcing them. This is source drift, not a new direction. Progress tracks and dots are circular. No tag/chip control is currently implemented.
 
-**The Familiar Controls Rule.** Maintain the implemented 44px minimum height for buttons, navigation, text inputs and selects; checkbox labels and disclosure summaries provide the same minimum vertical target.
+Theme tokens set small/medium controls to 44px and large to 48px. Overrides add button minimum height/width and non-shrinking behavior, minimum height to text-input/selector/side-nav-item/checkbox-input, and a **44px `collapsible-trigger` minimum**. The checkbox row also has a 44px minimum. These source declarations do not prove every inner combobox, checkbox label or mobile toggle target measures 44px; final rendered-target acceptance belongs to the main agent.
+
+**The Familiar Controls Rule.** Preserve the approved minimum 44px interactive target for buttons, navigation, text fields, selectors, checkbox labels and disclosure triggers; verify the clickable element rather than its surrounding panel.
 
 ## Components
 
+### Official component vocabulary
+
+`web/main.jsx` imports official `AppShell`, `SideNav`, `SideNavItem`, `SideNavHeading`, `TopNav`, `TopNavHeading`, `VStack`, `HStack`, `Heading`, `Text`, `Button`, `TextInput`, `Selector`, `CheckboxInput`, `Collapsible`, `Banner` and `ProgressBar` from `@astryxdesign/core` subpaths. Custom `Copy`, `PageHead`, `Empty`, `Status`, `Feedback`, recipes and rows compose these. Layout CSS does not recreate the control library.
+
 ### Buttons
 
-Quiet, direct controls with task names. Primary buttons pair Action Blue with Zinc Black; secondary buttons use the theme surface and a thin divider border; quiet buttons remove the visible fill and border. Padding and typography are defined in frontmatter.
+Quiet, direct controls with task names. Primary uses Action Blue/Zinc Black, default secondary uses translucent neutral fill/main text, and ghost removes fill. Official padding and compiled control radius apply. Downloads use `Button href`.
 
-Hover uses the observed brightness filter (`brightness(.94)`); press uses the observed scale (`scale(.98)`). Visible focus uses an accent outline (2px) with an offset (4px). Disabled buttons halve opacity and use the default cursor. Background/transform transitions run only when reduced motion is not requested (160ms, `ease-out`). The brightness filter has no separately invented hover-color token.
+Official hover/press overlays replace the old brightness filter. Enabled press scales to `.98`; disabled buttons use opacity `.5`. Keyboard button/navigation focus uses the inherited accent outline (2px solid, 3px offset). Requests use `isLoading` or `clickAction`; availability uses `isDisabled`. The final theme base prevents shrinking:
 
-### Chips
-
-Tags describe connection state, preview identity and available encoders. They use subtle fill and supporting text, with no decorative shadow or border. Connection tags combine a small circular dot (7px) with a word such as Connected or Offline. They are descriptive, not clickable filters.
+```js
+components: {
+  'collapsible-trigger': {base: {minHeight: '44px'}},
+  button: {base: {minHeight: '44px', minWidth: '44px', flexShrink: '0'}},
+  'text-input': {base: {minHeight: '44px'}},
+  selector: {base: {minHeight: '44px'}},
+  'side-nav-item': {base: {minHeight: '44px'}},
+  'checkbox-input': {base: {minHeight: '44px'}},
+}
+```
 
 ### Cards / Containers
 
-Flat panels have a theme surface, thin divider border, panel radius and clipped overflow. Standard padded panels use the panel padding; narrow screens use the observed compact padding. Library and queue rows provide internal separators instead of nested cards. The overview's larger padding is local to that composition.
+Custom `.panel` uses surface fill, a thin border, compiled panel radius and clipped overflow. Worker/recipe bodies use 24px official stack padding; empty states use 32px. Library/queue rows have internal separators. No official `Card` import or decorative nested-card system exists.
 
-### Inputs / Fields
+### Inputs / Fields and Selectors
 
-Native inputs and selects share the control radius, surface fill and thin divider border. They span the available width and use body text. Labels sit above fields with the field gap; helper text follows in the supporting hierarchy. Text inputs, selects and checkbox labels retain visible focus. Recipe/login errors stay inline in message containers; submit controls expose busy copy and disabled state.
+`TextInput` owns its associated label, description, required marker and native input. `Selector` supplies a controlled combobox, options, disabled choices and layer. Both `onChange` callbacks receive a value, not a native event. Emphasized borders distinguish fields from panel dividers; focus changes the wrapper border to accent and adds an inset accent-muted ring, with keyboard treatment supplied by official field styles.
 
-### Navigation
+```jsx
+<Selector label="Processing device" value={worker}
+  onChange={v => change('worker', v)} width="100%"
+  options={[{value: '', label: 'Any compatible worker'},
+    ...active.map(w => ({value: w.id, label: w.name + (w.online ? '' : ' (offline)')}))]} />
+<TextInput label="Save copies to" value={desired.output_directory}
+  onChange={v => change('output_directory', v)} isRequired maxLength={200}
+  description="A folder inside your output mount. Example: enhanced/movies" />
+```
 
-Desktop navigation is a vertical list of rounded, neutral buttons. Hover and the current page share subtle fill and main text; inactive items use supporting text. The current page is exposed through `aria-current`. Compact navigation uses five equal columns, smaller text (12px) and observed compact padding (10px 2px), retaining the minimum target height. View changes focus the main region, and a keyboard skip link reaches it.
+The recipe stores user intent in `desired` and derives effective worker, engine, codec, encoder and scale from current capability arrays on each render. `change` merges one field; polling does not reinitialize this state. Library renders `<Recipe key={selected}>`, so another file intentionally resets it. Compatible capabilities govern options/disabled encoders and conventional-filter checkboxes. The authenticated state poll runs every 3000ms while visible, resumes on visibility changes and guards overlapping refreshes. Connection errors retain workspace state and show reconnecting feedback; 401 clears the session. Submission uses effective values, queues the copy, refreshes and navigates to Queue.
 
-### Messages and Progress
+### Navigation and Disclosure
 
-Messages use subtle fill, the control radius and wrapping text. Success and error states add the corresponding thin semantic border; their text remains neutral. Global notices use a polite live region, while form errors use alerts. Job progress is a thin actual progress track (5px) with the action accent; it is not a decorative metric.
+`SideNavItem isSelected` supplies neutral fill, medium selected text and `aria-current="page"`. AppShell owns the skip link and mobile dialog/focus/dismissal behavior. App state controls drawer openness; view changes focus the workspace with `preventScroll`.
+
+`Collapsible trigger="More options" defaultIsOpen={false}` keeps advanced recipe options inline. Processing uses the same official component for unavailable engine details. Expansion/chevron/keyboard behavior is inherited, and the final theme override supplies its 44px trigger minimum.
+
+### Messages, Status and Progress
+
+`Feedback` uses non-collapsible success/error `Banner`; interrupted connections use warning, waiting jobs info, and recipe errors remain inline. Banner text/fills inherit Neutral semantic values, rather than the old neutral message box. `Status` is a bare dot plus supporting text, not a chip; dots are `aria-hidden` and words carry meaning. Running jobs use official `ProgressBar` with actual job value, accessible label and `isLabelHidden`; track height is 8px with full rounding.
 
 ### Preview Continuation
 
-A completed preview row offers a secondary download and a primary **Enhance full video** action. The Queue header's **Choose a video** action is secondary, so continuation leads. The action posts directly to the saved job's full-video endpoint, refreshes the queue and acknowledges use of the preview settings and preservation of the original. It does not reopen the recipe form.
-
-The source-hash check and reuse of saved settings are supplied CPU workflow evidence for this handoff; this document pass inspected the UI and its action wiring, not the server verification path. Neither the display of a device name nor a capability label establishes GPU/AI readiness.
+A completed preview has secondary download and primary **Enhance full video**. Queue's **Choose a video** remains secondary. `clickAction={() => onAction(job.id, 'full')}` posts to `/api/jobs/${id}/full`, refreshes the queue and acknowledges saved preview settings and preserved originals. It does not reopen the recipe. This describes wiring; source preservation and processing readiness require runtime evidence.
 
 **The Continue The Preview Rule.** Let a completed preview continue directly from its job row with saved settings; keep download and choosing another source secondary to that continuation.
 
-When motion is allowed, views enter briefly (200ms, `ease-out`, opacity and a 4px vertical shift). Selecting a video scrolls to its inline recipe smoothly; reduced-motion preference uses an instant scroll. The sidecar records those existing behaviors without adding new animation.
+### Theme Compilation and Selector CSP
+
+`defineTheme({name: 'popcorn', extends: neutralTheme, icons: neutralIconRegistry, ...})` compiles before Vite. The app imports the built theme object; generated CSS scopes variables/rules under `data-astryx-theme="popcorn"` and uses `light-dark()` with system color scheme. Theme changes require regeneration of both theme output and bundle.
+
+Astryx 0.6.8 installs one static selector-placement sheet of `@position-try` rules at runtime. The policy script imports `slideRulesCss()` from installed core `dist/Layer/layerSlideRules.js`, hashes its exact UTF-8 content with SHA-256/base64, and writes `popcorn_sr/static/ui-policy.json` containing `astryx_version` and `style_hashes`. The recomputed hash matched the existing generated policy:
+
+```text
+sha256-6SjltZZHbimwo1Hbgahxv8D9b/3lyMZxSgBbD6dRcUQ=
+```
+
+`popcorn_sr/server.py` validates hashes against `sha256-[A-Za-z0-9+/]{43}=`, quotes accepted values and emits `style-src 'self' '<hash>'; script-src 'self'` within the full CSP. It authorizes that exact stylesheet; no `unsafe-inline` allowance is introduced. Dependency updates must regenerate the policy from installed content rather than blindly retaining this hash. Runtime CSP proof remains separate from this source/hash inspection.
+
+Recipe mounting scrolls the inline panel into view and focuses its first combobox. Scroll is smooth unless reduced motion requests instant behavior. Official controls inherit fast/medium motion (125ms/250ms) and standard easing. Global reduced-motion CSS shortens animations/transitions to `.01ms` and restores automatic scrolling. No former custom 200ms view-entry animation exists in current source.
 
 ## Do's and Don'ts
 
 ### Do:
 
 - **Do** keep actions and focus blue with dark text on filled blue buttons in both themes.
-- **Do** use neutral surfaces, thin dividers and the existing control/panel shape hierarchy.
-- **Do** preserve visible focus, native controls, wrapping paths and the 44px minimum control height.
-- **Do** pair semantic status indicators with readable words and neutral text.
+- **Do** use neutral surfaces, thin dividers and the approved control/panel shape hierarchy; record source drift honestly.
+- **Do** preserve official control semantics, visible focus, wrapping paths and the 44px minimum interactive target.
+- **Do** pair semantic status indicators with readable words and accessible text.
 - **Do** continue a completed preview from its job row using the saved settings.
 - **Do** honor system light/dark preference and reduced motion.
+- **Do** compile the hand-authored theme and regenerate selector policy with the pinned dependency.
 
 ### Don't:
 
@@ -294,3 +362,5 @@ When motion is allowed, views enter briefly (200ms, `ease-out`, opacity and a 4p
 - **Don't** imply that processing replaces the library original.
 - **Don't** treat screenshots, device names or mocked capabilities as GPU/AI readiness evidence.
 - **Don't** promote redundant eyebrows, Unicode icon substitutes or one-off brand measurements into reusable system tokens.
+- **Don't** edit generated theme/bundle output or extract active tokens from the removed legacy UI.
+- **Don't** declare accessibility, target sizing or release checks passed from this documentation pass.

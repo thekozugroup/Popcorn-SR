@@ -26,7 +26,7 @@
   .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
   .route-node { padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-inner); }
   .recipe { scroll-margin-top: 80px; }
-  .path { overflow-wrap: anywhere; }
+  .path { display: block; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: #71717a; }
   .status-dot.online { background: #22c55e; }
   .status-dot.warning { background: #f59e0b; }
@@ -38,7 +38,11 @@
   .steps > * { border-top: 1px solid var(--color-border); padding-top: 24px; }
   .copy-step { margin-block: 24px; }
   .checkbox-row { min-height: 44px; display: flex; align-items: center; }
-  @media (max-width: 1023px) { .welcome-grid { gap: 24px; } }
+  @media (max-width: 1023px) {
+    .welcome-grid { gap: 24px; }
+    .form-grid, .worker-layout { grid-template-columns: 1fr; }
+    .page-head { flex-direction: column; gap: 16px; }
+  }
   @media (max-width: 767px) {
     .workspace { padding: 24px 20px 48px; }
     .page-head { flex-direction: column; gap: 16px; }

@@ -36,7 +36,7 @@ export const popcornTheme = defineTheme({
   },
   components: {
     'collapsible-trigger': {base: {minHeight: '44px'}},
-    button: {base: {minHeight: '44px', minWidth: '44px'}},
+    button: {base: {minHeight: '44px', minWidth: '44px', flexShrink: '0'}},
     'text-input': {base: {minHeight: '44px'}},
     selector: {base: {minHeight: '44px'}},
     'side-nav-item': {base: {minHeight: '44px'}},

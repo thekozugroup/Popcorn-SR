@@ -409,7 +409,8 @@ def create_app(settings: Settings | None = None):
             raise HTTPException(404, str(exc)) from exc
 
     static = Path(__file__).parent / "static"
-    app.mount("/assets", StaticFiles(directory=static), name="assets")
+    if static.is_dir():
+        app.mount("/assets", StaticFiles(directory=static), name="assets")
 
     @app.get("/")
     def index():

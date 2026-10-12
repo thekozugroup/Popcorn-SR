@@ -31,7 +31,7 @@ async function api(path, options = {}) {
   return data;
 }
 function Copy({children, ...props}) { return <Text as="p" color="secondary" wordBreak="break-word" {...props}>{children}</Text>; }
-function PageHead({title, copy, action}) { return <div className="page-head"><VStack gap={3}><Heading level={1}>{title}</Heading><Copy>{copy}</Copy></VStack>{action}</div>; }
+function PageHead({title, copy, action}) { return <div className="page-head"><VStack gap={3} className="min-w-0"><Heading level={1}>{title}</Heading><Copy>{copy}</Copy></VStack>{action}</div>; }
 function Empty({title, copy, children}) { return <VStack gap={4} padding={8}><Heading level={3}>{title}</Heading><Copy>{copy}</Copy>{children}</VStack>; }
 function Status({online, children, id}) { return <HStack gap={2} wrap="wrap" id={id}><span className={`status-dot ${online === true ? 'online' : online === false ? 'warning' : ''}`} aria-hidden="true"/><Text type="supporting" color="secondary">{children}</Text></HStack>; }
 function Feedback({message}) { return message ? <Banner status={message.error ? 'error' : 'success'} title={message.text} collapsible={false}/> : null; }
@@ -62,7 +62,7 @@ function Jobs({jobs, id, onAction, navigate}) {
         <Copy type="supporting">{engines[job.recipe.engine] || job.recipe.engine} · {job.recipe.codec.toUpperCase()} / {job.recipe.scale}×</Copy>
         <Copy type="supporting">{job.stage}{job.status === 'running' ? ` / ${Math.floor(job.progress)}%` : ''}{job.status === 'queued' ? ' · Waiting for a compatible worker' : ''}</Copy>
         {job.error && <Banner status="error" title={job.error} collapsible={false}/>}
-        {job.result && <Copy type="supporting">{job.result.path} / {bytes(job.result.bytes)}</Copy>}
+        {job.result && <Copy type="supporting" className="path">{job.result.path} / {bytes(job.result.bytes)}</Copy>}
         {job.status === 'running' && <ProgressBar label={`Processing ${job.path}`} value={job.progress} isLabelHidden/>}
       </VStack>
       <HStack gap={2} wrap="wrap">
@@ -150,7 +150,7 @@ function Library({state,navigate,onNotice,refresh}) {
   return <VStack gap={6}>
     <div><PageHead title="Your library" copy="Choose a video to make an enhanced copy. Originals stay untouched." action={<Button label="Refresh" onClick={()=>setRevision(v=>v+1)}/>}/>
     <section className="panel" aria-label="Library files">
-      <HStack className="row" hAlign="between" gap={4} wrap="wrap"><Text type="supporting" color="secondary" wordBreak="break-word">{state.storage.library}{directory==='.'?'':`/${directory}`}</Text>{directory!=='.' && <Button label="Up a folder" variant="ghost" onClick={()=>folder(directory.split('/').slice(0,-1).join('/') || '.')}/>}</HStack>
+      <HStack className="row" hAlign="between" gap={4} wrap="wrap"><Text type="supporting" color="secondary" className="path min-w-0">{state.storage.library}{directory==='.'?'':`/${directory}`}</Text>{directory!=='.' && <Button label="Up a folder" variant="ghost" onClick={()=>folder(directory.split('/').slice(0,-1).join('/') || '.')}/>}</HStack>
       {error?<Empty title="Library unavailable" copy={error}/>:!listing?<Empty title="Loading your library…" copy="Reading the mounted library folder."/>:!listing.items.length?<Empty title="No videos in this folder" copy="Check the library mount or open a different folder. Supported formats include MKV, MP4, MOV and WebM."/>:listing.items.map(item=><div className="row file-row" key={item.path}><Button label={item.name} variant="ghost" onClick={()=>item.directory?folder(item.path):setSelected(item.path)}><VStack gap={1} hAlign="start" className="min-w-0"><Text weight="medium" wordBreak="break-word">{item.name}</Text><Copy type="supporting">{item.directory?'Folder':bytes(item.size)}</Copy></VStack></Button>{!item.directory && <Copy type="supporting">Choose to enhance</Copy>}</div>)}
       {listing?.total>100 && <HStack className="row" gap={4} hAlign="between" wrap="wrap"><Button label="Previous" variant="ghost" isDisabled={!offset} onClick={()=>setOffset(v=>Math.max(0,v-100))}/><Copy type="supporting">{offset+1}–{Math.min(offset+100,listing.total)} of {listing.total}</Copy><Button label="Next" variant="ghost" isDisabled={offset+100>=listing.total} onClick={()=>setOffset(v=>v+100)}/></HStack>}
     </section></div>
@@ -168,7 +168,7 @@ function Processing({state,onAction,onNotice}) {
       <HStack gap={4} hAlign="between" wrap="wrap"><Heading level={2}>{w.name}</Heading><Status online={w.online}>{w.online?'Connected':'Offline'}</Status></HStack>
       <VStack gap={1}><Copy>{w.capabilities.device}</Copy><Copy type="supporting">{w.capabilities.platform} / {w.capabilities.architecture}</Copy></VStack>
       <VStack gap={2}><Text weight="medium">Verified encoding</Text><Copy type="supporting">{(w.capabilities.encoders || []).map(c=>c.replace('_nvidia',' · NVIDIA').replace('_cpu',' · CPU').toUpperCase()).join(', ') || 'No verified encoder'}</Copy></VStack>
-      <VStack gap={2}><HStack gap={4} hAlign="between" wrap="wrap"><Text weight="medium">Temporary drive</Text><Text type="supporting">{bytes(w.scratch.free_bytes || 0)} free</Text></HStack><Copy type="supporting">{w.scratch.path}</Copy></VStack>
+      <VStack gap={2}><HStack gap={4} hAlign="between" wrap="wrap"><Text weight="medium">Temporary drive</Text><Text type="supporting">{bytes(w.scratch.free_bytes || 0)} free</Text></HStack><Copy type="supporting" className="path">{w.scratch.path}</Copy></VStack>
       <VStack gap={2}><Text weight="medium">Enhancement</Text><Copy type="supporting">{(w.capabilities.engines || []).map(e=>engines[e] || e).join(', ') || 'No verified engine'}</Copy></VStack>
       {!!Object.keys(w.capabilities.notes || {}).length && <Collapsible trigger="Unavailable engine details" defaultIsOpen={false}><VStack gap={3} paddingBlockStart={3}>{Object.entries(w.capabilities.notes).map(([engine,text])=><Copy key={engine} type="supporting">{engines[engine] || engine}: {text}</Copy>)}</VStack></Collapsible>}
       <Button variant="ghost" label="Disconnect worker" clickAction={()=>onAction(w.id,'revoke')}/>
@@ -222,7 +222,7 @@ function App() {
   if(!state)return <Login key={loginError} onLogin={refresh} initialError={loginError}/>;
   const online=state.workers.filter(w=>w.online && !w.revoked).length;
   const side=<SideNav aria-label="Main navigation" header={<SideNavHeading heading="Popcorn SR" subheading="Super Resolution"/>} footer={<VStack padding={4} gap={2}><Copy type="supporting">Version {state.version}</Copy><Button label="Sign out" variant="ghost" clickAction={logout}/></VStack>}>{navigation.map(([key,label])=><SideNavItem key={key} label={label} isSelected={view===key} onClick={()=>navigate(key)}/>)}</SideNav>;
-  return <AppShell height="auto" variant="section" mobileNav={{isOpen:mobileOpen,onOpenChange:setMobileOpen}} sideNav={side} topNav={<TopNav heading={<TopNavHeading heading="Library workspace"/>} endContent={<Status id="connection" online={interrupted?false:online?true:undefined}>{interrupted?'Connection interrupted':online?`${online} worker${online===1?'':'s'} connected`:'Manager ready'}</Status>}/>}> 
+  return <AppShell height="auto" variant="section" mobileNav={{isOpen:mobileOpen,onOpenChange:setMobileOpen}} sideNav={side} topNav={<TopNav heading={<TopNavHeading heading="Library workspace"/>} endContent={<Status id="connection" online={interrupted?false:online?true:undefined}>{interrupted?'Connection interrupted':online?`${online} worker${online===1?'':'s'} connected`:'Manager ready'}</Status>}/>}>
     <section className="workspace" ref={surface} tabIndex={-1} aria-label="Workspace"><VStack gap={6}>
       <Feedback message={notice}/>
       {interrupted && <Banner status="warning" title="Connection interrupted" description="Reconnecting automatically. Your saved jobs remain on the manager." collapsible={false}/>}

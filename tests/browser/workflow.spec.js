@@ -80,12 +80,14 @@ test('desktop preview completes on a real worker; responsive light/dark views pa
     const scan = await new AxeBuilder({page}).analyze();
     expect(scan.violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    expect(await page.locator('.path').evaluateAll(nodes => nodes.every(el => el.scrollWidth <= el.clientWidth + 1))).toBeTruthy();
     await navigate(page,'Library');
     await page.getByRole('button',{name:'A clearer picture.mkv'}).click();
     await page.evaluate(() => scrollTo(0,0));
   await page.screenshot({path:`evidence/screenshots/library-${width}-${mode}.png`,fullPage:true,animations:"disabled"});
     expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    expect(await page.locator('.path').evaluateAll(nodes => nodes.every(el => el.scrollWidth <= el.clientWidth + 1))).toBeTruthy();
   }
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => window.policyViolations)).toEqual([]);

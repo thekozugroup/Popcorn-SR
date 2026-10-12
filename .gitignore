@@ -31,3 +31,5 @@ web/themes/popcorn.d.ts
 
 popcorn_sr/static/*
 !popcorn_sr/static/.gitkeep
+
+web/themes/popcorn*.d.ts

@@ -14,3 +14,6 @@ __pycache__
 .pytest_cache
 .ruff_cache
 tests
+
+popcorn_sr/static/*
+!popcorn_sr/static/.gitkeep
