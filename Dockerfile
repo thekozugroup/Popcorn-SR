@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certi
     && mkdir /state /library /output /scratch && chown popcorn:popcorn /state /library /output /scratch
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
+COPY LICENSE THIRD-PARTY-NOTICES.md ./
+COPY licenses ./licenses
 COPY popcorn_sr ./popcorn_sr
 COPY --from=ui /build/popcorn_sr/static/style.css ./popcorn_sr/static/style.css
 RUN pip install uv==0.8.22 && uv sync --frozen --no-dev --no-editable --python /usr/local/bin/python

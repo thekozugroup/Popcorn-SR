@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import os
 import secrets
 import subprocess
 import tempfile
@@ -28,7 +29,8 @@ def docker(*arguments):
     return result.stdout.strip()
 
 
-with tempfile.TemporaryDirectory(prefix="popcorn-smoke-") as temp:
+Path("evidence").mkdir(exist_ok=True)
+with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").resolve()) as temp:
     root = Path(temp)
     for name in ("library", "output", "manager-state", "worker-state", "scratch"):
         (root / name).mkdir(mode=0o777)
@@ -67,6 +69,8 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-") as temp:
         docker(
             "run",
             "-d",
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
             "--name",
             manager,
             "--network",
@@ -101,7 +105,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-") as temp:
                     pass
                 time.sleep(1)
             else:
-                raise RuntimeError("Manager did not start.")
+                raise RuntimeError("Manager did not start: " + docker("logs", manager)[-1200:])
             code = client.post("/api/pair-codes").json()["code"]
             worker_env = root / "worker.env"
             worker_env.write_text(
@@ -111,6 +115,8 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-") as temp:
             docker(
                 "run",
                 "-d",
+                "--user",
+                f"{os.getuid()}:{os.getgid()}",
                 "--name",
                 worker,
                 "--network",

@@ -40,7 +40,7 @@ The worker operator, not a web request, configures a JSON array of arguments. It
 ["/opt/my-video-engine", "--input", "{input}", "--output", "{output}", "--width", "{width}", "--height", "{height}", "--codec", "{codec}"]
 ```
 
-This is a contract example, not an installed executable. Placeholders: `input`, `output`, `width`, `height`, `scale`, `codec`. Produce one decodable video at the exact output path with exit code 0. Output codec must match `h264`, `hevc` or `av1`; output size and duration must match. DLSS 5 must keep source size. Audio/subtitles from the external exporter are discarded in favor of the source streams. Worker subprocesses receive scratch-based temporary/cache paths. Configure proprietary application caches separately if their own settings ignore those environment variables.
+This is a contract example, not an installed executable. Placeholders: `input`, `output`, `width`, `height`, `scale`, `codec`, `quality`. Produce one decodable video at the exact output path with exit code 0. Output codec must match `h264`, `hevc` or `av1`; output size and duration must match. DLSS 5 must keep source size. Audio/subtitles from the external exporter are discarded in favor of the source streams. Worker subprocesses receive scratch-based temporary/cache paths. Configure proprietary application caches separately if their own settings ignore those environment variables.
 
 Every custom command is a trusted operator-controlled program. Do not accept command templates from untrusted sources. Support means the configured program passed a small real clip; representative library quality, all codecs, large resolutions and long-run behavior still require device tests.
 

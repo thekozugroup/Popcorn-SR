@@ -38,11 +38,16 @@ class Worker:
         state.mkdir(parents=True, exist_ok=True)
         self.credential_file = state / "worker.json"
         self.status = {"progress": 0, "stage": "Receiving source"}
+        self.drive_id = None
 
     def storage(self):
         marker = self.scratch / ".popcorn-scratch"
         if not marker.is_file() or not marker.read_text().strip():
             raise ValueError("Scratch drive is not ready. Mount the drive and run init-scratch on that path.")
+        identity = marker.read_text().strip()
+        if self.drive_id is not None and identity != self.drive_id:
+            raise ValueError("Scratch drive identity changed. Stop and verify the intended mounted drive.")
+        self.drive_id = identity
         usage = shutil.disk_usage(self.scratch)
         return {
             "path": str(self.scratch),
@@ -107,7 +112,9 @@ class Worker:
         failed_since = None
         while True:
             await asyncio.sleep(interval)
-            self.storage()
+            storage = self.storage()
+            if storage["free_bytes"] < self.reserve:
+                raise ValueError("Scratch drive is full. Processing stopped to preserve the drive reserve.")
             try:
                 response = await client.post(
                     f"/api/worker/jobs/{job['id']}/heartbeat", json={"lease": job["lease"], **self.status}

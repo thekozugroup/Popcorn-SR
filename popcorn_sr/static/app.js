@@ -92,6 +92,7 @@ async function refresh() {
     $('#queue-hint').textContent = 'Jobs are waiting. Connect a compatible worker in Processing to continue.';
   } catch (error) {
     if (state) { $('#connection').innerHTML = '<span class="dot warning"></span>Connection interrupted'; notice(`${error.message} Reconnecting automatically.`, true); }
+    else { showLogin(); if (!error.message.includes('Sign in')) { $('#login-error').textContent = error.message; $('#login-error').hidden = false; } }
   } finally { refreshing = false; }
 }
 async function loadLibrary() {

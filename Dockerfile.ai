@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tini \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY pyproject.toml ./
+COPY LICENSE THIRD-PARTY-NOTICES.md ./
+COPY licenses ./licenses
 COPY popcorn_sr ./popcorn_sr
 RUN python -m pip install --no-cache-dir . 'av>=14,<18' 'numpy>=2,<3'
 RUN mkdir -p /state /scratch && chmod 777 /state /scratch

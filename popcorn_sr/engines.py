@@ -28,6 +28,8 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             str(height),
             "--codec",
             recipe["codec"],
+            "--quality",
+            str(recipe["quality"]),
             "--model",
             os.environ["POPCORN_ESRGAN_MODEL"],
         ]
@@ -45,6 +47,7 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             "height": str(height),
             "scale": str(recipe["scale"]),
             "codec": recipe["codec"],
+            "quality": str(recipe["quality"]),
         }
         return [s.format_map(values) for s in template]
     if engine == "rtx-vsr" and os.environ.get("POPCORN_NVIDIA_VFX") == "1":
@@ -62,6 +65,8 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             str(height),
             "--codec",
             recipe["codec"],
+            "--quality",
+            str(recipe["quality"]),
         ]
     if engine == "rtx-vsr" and os.environ.get("POPCORN_VSR_COMMAND"):
         template = json.loads(os.environ["POPCORN_VSR_COMMAND"])
@@ -74,6 +79,7 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             "height": str(height),
             "scale": str(recipe["scale"]),
             "codec": recipe["codec"],
+            "quality": str(recipe["quality"]),
         }
         return [s.format_map(values) for s in template]
     fast = os.environ.get("POPCORN_FAST_RTXVSR")

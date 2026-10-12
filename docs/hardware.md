@@ -30,7 +30,7 @@ Popcorn SR verifies each transfer's checksum. Temporary outputs remain separate.
 
 Mount the enclosure on the processing host, create a scratch subfolder there and initialize it. Bind that exact directory to `/scratch`. Source copies, intermediate videos, AI caches, optional model checkpoint and outgoing copies live there. Keep originals on the read-only NAS library mount and completed copies on its separate output mount.
 
-The worker reserves at least four times the source size plus 1 GiB before claiming a job. Output-size estimates are conservative but cannot guarantee space for every upscale; use a larger drive for high-resolution/long media. Transfers continuously check space; failures preserve the original. NVENC streams frames rather than storing image sequences, reducing temporary writes.
+The worker reserves at least four times the source size plus 1 GiB before processing a job. Output-size estimates are conservative but cannot guarantee space for every upscale; use a larger drive for high-resolution/long media. Transfers continuously check space; failures preserve the original. NVENC streams frames rather than storing image sequences, reducing temporary writes.
 
 Configure Linux systemd mount dependencies (`RequiresMountsFor`) or the host's equivalent. Compose uses `create_host_path: false`, and the worker requires a drive marker. This guards a missing path but is not a physical mount detector; do not initialize a placeholder directory while the drive is absent.
 

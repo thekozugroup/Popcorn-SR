@@ -36,6 +36,7 @@ def main():
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--height", type=int, required=True)
     parser.add_argument("--codec", choices=["h264", "hevc", "av1"], default="h264")
+    parser.add_argument("--quality", type=int, choices=range(16, 33), default=23)
     args = parser.parse_args()
     if sha256(Path(args.model)) != MODEL_SHA256:
         raise RuntimeError("Model checksum mismatch. Use the official RealESRGAN_x4plus checkpoint.")
@@ -51,14 +52,14 @@ def main():
     model.load_state_dict(checkpoint.get("params_ema", checkpoint.get("params")), strict=True)
     model = model.eval().to("cuda").half()
     with av.open(args.input) as source, av.open(args.output, mode="w", format="matroska") as output:
-        video = next(s for s in source.streams.video if not s.disposition.attached_pic)
+        video = next(s for s in source.streams.video if not (s.disposition.value & 1024))
         if not video.average_rate:
             raise RuntimeError("Frame rate unavailable; refusing to guess timing.")
         encoded = output.add_stream(f"{args.codec}_nvenc", rate=video.average_rate)
         encoded.width, encoded.height = args.width, args.height
         encoded.pix_fmt = "yuv420p"
         encoded.time_base = video.time_base
-        encoded.options = {"preset": "p6", "rc": "vbr", "cq": "20", "b": "0"}
+        encoded.options = {"preset": "p6", "rc": "vbr", "cq": str(args.quality), "b": "0"}
         encoded.codec_context.open()
         first = None
         for frame in source.decode(video):

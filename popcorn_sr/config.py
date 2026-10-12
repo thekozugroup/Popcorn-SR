@@ -13,6 +13,10 @@ class Settings:
     max_upload_bytes: int = 256 * 1024**3
     reserve_bytes: int = 1024**3
 
+    def __post_init__(self):
+        for key in ("state", "library", "output"):
+            object.__setattr__(self, key, getattr(self, key).resolve())
+
     @classmethod
     def from_env(cls):
         token = os.environ.get("POPCORN_ADMIN_TOKEN", "")

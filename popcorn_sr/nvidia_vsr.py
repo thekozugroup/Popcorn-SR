@@ -15,6 +15,7 @@ def main():
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--height", type=int, required=True)
     parser.add_argument("--codec", choices=["h264", "hevc", "av1"], default="h264")
+    parser.add_argument("--quality", type=int, choices=range(16, 33), default=23)
     args = parser.parse_args()
     import av
     import torch
@@ -24,7 +25,7 @@ def main():
         raise RuntimeError("NVIDIA CUDA is unavailable. Check the driver and CUDA-enabled PyTorch.")
     torch.cuda.set_device(0)
     with av.open(args.input) as source:
-        video = next(s for s in source.streams.video if not s.disposition.attached_pic)
+        video = next(s for s in source.streams.video if not (s.disposition.value & 1024))
         if not video.average_rate:
             raise RuntimeError("Frame rate unavailable. Refusing to guess video timing.")
         with av.open(args.output, mode="w", format="matroska") as output:
@@ -32,7 +33,7 @@ def main():
             encoded.width, encoded.height = args.width, args.height
             encoded.pix_fmt = "yuv420p"
             encoded.time_base = video.time_base
-            encoded.options = {"preset": "p6", "rc": "vbr", "cq": "20", "b": "0"}
+            encoded.options = {"preset": "p6", "rc": "vbr", "cq": str(args.quality), "b": "0"}
             encoded.codec_context.open()  # Explicit NVENC: initialization failure is never a CPU fallback.
             with VideoSuperRes(device=0, quality=VideoSuperRes.QualityLevel.HIGH) as effect:
                 effect.input_width = video.codec_context.width

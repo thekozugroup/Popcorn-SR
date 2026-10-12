@@ -170,3 +170,92 @@ def test_actual_worker_streams_processes_returns_and_cleans_scratch(setup, auth,
         raise AssertionError("Missing drive must stop processing")
     except ValueError:
         pass
+
+
+def test_cancelled_upload_source_changes_and_missing_audio_are_rejected(setup, auth, tmp_path):
+    client, store, cfg, clip = setup
+    credentials, _ = pair_worker(client)
+    token_headers = {"Authorization": f"Bearer {credentials['token']}"}
+    recipe = Recipe(scale=1).model_dump()
+    queued = store.add_job(clip.name, recipe, inspect_source(clip))
+    claim = store.claim(store.worker(credentials["token"]), 90)
+    headers = token_headers | {"X-Job-Lease": claim["lease"], "X-Output-SHA256": sha256(clip)}
+    store.cancel(queued["id"])
+    assert (
+        client.put(
+            f"/api/worker/jobs/{claim['id']}/result", content=clip.read_bytes(), headers=headers
+        ).status_code
+        == 409
+    )
+    assert not list(cfg.output.rglob("*.mkv"))
+    store.retry(queued["id"])
+    claim = store.claim(store.worker(credentials["token"]), 90)
+    no_audio = tmp_path / "no-audio.mkv"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(clip), "-an", "-c:v", "copy", str(no_audio)], check=True
+    )
+    headers = token_headers | {"X-Job-Lease": claim["lease"], "X-Output-SHA256": sha256(no_audio)}
+    result = client.put(
+        f"/api/worker/jobs/{claim['id']}/result", content=no_audio.read_bytes(), headers=headers
+    )
+    assert result.status_code == 400 and "audio" in result.json()["detail"]
+    with clip.open("ab") as out:
+        out.write(b"changed")
+    assert client.get(f"/api/worker/jobs/{claim['id']}/source", headers=headers).status_code == 409
+
+
+def test_real_subtitle_attachment_and_chapter_preservation(setup, auth, tmp_path):
+    client, store, _, clip = setup
+    credentials, _ = pair_worker(client)
+    subtitles = tmp_path / "subtitles.srt"
+    subtitles.write_text("1\n00:00:00,000 --> 00:00:00,900\nPreserve this subtitle.\n")
+    attachment = tmp_path / "notes.txt"
+    attachment.write_text("Attachment preserved.")
+    chapters = tmp_path / "chapters.txt"
+    chapters.write_text(";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1000\ntitle=Opening\n")
+    source = clip.parent / "with-streams.mkv"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-i",
+            str(clip),
+            "-i",
+            str(subtitles),
+            "-i",
+            str(chapters),
+            "-map",
+            "0",
+            "-map",
+            "1",
+            "-map_chapters",
+            "2",
+            "-c",
+            "copy",
+            "-attach",
+            str(attachment),
+            "-metadata:s:t",
+            "mimetype=text/plain",
+            str(source),
+        ],
+        check=True,
+    )
+    recipe = Recipe(scale=1).model_dump()
+    info = inspect_source(source)
+    assert info["subtitle_streams"] == 1 and info["attachment_streams"] == 1
+    store.add_job(source.name, recipe, info)
+    claim = store.claim(store.worker(credentials["token"]), 90)
+    encoded = tmp_path / "preserved.mkv"
+    subprocess.run(ffmpeg_command(source, encoded, recipe, info), capture_output=True, check=True)
+    headers = {
+        "Authorization": f"Bearer {credentials['token']}",
+        "X-Job-Lease": claim["lease"],
+        "X-Output-SHA256": sha256(encoded),
+    }
+    response = client.put(
+        f"/api/worker/jobs/{claim['id']}/result", content=encoded.read_bytes(), headers=headers
+    )
+    assert response.status_code == 200, response.text
+    data = subprocess.check_output(["ffprobe", "-v", "error", "-show_chapters", "-of", "json", str(encoded)])
+    assert b"Opening" in data
