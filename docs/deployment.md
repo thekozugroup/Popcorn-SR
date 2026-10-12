@@ -75,7 +75,13 @@ Create a pairing code in the web interface, add it to `.env`, then run:
 docker compose -f compose.yaml -f compose.single.yaml -f compose.nvidia.yaml up -d --no-build --pull always
 ```
 
-For AI, use `compose.ai.yaml` in place of `compose.nvidia.yaml` after downloading the model. The internal manager address is `http://manager:8787` and does not depend on your LAN IP.
+For AI, download the model first, then build the larger local worker image:
+
+```sh
+docker compose -f compose.yaml -f compose.single.yaml -f compose.ai.yaml up -d --build
+```
+
+The AI image is a local build recipe; it is not published to a registry. Use this build command instead of the prebuilt worker's pull command. The internal manager address is `http://manager:8787` and does not depend on your LAN IP.
 
 ## Native Linux worker
 
