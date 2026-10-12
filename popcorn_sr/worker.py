@@ -139,6 +139,7 @@ class Worker:
                 "TEMP": str(folder),
                 "TMP": str(folder),
                 "XDG_CACHE_HOME": str(self.scratch / "cache"),
+                "CUDA_CACHE_PATH": str(self.scratch / "cache" / "cuda"),
             }
         )
         extra = (

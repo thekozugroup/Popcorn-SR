@@ -2,6 +2,7 @@ import hashlib
 import json
 import math
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".mov", ".avi", ".webm", ".m4v", ".ts", ".m2ts", ".mpg", ".mpeg"}
@@ -13,6 +14,21 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             value.update(chunk)
     return value.hexdigest()
+
+
+@lru_cache(maxsize=1)
+def pixel_bit_depths():
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_pixel_formats", "-of", "json"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    return {
+        p["name"]: max((c.get("bit_depth", 0) for c in p.get("components", [])), default=0)
+        for p in json.loads(result.stdout)["pixel_formats"]
+    }
 
 
 def probe(path: Path) -> dict:
@@ -60,6 +76,7 @@ def probe(path: Path) -> dict:
         "duration": duration,
         "codec": video.get("codec_name"),
         "pix_fmt": video.get("pix_fmt", ""),
+        "bit_depth": pixel_bit_depths().get(video.get("pix_fmt", ""), 0),
         "color_transfer": video.get("color_transfer", "unknown"),
         "color_primaries": video.get("color_primaries", "unknown"),
         "hdr": video.get("color_transfer") in {"smpte2084", "arib-std-b67"},

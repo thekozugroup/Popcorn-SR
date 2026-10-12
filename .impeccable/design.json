@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-12T22:20:44.471862+00:00",
+  "title": "Design System: Popcorn SR",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Action Blue",
+        "tonalRamp": [
+          "oklch(28.2% 0.091 267.935)",
+          "oklch(37.9% 0.146 265.522)",
+          "oklch(42.4% 0.199 265.638)",
+          "oklch(48.8% 0.243 264.376)",
+          "oklch(62.3% 0.214 259.815)",
+          "oklch(80.9% 0.105 251.813)",
+          "oklch(93.2% 0.032 255.585)",
+          "oklch(97% 0.014 254.604)"
+        ]
+      },
+      "white-surface": {
+        "role": "neutral",
+        "displayName": "White Surface",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-paper": {
+        "role": "neutral",
+        "displayName": "Zinc Paper",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-subtle": {
+        "role": "neutral",
+        "displayName": "Zinc Subtle",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-divider": {
+        "role": "neutral",
+        "displayName": "Zinc Divider",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-dark-muted": {
+        "role": "neutral",
+        "displayName": "Zinc Dark Muted",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-status": {
+        "role": "neutral",
+        "displayName": "Zinc Status",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-muted": {
+        "role": "neutral",
+        "displayName": "Zinc Muted",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-dark-divider": {
+        "role": "neutral",
+        "displayName": "Zinc Dark Divider",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-ink": {
+        "role": "neutral",
+        "displayName": "Zinc Ink",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "zinc-black": {
+        "role": "neutral",
+        "displayName": "Zinc Black",
+        "tonalRamp": [
+          "oklch(14.1% 0.005 285.823)",
+          "oklch(21% 0.006 285.885)",
+          "oklch(27.4% 0.006 286.033)",
+          "oklch(37% 0.013 285.805)",
+          "oklch(55.2% 0.016 285.938)",
+          "oklch(87.1% 0.006 286.286)",
+          "oklch(96.7% 0.001 286.375)",
+          "oklch(98.5% 0 none)"
+        ]
+      },
+      "status-connected": {
+        "role": "semantic",
+        "displayName": "Connected Emerald",
+        "tonalRamp": [
+          "oklch(26.2% 0.051 172.552)",
+          "oklch(37.8% 0.077 168.94)",
+          "oklch(43.2% 0.095 166.913)",
+          "oklch(50.8% 0.118 165.612)",
+          "oklch(69.6% 0.17 162.48)",
+          "oklch(84.5% 0.143 164.978)",
+          "oklch(95% 0.052 163.051)",
+          "oklch(97.9% 0.021 166.113)"
+        ]
+      },
+      "status-warning": {
+        "role": "semantic",
+        "displayName": "Warning Amber",
+        "tonalRamp": [
+          "oklch(27.9% 0.077 45.635)",
+          "oklch(41.4% 0.112 45.904)",
+          "oklch(47.3% 0.137 46.201)",
+          "oklch(55.5% 0.163 48.998)",
+          "oklch(76.9% 0.188 70.08)",
+          "oklch(87.9% 0.169 91.605)",
+          "oklch(96.2% 0.059 95.617)",
+          "oklch(98.7% 0.022 95.277)"
+        ]
+      },
+      "status-error": {
+        "role": "semantic",
+        "displayName": "Error Red",
+        "tonalRamp": [
+          "oklch(25.8% 0.092 26.042)",
+          "oklch(39.6% 0.141 25.723)",
+          "oklch(44.4% 0.177 26.899)",
+          "oklch(50.5% 0.213 27.518)",
+          "oklch(63.7% 0.237 25.331)",
+          "oklch(80.8% 0.114 19.571)",
+          "oklch(93.6% 0.032 17.717)",
+          "oklch(97.1% 0.013 17.38)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Page Heading",
+        "purpose": "Page-level task headings; compact screens use the observed smaller heading."
+      },
+      "title": {
+        "displayName": "Section Title",
+        "purpose": "Section and panel headings."
+      },
+      "section": {
+        "displayName": "Small Section Heading",
+        "purpose": "Ordered steps and small section headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Normal content and native input/select text."
+      },
+      "label": {
+        "displayName": "Field Label",
+        "purpose": "Labels above recipe and sign-in fields."
+      },
+      "action": {
+        "displayName": "Action",
+        "purpose": "Button and button-link labels."
+      },
+      "navigation": {
+        "displayName": "Navigation",
+        "purpose": "Neutral workspace navigation; compact navigation uses 12px text."
+      },
+      "metadata": {
+        "displayName": "Metadata",
+        "purpose": "Wrapping file paths, job details and other secondary information."
+      },
+      "tag": {
+        "displayName": "Tag",
+        "purpose": "Short connection, preview and capability tags."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "background-color 160ms ease-out, transform 160ms ease-out",
+        "purpose": "Existing control transition; enabled only with prefers-reduced-motion: no-preference."
+      },
+      {
+        "name": "view-entry",
+        "value": "200ms ease-out",
+        "purpose": "Existing view entrance from opacity 0 / translateY(4px) to opacity 1 / translateY(0); enabled only when reduced motion is not requested."
+      },
+      {
+        "name": "recipe-scroll",
+        "value": "smooth",
+        "purpose": "Scroll to the selected video recipe; switch to instant when prefers-reduced-motion: reduce matches."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-navigation",
+        "value": "800px"
+      },
+      {
+        "name": "stacked-controls",
+        "value": "520px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The next processing action, using blue with dark text in either system theme.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Preview 5 seconds</button>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-btn-primary { border: 1px solid var(--accent, oklch(62.3% 0.214 259.815)); border-radius: 8px; background: var(--accent, oklch(62.3% 0.214 259.815)); color: var(--accent-ink, oklch(14.1% 0.005 285.823)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: .875rem; font-weight: 600; line-height: 1.4285714286; min-height: 44px; padding: 11px 17px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; cursor: pointer; } .ds-btn-primary:hover { filter: brightness(.94); } .ds-btn-primary:active { transform: scale(.98); } .ds-btn-primary:disabled { cursor: default; opacity: .5; }.ds-btn-primary:focus-visible { outline: 2px solid var(--accent, oklch(62.3% 0.214 259.815)); outline-offset: 4px; }@media (prefers-reduced-motion: no-preference) { .ds-btn-primary { transition: background-color 160ms ease-out, transform 160ms ease-out; } }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting actions, including downloads and the Queue header choose-video action.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">Choose a video</button>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-btn-secondary { border: 1px solid var(--line, var(--ds-line)); border-radius: 8px; background: var(--surface, var(--ds-surface)); color: var(--ink, var(--ds-ink)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: .875rem; font-weight: 600; line-height: 1.4285714286; min-height: 44px; padding: 11px 17px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; cursor: pointer; } .ds-btn-secondary:hover { filter: brightness(.94); } .ds-btn-secondary:active { transform: scale(.98); } .ds-btn-secondary:disabled { cursor: default; opacity: .5; }.ds-btn-secondary:focus-visible { outline: 2px solid var(--accent, oklch(62.3% 0.214 259.815)); outline-offset: 4px; }@media (prefers-reduced-motion: no-preference) { .ds-btn-secondary { transition: background-color 160ms ease-out, transform 160ms ease-out; } }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Low-emphasis section actions without a visible fill or border.",
+      "html": "<button class=\"ds-btn-quiet\" type=\"button\">Close</button>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-btn-quiet { border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted, var(--ds-muted)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: .875rem; font-weight: 600; line-height: 1.4285714286; min-height: 44px; padding: 11px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; cursor: pointer; } .ds-btn-quiet:hover { filter: brightness(.94); } .ds-btn-quiet:active { transform: scale(.98); } .ds-btn-quiet:disabled { cursor: default; opacity: .5; }.ds-btn-quiet:focus-visible { outline: 2px solid var(--accent, oklch(62.3% 0.214 259.815)); outline-offset: 4px; }@media (prefers-reduced-motion: no-preference) { .ds-btn-quiet { transition: background-color 160ms ease-out, transform 160ms ease-out; } }"
+    },
+    {
+      "name": "Destination Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Native text field with an associated label and supporting destination hint.",
+      "html": "<div class=\"ds-field\"><label for=\"ds-output-directory\">Save copies to</label><input class=\"ds-field-input\" id=\"ds-output-directory\" value=\"enhanced\" aria-describedby=\"ds-output-hint\"><small id=\"ds-output-hint\">A folder inside your output mount. Example: enhanced/movies</small></div>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-field { display: grid; gap: 8px; min-width: 0; } .ds-field label { color: var(--ink, var(--ds-ink)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 14px; font-weight: 550; line-height: 1.5; } .ds-field-input { border: 1px solid var(--line, var(--ds-line)); border-radius: 8px; min-height: 44px; padding: 10px 12px; background: var(--surface, var(--ds-surface)); color: var(--ink, var(--ds-ink)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 1rem; line-height: 1.5; width: 100%; min-width: 0; } .ds-field small { color: var(--muted, var(--ds-muted)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 13px; line-height: 1.6; }.ds-field-input:focus-visible { outline: 2px solid var(--accent, oklch(62.3% 0.214 259.815)); outline-offset: 4px; }@media (prefers-reduced-motion: no-preference) { .ds-field-input { transition: background-color 160ms ease-out, transform 160ms ease-out; } }"
+    },
+    {
+      "name": "Workspace Navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Neutral current-page navigation; five equal columns replace the sidebar at 800px.",
+      "html": "<nav class=\"ds-navigation\" aria-label=\"Main navigation\"><button class=\"ds-nav\" type=\"button\" aria-current=\"page\">Overview</button><button class=\"ds-nav\" type=\"button\">Library</button><button class=\"ds-nav\" type=\"button\">Processing</button><button class=\"ds-nav\" type=\"button\">Queue</button><button class=\"ds-nav\" type=\"button\">Settings</button></nav>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-navigation { display: grid; gap: 6px; } .ds-nav { border-radius: 8px; text-align: left; font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: .875rem; font-weight: 500; line-height: 1.4285714286; color: var(--muted, var(--ds-muted)); min-height: 44px; padding: 12px 14px; border: 0; background: transparent; cursor: pointer; } .ds-nav[aria-current=page], .ds-nav:hover { background: var(--subtle, var(--ds-subtle)); color: var(--ink, var(--ds-ink)); } .ds-nav:disabled { cursor: default; opacity: .5; } @media (max-width: 800px) { .ds-navigation { grid-template-columns: repeat(5,minmax(0,1fr)); gap: 0; } .ds-nav { text-align: center; font-size: 12px; padding: 10px 2px; } }.ds-nav:focus-visible { outline: 2px solid var(--accent, oklch(62.3% 0.214 259.815)); outline-offset: 4px; }@media (prefers-reduced-motion: no-preference) { .ds-nav { transition: background-color 160ms ease-out, transform 160ms ease-out; } }"
+    },
+    {
+      "name": "Connection Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "A descriptive connection indicator with readable words; it is not a filter.",
+      "html": "<span class=\"ds-connection-tag\"><span class=\"ds-connection-dot\" aria-hidden=\"true\"></span>Connected</span>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-connection-tag { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 12px; line-height: 1.4; padding: 5px 9px; border-radius: 6px; background: var(--subtle, var(--ds-subtle)); color: var(--muted, var(--ds-muted)); white-space: nowrap; }.ds-connection-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--color-emerald-500, oklch(69.6% 0.17 162.48)); flex-shrink: 0; }"
+    },
+    {
+      "name": "Padded Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat settings-style content with a thin border; padded panels become denser at 520px.",
+      "html": "<section class=\"ds-panel\"><h2>Library</h2><p>Mount this folder read-only. Change the host folder in your Docker configuration.</p></section>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-panel { border: 1px solid var(--line, var(--ds-line)); border-radius: 16px; background: var(--surface, var(--ds-surface)); overflow: hidden; padding: 28px; } .ds-panel h2 { margin: 0; color: var(--ink, var(--ds-ink)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: 0; } .ds-panel p { margin: 8px 0 0; color: var(--muted, var(--ds-muted)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 14px; line-height: 1.7; max-width: 68ch; } @media (max-width: 520px) { .ds-panel { padding: 20px; } }"
+    },
+    {
+      "name": "Success Message",
+      "kind": "custom",
+      "refersTo": "message",
+      "description": "Inline confirmation with neutral text and a thin semantic border.",
+      "html": "<p class=\"ds-message\" role=\"status\">Full video queued using your preview settings. Your original is preserved.</p>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-message { padding: 14px 18px; border-radius: 8px; background: var(--subtle, var(--ds-subtle)); color: var(--ink, var(--ds-ink)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 14px; line-height: 1.6; margin: 16px 0; overflow-wrap: anywhere; border: 1px solid var(--color-emerald-500, oklch(69.6% 0.17 162.48)); }"
+    },
+    {
+      "name": "Job Progress",
+      "kind": "custom",
+      "refersTo": "progress",
+      "description": "Thin native progress track. This visual sample starts at zero; live values come from the job.",
+      "html": "<progress class=\"ds-progress\" value=\"0\" max=\"100\" aria-label=\"Example job progress\"></progress>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-progress { display: block; width: 100%; height: 5px; accent-color: var(--accent, oklch(62.3% 0.214 259.815)); border: 0; border-radius: 4px; margin-top: 12px; background: var(--subtle, var(--ds-subtle)); } .ds-progress::-webkit-progress-bar { background: var(--subtle, var(--ds-subtle)); border-radius: 4px; } .ds-progress::-webkit-progress-value { background: var(--accent, oklch(62.3% 0.214 259.815)); border-radius: 4px; }"
+    },
+    {
+      "name": "Completed Preview Row",
+      "kind": "custom",
+      "refersTo": "preview-continuation",
+      "description": "Illustrative completed preview: secondary download and direct primary full-video continuation. The panel sample has no server actions.",
+      "html": "<div class=\"ds-preview-panel\"><div class=\"ds-preview-row\"><div><div class=\"ds-preview-name\">Example video.mkv <span class=\"ds-preview-tag\">Preview</span></div><p class=\"ds-preview-meta\">Conventional resizing · H264 / 2×</p><p class=\"ds-preview-meta\">Ready</p></div><div class=\"ds-preview-actions\"><button class=\"ds-preview-download\" type=\"button\">Download preview</button><button class=\"ds-preview-continue\" type=\"button\">Enhance full video</button></div></div></div>",
+      "css": ":host { --ds-surface: #ffffff; --ds-ink: oklch(21% 0.006 285.885); --ds-muted: oklch(44.2% 0.017 285.786); --ds-line: oklch(92% 0.004 286.32); --ds-subtle: oklch(96.7% 0.001 286.375); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); } @media (prefers-color-scheme: dark) { :host { --ds-surface: oklch(21% 0.006 285.885); --ds-ink: oklch(98.5% 0 none); --ds-muted: oklch(70.5% 0.015 286.067); --ds-line: oklch(27.4% 0.006 286.033); --ds-subtle: oklch(27.4% 0.006 286.033); } }.ds-preview-panel { border: 1px solid var(--line, var(--ds-line)); border-radius: 16px; background: var(--surface, var(--ds-surface)); overflow: hidden; } .ds-preview-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 20px; padding: 20px 24px; color: var(--ink, var(--ds-ink)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 1rem; line-height: 1.5; } .ds-preview-name { font-weight: 550; overflow-wrap: anywhere; } .ds-preview-meta { color: var(--muted, var(--ds-muted)); font-size: 13px; margin: 6px 0 0; line-height: 1.5; overflow-wrap: anywhere; } .ds-preview-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; } @media (max-width: 520px) { .ds-preview-row { padding: 18px; grid-template-columns: minmax(0,1fr); gap: 10px; } }.ds-preview-tag { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: 12px; line-height: 1.4; padding: 5px 9px; border-radius: 6px; background: var(--subtle, var(--ds-subtle)); color: var(--muted, var(--ds-muted)); white-space: nowrap; }.ds-preview-download { border: 1px solid var(--line, var(--ds-line)); border-radius: 8px; background: var(--surface, var(--ds-surface)); color: var(--ink, var(--ds-ink)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: .875rem; font-weight: 600; line-height: 1.4285714286; min-height: 44px; padding: 11px 17px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; cursor: pointer; } .ds-preview-download:hover { filter: brightness(.94); } .ds-preview-download:active { transform: scale(.98); } .ds-preview-download:disabled { cursor: default; opacity: .5; }.ds-preview-download:focus-visible { outline: 2px solid var(--accent, oklch(62.3% 0.214 259.815)); outline-offset: 4px; }@media (prefers-reduced-motion: no-preference) { .ds-preview-download { transition: background-color 160ms ease-out, transform 160ms ease-out; } }.ds-preview-continue { border: 1px solid var(--accent, oklch(62.3% 0.214 259.815)); border-radius: 8px; background: var(--accent, oklch(62.3% 0.214 259.815)); color: var(--accent-ink, oklch(14.1% 0.005 285.823)); font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif); font-size: .875rem; font-weight: 600; line-height: 1.4285714286; min-height: 44px; padding: 11px 17px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; cursor: pointer; } .ds-preview-continue:hover { filter: brightness(.94); } .ds-preview-continue:active { transform: scale(.98); } .ds-preview-continue:disabled { cursor: default; opacity: .5; }.ds-preview-continue:focus-visible { outline: 2px solid var(--accent, oklch(62.3% 0.214 259.815)); outline-offset: 4px; }@media (prefers-reduced-motion: no-preference) { .ds-preview-continue { transition: background-color 160ms ease-out, transform 160ms ease-out; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Quiet native workspace",
+    "overview": "Make remote processing feel like a simple local library task. Neutral surfaces, familiar controls and plain language let the library and its next useful action lead. The interface earns trust by distinguishing originals from finished copies and showing actual processing state.\n\nThe implemented world uses flat sections, thin dividers and one restrained action color. Recipes, worker pairing and queue actions stay inside the workspace. Motion briefly acknowledges navigation and interaction; system light/dark preference and reduced motion belong to the same world.\n\nThis record extracts reused styles from `ui.css`, `popcorn_sr/static/index.html` and `popcorn_sr/static/app.js`, resolving imported values against the installed Tailwind theme. The frontmatter is normative; component defaults describe the light theme, while the theme assignments below and sidecar snippets retain both themes. Minimum control heights live in the prose and snippets because the frontmatter's fixed-height property cannot represent them. Inspected evidence is in `evidence/screenshots`; it supports visual comparison, not GPU or AI readiness. The supplied workflow evidence covers CPU processing only.",
+    "keyCharacteristics": [
+      "Quiet zinc surfaces with blue actions and dark action text.",
+      "Restrained system sans with a clear task hierarchy.",
+      "Flat navigation, inline work and thin separators.",
+      "Familiar controls with a minimum target height of 44px.",
+      "System themes and reduced-motion-aware feedback."
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "Use Action Blue for the next processing action and focus or progress feedback; keep navigation and secondary actions neutral.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Hierarchy Rule",
+        "body": "Reserve headline and title emphasis for task structure; keep paths, formats and status in the supporting text hierarchy.",
+        "section": "typography"
+      },
+      {
+        "name": "The Inline Work Rule",
+        "body": "Keep recipes, pairing and job actions in their relevant workspace sections, using spacing and dividers to separate steps.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat By Default Rule",
+        "body": "Use neutral surfaces and thin dividers for structure; do not add decorative elevation to ordinary workspace sections.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Familiar Controls Rule",
+        "body": "Maintain the implemented 44px minimum height for buttons, navigation, text inputs and selects; checkbox labels and disclosure summaries provide the same minimum vertical target.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Continue The Preview Rule",
+        "body": "Let a completed preview continue directly from its job row with saved settings; keep download and choosing another source secondary to that continuation.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** keep actions and focus blue with dark text on filled blue buttons in both themes.",
+      "**Do** use neutral surfaces, thin dividers and the existing control/panel shape hierarchy.",
+      "**Do** preserve visible focus, native controls, wrapping paths and the 44px minimum control height.",
+      "**Do** pair semantic status indicators with readable words and neutral text.",
+      "**Do** continue a completed preview from its job row using the saved settings.",
+      "**Do** honor system light/dark preference and reduced motion."
+    ],
+    "donts": [
+      "**Don't** turn status colors into additional action colors.",
+      "**Don't** add decorative charts, fake activity, gradients or glass to this quiet workspace.",
+      "**Don't** make ordinary inline tasks depend on a decorative modal or nested card stack.",
+      "**Don't** imply that processing replaces the library original.",
+      "**Don't** treat screenshots, device names or mocked capabilities as GPU/AI readiness evidence.",
+      "**Don't** promote redundant eyebrows, Unicode icon substitutes or one-off brand measurements into reusable system tokens."
+    ]
+  }
+}

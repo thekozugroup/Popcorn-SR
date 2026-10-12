@@ -74,7 +74,7 @@ def create_app(settings: Settings | None = None):
 
     def admin(request: Request):
         token = bearer(request)
-        if token and secrets.compare_digest(token, cfg.admin_token):
+        if token and secrets.compare_digest(token.encode(), cfg.admin_token.encode()):
             return
         session = request.cookies.get("popcorn_session", "")
         with store.connect() as db:
@@ -116,7 +116,7 @@ def create_app(settings: Settings | None = None):
         recent = [t for t in attempts.get(address, []) if t > now - 60]
         if len(recent) >= 10:
             raise HTTPException(429, "Too many attempts. Wait a minute and try again.")
-        if not secrets.compare_digest(body.token, cfg.admin_token):
+        if not secrets.compare_digest(body.token.encode(), cfg.admin_token.encode()):
             attempts[address] = [*recent, now]
             raise HTTPException(401, "Access key is incorrect.")
         attempts.pop(address, None)
@@ -159,7 +159,7 @@ def create_app(settings: Settings | None = None):
                 "resize": "Lanczos resizing. Works without an AI runtime.",
                 "realesrgan": "Open-source AI restoration. Per-frame processing can introduce temporal flicker; preview first.",
                 "rtx-vsr": "AI upscaling through a separately installed RTX Video engine.",
-                "dlss-sr": "Experimental video DLSS through a separately installed Windows engine.",
+                "dlss-sr": "Experimental video DLSS through a separately installed video engine. No renderer is bundled.",
                 "dlss5": "Experimental neural rendering. May change the appearance of the original.",
             },
         }
@@ -226,8 +226,7 @@ def create_app(settings: Settings | None = None):
         store.touch(item["id"], data.get("capabilities", {}), data.get("scratch", {}))
         return {"ok": True}
 
-    @app.post("/api/jobs", dependencies=[Depends(admin)])
-    async def add_job(body: JobCreate):
+    async def queue_job(body: JobCreate, expected_source=None, require_compatible=False):
         try:
             path = beneath(cfg.library, body.path, file=True)
             if path.suffix.lower() not in VIDEO_EXTENSIONS:
@@ -249,8 +248,22 @@ def create_app(settings: Settings | None = None):
                 w["id"] for w in store.workers() if not w["revoked"]
             }:
                 raise ValueError("Choose an active worker.")
+            if require_compatible and not any(
+                not w["revoked"]
+                and (not body.worker_id or w["id"] == body.worker_id)
+                and body.recipe.engine in w["capabilities"].get("engines", [])
+                and f"{body.recipe.codec}_{body.recipe.encoder}" in w["capabilities"].get("encoders", [])
+                for w in store.workers()
+            ):
+                raise ValueError(
+                    "No worker supports these preview settings. Reconnect its worker or create a new preview."
+                )
             source = await asyncio.to_thread(inspect_source, path)
-            if source["hdr"] or "10" in source["pix_fmt"] or "12" in source["pix_fmt"]:
+            if expected_source and source["sha256"] != expected_source["sha256"]:
+                raise ValueError(
+                    "The source changed after this preview. Create and review a new preview first."
+                )
+            if source["hdr"] or source["bit_depth"] != 8:
                 raise ValueError(
                     "HDR and high-bit-depth sources are protected. This release accepts 8-bit SDR only; keep this source unchanged."
                 )
@@ -263,6 +276,20 @@ def create_app(settings: Settings | None = None):
             return public_job(store.add_job(body.path, body.recipe.model_dump(), source, body.worker_id))
         except (ValueError, OSError) as exc:
             raise HTTPException(400, str(exc)) from exc
+
+    @app.post("/api/jobs", dependencies=[Depends(admin)])
+    async def add_job(body: JobCreate):
+        return await queue_job(body)
+
+    @app.post("/api/jobs/{identity}/full", dependencies=[Depends(admin)])
+    async def full_from_preview(identity: str):
+        job = store.job(identity)
+        if not job or job["status"] != "completed" or not job["recipe"]["preview_seconds"]:
+            raise HTTPException(409, "Complete a preview before continuing to the full video.")
+        body = JobCreate(
+            path=job["path"], recipe=job["recipe"] | {"preview_seconds": 0}, worker_id=job["target"]
+        )
+        return await queue_job(body, expected_source=job["source"], require_compatible=True)
 
     @app.post("/api/jobs/{identity}/cancel", dependencies=[Depends(admin)])
     def cancel(identity: str):

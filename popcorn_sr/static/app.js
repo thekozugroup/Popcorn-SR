@@ -28,7 +28,7 @@ function jobRows(jobs) {
   if (!jobs.length) return empty('Your first copy starts here', 'Choose a video, try a preview, and let your worker handle the rest.', '<button class="button" data-view="library">Browse library</button>');
   return jobs.map(job => {
     const running = job.status === 'running';
-    const actions = job.status === 'completed' ? `<a class="button" href="/api/jobs/${esc(job.id)}/download">Download ${job.recipe.preview_seconds ? 'preview':'copy'}</a>` : ['failed','cancelled'].includes(job.status) ? `<button class="button" data-action="retry" data-id="${esc(job.id)}">Retry</button>` : `<button class="button quiet" data-action="cancel" data-id="${esc(job.id)}">Cancel</button>`;
+    const actions = job.status === 'completed' ? `<a class="button" href="/api/jobs/${esc(job.id)}/download">Download ${job.recipe.preview_seconds ? 'preview':'copy'}</a>${job.recipe.preview_seconds ? `<button class="button primary" data-action="full" data-id="${esc(job.id)}">Enhance full video</button>` : ''}` : ['failed','cancelled'].includes(job.status) ? `<button class="button" data-action="retry" data-id="${esc(job.id)}">Retry</button>` : `<button class="button quiet" data-action="cancel" data-id="${esc(job.id)}">Cancel</button>`;
     return `<div class="row"><div><div class="row-name">${esc(job.path.split('/').pop())}${job.recipe.preview_seconds ? ' <span class="tag">Preview</span>' : ''}</div><p class="row-meta">${esc(engineNames[job.recipe.engine])} · ${esc(job.recipe.codec.toUpperCase())} / ${job.recipe.scale}×</p><p class="row-meta">${esc(job.stage)}${running ? ` / ${Math.floor(job.progress)}%` : ''}${job.status === 'queued' ? ' · Waiting for a compatible worker' : ''}</p>${job.error ? `<p class="message error">${esc(job.error)}</p>` : ''}${job.result ? `<p class="row-meta">${esc(job.result.path)} / ${bytes(job.result.bytes)}</p>` : ''}${running ? `<progress value="${job.progress}" max="100" aria-label="Processing ${esc(job.path)}"></progress>` : ''}</div><div class="actions">${actions}</div></div>`;
   }).join('');
 }
@@ -123,6 +123,7 @@ document.addEventListener('click', async event => {
     if (action === 'revoke') await api(`/api/workers/${id}/revoke`, {method:'POST'});
     else await api(`/api/jobs/${id}/${action}`, {method:'POST'});
     await refresh();
+    if (action === 'full') notice('Full video queued using your preview settings. Your original is preserved.');
   } catch (error) { notice(error.message, true); button.disabled = false; }
 });
 $('#login-form').addEventListener('submit', async event => {

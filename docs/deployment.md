@@ -44,6 +44,8 @@ The marker identifies the scratch folder. Docker Compose refuses to create a mis
 
 The worker tests each codec with a real encode before appearing ready. Spark and desktop driver/library differences may disable individual codecs; no NVIDIA fallback to CPU occurs when a GPU job is requested.
 
+In **Library**, choose a video and select **Preview 5 seconds**. Download and review the completed preview in **Queue**, then select **Enhance full video** on that preview. The full job reuses the source, destination, enhancement and processing-device choice. The manager rechecks source integrity and worker compatibility before queueing it; a changed source requires a new preview.
+
 ## Add open-source AI on Spark or desktop
 
 The larger AI image uses NVIDIA's CUDA PyTorch base. This path is intended for both Linux AMD64 and ARM64; **physical GPU validation is pending**. Base image availability and GPU support must be checked on the target device.

@@ -53,6 +53,9 @@ npm ci
 npm run build
 uv run ruff check .
 uv run pytest
+npx playwright install chromium
+npm run test:browser
+docker build -t popcorn-sr:dev .
 uv run python scripts/docker-smoke.py
 ```
 

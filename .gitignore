@@ -19,4 +19,8 @@ skills-lock.json
 
 test-results/
 playwright-report/
-.impeccable/
+.impeccable/*
+!.impeccable/design.json
+!.impeccable/surfaces/
+.impeccable/surfaces/*
+!.impeccable/surfaces/*.md

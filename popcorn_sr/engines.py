@@ -146,9 +146,20 @@ def processing_command(source: Path, output: Path, recipe: dict, info: dict):
     return adapter_command(recipe["engine"], source, output, recipe, info)
 
 
-def run_check(command, *, timeout=60):
+def run_check(command, *, timeout=60, scratch=None):
     try:
-        done = subprocess.run(command, capture_output=True, timeout=timeout, check=False)
+        env = os.environ.copy()
+        if scratch is not None:
+            env.update(
+                {
+                    "TMPDIR": str(scratch),
+                    "TEMP": str(scratch),
+                    "TMP": str(scratch),
+                    "XDG_CACHE_HOME": str(scratch.parent / "cache"),
+                    "CUDA_CACHE_PATH": str(scratch.parent / "cache" / "cuda"),
+                }
+            )
+        done = subprocess.run(command, capture_output=True, timeout=timeout, check=False, env=env)
         return done.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -201,7 +212,7 @@ def detect_capabilities(scratch: Path):
             "-y",
             str(target),
         ]
-        if run_check(command):
+        if run_check(command, scratch=scratch):
             encoders.append(name)
         target.unlink(missing_ok=True)
     configured = {}
@@ -241,19 +252,24 @@ def detect_capabilities(scratch: Path):
                     "libx264",
                     "-y",
                     str(source),
-                ]
+                ],
+                scratch=scratch,
             ):
                 raise ValueError("Could not prepare an engine test clip.")
             recipe = Recipe(engine=engine, encoder="nvidia", scale=1 if engine == "dlss5" else 2).model_dump()
             info = probe(source)
-            if not run_check(adapter_command(engine, source, output, recipe, info), timeout=180):
+            if not run_check(
+                adapter_command(engine, source, output, recipe, info), timeout=180, scratch=scratch
+            ):
                 raise ValueError("Engine processing check failed. Verify runtime, driver and hardware.")
             processed = engine_result(engine, output)
             result = probe(processed)
             expected = (256, 144) if engine == "dlss5" else dimensions(info, recipe)
             if (result["width"], result["height"]) != expected or abs(result["duration"] - 1) > 0.5:
                 raise ValueError("Engine test produced unexpected dimensions or duration.")
-            if not run_check(["ffmpeg", "-v", "error", "-i", str(processed), "-f", "null", "-"]):
+            if not run_check(
+                ["ffmpeg", "-v", "error", "-i", str(processed), "-f", "null", "-"], scratch=scratch
+            ):
                 raise ValueError("Engine test output failed decoding.")
             engines.append(engine)
         except (ValueError, OSError, KeyError) as exc:

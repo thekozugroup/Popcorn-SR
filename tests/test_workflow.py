@@ -17,6 +17,7 @@ def test_auth_pairing_is_single_use_and_revocable(setup, auth):
     client.headers.pop("Authorization")
     assert client.get("/api/state").status_code == 401
     assert client.post("/api/login", json={"token": "wrong"}).status_code == 401
+    assert client.post("/api/login", json={"token": "incorrect-\u2603"}).status_code == 401
     assert client.post("/api/login", json={"token": cfg.admin_token}).status_code == 200
     assert "HttpOnly" in client.cookies.__repr__() or client.get("/api/state").status_code == 200
     credentials, payload = pair_worker(client)
@@ -68,6 +69,28 @@ def test_paths_and_hdr_fail_closed(setup, auth):
     )
     response = client.post("/api/jobs", json={"path": hdr.name, "recipe": Recipe().model_dump()})
     assert response.status_code == 400 and "HDR" in response.json()["detail"]
+    # A 16-bit SDR source must also be rejected instead of silently quantized to 8-bit.
+    deep = cfg.library / "deep.mkv"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-i",
+            str(clip),
+            "-c:v",
+            "ffv1",
+            "-pix_fmt",
+            "gray16le",
+            "-c:a",
+            "copy",
+            str(deep),
+        ],
+        check=True,
+    )
+    assert inspect_source(deep)["bit_depth"] == 16
+    response = client.post("/api/jobs", json={"path": deep.name, "recipe": Recipe().model_dump()})
+    assert response.status_code == 400 and "8-bit" in response.json()["detail"]
 
 
 def test_real_media_roundtrip_and_checksum_rejection(setup, auth, tmp_path):
@@ -163,7 +186,25 @@ def test_actual_worker_streams_processes_returns_and_cleans_scratch(setup, auth,
     asyncio.run(run())
     result = store.job(claim["id"])
     assert result["status"] == "completed", result["error"]
+    continued = client.post(f"/api/jobs/{claim['id']}/full")
+    assert continued.status_code == 200, continued.text
+    assert continued.json()["recipe"] == recipe | {"preview_seconds": 0}
+    full = continued.json()
+    assert client.post(f"/api/jobs/{full['id']}/full").status_code == 409
+    store.touch(worker_info["id"], {"engines": ["resize"], "encoders": ["hevc_cpu"]})
+    assert client.post(f"/api/jobs/{claim['id']}/full").status_code == 400
+    store.touch(worker_info["id"], {"engines": ["resize"], "encoders": ["h264_cpu"]})
+    with clip.open("ab") as stream:
+        stream.write(b"source-changed-after-preview")
+    response = client.post(f"/api/jobs/{claim['id']}/full")
+    assert response.status_code == 400 and "source changed" in response.json()["detail"]
     assert list(scratch.iterdir()) == [scratch / ".popcorn-scratch"]
+    (scratch / ".popcorn-scratch").write_text("unexpected-drive")
+    try:
+        worker.storage()
+        raise AssertionError("Changed scratch drive must stop processing")
+    except ValueError:
+        pass
     (scratch / ".popcorn-scratch").unlink()
     try:
         worker.storage()

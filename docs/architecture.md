@@ -26,6 +26,8 @@ SQLite uses WAL and transactions. Pairing codes expire after ten minutes and are
 
 Claims serialize through `BEGIN IMMEDIATE`. A worker gets one active job and a random lease. Heartbeats renew it; cancellation/revocation clears it. Late or wrong-worker source/result requests are rejected. Expired jobs become failed for explicit review/retry, avoiding automatic duplicate processing. Pending jobs wait for compatible engines/codecs and optional worker targeting.
 
+`POST /api/jobs/{id}/full` continues a completed preview using its saved recipe with `preview_seconds=0`. It verifies the source SHA-256 is unchanged and rechecks the selected worker/compatible engines and codecs. Incomplete previews, changed sources and incompatible workers fail with a clear recovery message.
+
 ## Media preservation
 
 The manager resolves paths below fixed library/output roots, rejects traversal and external symlinks, fingerprints each source and hashes it while queueing. The worker checks the download hash against that fingerprint. Recipes use allowlisted options rather than arbitrary FFmpeg arguments. Shell execution is never used for an engine command.
