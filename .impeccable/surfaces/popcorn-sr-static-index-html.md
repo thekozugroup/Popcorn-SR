@@ -26,3 +26,5 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 ## Verification
 
 Chromium captures at 390, 768 and 1440; light/dark and reduced-motion coverage. Real CPU preview-to-full processing, authenticated downloads, accessibility and overflow checks. GPU processing remains a separate physical acceptance gate.
+
+2026-10-13 startup review: Checking support and Checks failed states use truthful status text, no fake progress, actionable drive/restart guidance, and no premature codec/engine claims. Device/destination/codec selections survive readiness changes. Five Chromium workflows pass. Inspected 390 dark/1440 light captures for both fixture states and the actual temporary Unraid manager with a checking Spark worker; Axe, overflow and actual preview-disabled checks passed. The paired GPU exports have separate physical receipts. Verdict: these startup states pass the current design/interaction checks; unfinished NVIDIA stages remain unavailable.
