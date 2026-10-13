@@ -67,7 +67,8 @@ def test_lossless_rgb_pipe_preserves_submillisecond_pts_for_dense_intermediates(
             assert any(np.array_equal(frame.to_ndarray(format="rgb24"), rgb) for rgb in original)
 
 
-def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_path):
+@pytest.mark.parametrize("audio_codec", ["pcm_s16le", "aac"])
+def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_path, audio_codec):
     import json
     import subprocess
 
@@ -85,7 +86,7 @@ def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_pa
         "ffmpeg", "-v", "error", "-itsoffset", "0.25", "-f", "lavfi", "-i", "testsrc2=size=32x16:rate=24",
         "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-f", "ffmetadata", "-i", str(metadata),
         "-map", "0:v", "-map", "1:a", "-map_metadata", "2", "-map_chapters", "2", "-t", "1",
-        "-c:v", "libx264", "-bf", "0", "-c:a", "pcm_s16le", "-attach", str(attachment),
+        "-c:v", "libx264", "-bf", "0", "-c:a", audio_codec, "-attach", str(attachment),
         "-metadata:s:t", "mimetype=text/plain", str(source),
     ], check=True)
     end, rate = Fraction(751, 1000), Fraction(60)
@@ -115,9 +116,22 @@ def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_pa
         p["data_hash"] for p in result["packets"] if p["stream_index"] == 1
     ]
     assert result["streams"][2]["extradata_hash"] == original["streams"][2]["extradata_hash"]
-    assert result["chapters"] == original["chapters"]
+    # AAC priming may start before zero. Remux can shift the whole timeline;
+    # chapters and copied packets must retain their relationship to the picture.
+    shift = Fraction(result_video["start_time"]) - Fraction(original_video["start_time"])
+    assert len(result["chapters"]) == len(original["chapters"])
+    for before, after in zip(original["chapters"], result["chapters"], strict=True):
+        assert after["tags"] == before["tags"]
+        for field in ("start_time", "end_time"):
+            assert abs(Fraction(after[field]) - Fraction(before[field]) - shift) <= Fraction(1, 1000)
+    before_audio = [p for p in original["packets"] if p["stream_index"] == 1]
+    after_audio = [p for p in result["packets"] if p["stream_index"] == 1]
+    for before, after in zip(before_audio, after_audio, strict=True):
+        assert abs(Fraction(after["pts_time"]) - Fraction(before["pts_time"]) - shift) <= Fraction(1, 1000)
     assert result["format"]["tags"]["title"] == "Timing fixture"
-    assert abs(float(result_video["tags"]["DURATION"].split(":")[-1]) - (float(end) + .25)) <= .001
+    assert abs(float(result_video["tags"]["DURATION"].split(":")[-1]) - (
+        float(end) + float(result_video["start_time"])
+    )) <= .001
     subprocess.run(["ffmpeg", "-v", "error", "-i", str(returned), "-f", "null", "-"], check=True)
 
 
