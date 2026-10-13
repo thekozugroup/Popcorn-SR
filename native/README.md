@@ -64,3 +64,26 @@ Representative image quality, color accuracy, long jobs and failure behavior req
 Physical Spark video evidence: 48-frame, two-second 192×128 clips produced 384×256 H.264/HEVC/AV1, each with exact source frame timestamps. A 38-frame variable-rate clip retained exact timing too. All 25 mode/preset hint pairs and three motion-estimation qualities passed actual three-frame SDK checks. Pixel buffers are checked for finite values before encoding. These tests used an existing CUDA container with RAM-backed pinned dependencies and SDK files, not the new NGX Docker image. All owned test resources were removed, and the existing service/image inventories were preserved.
 
 Subsequent dedicated-package acceptance passed on Spark using the ARM64 NGX image built from `3be022b7620c2c6fccbb88cb42768e93f82c94dd`. Its imported filesystem layers, environment and architecture matched the local image. Startup verified all 25 mode/preset pairs in about 289 seconds. A paired Mac manager received five-second generated previews with audio: H.264/Performance/Default/high motion at 320×192, HEVC/Quality/K/medium at 240×144, and AV1/DLAA/J/low at 160×96. Download hashes matched, the original checksum was unchanged and no job folders remained. The temporary image/container and all owned RAM files were removed; existing service/image inventories matched. This used an SSH reverse tunnel, not a NAS/LAN benchmark. The published 0.2.0 image remains unchanged.
+
+## Headless Vulkan frame-generation diagnostic
+
+`ngx_vulkan_probe.cpp` checks extension discovery, the selected NVIDIA physical device, feature requirements, NGX initialization and capability parameters. With `fg --create`, it creates a small 256×192 RGBA8 Frame Generation feature and submits its initialization command buffer. It never evaluates images and always reports `video_render_verified: false`. This is a diagnostic, not an enabled worker engine.
+
+Build against separately provisioned NVIDIA SDK headers/static wrapper and Vulkan headers on the intended architecture:
+
+```sh
+# Use Linux_x86_64 on an x86 worker. The SDK wrapper supplies the typed public API;
+# direct driver exports can have different signatures and must not be substituted.
+g++ -std=c++17 -O2 -Wall -Wextra -Werror -I "$SDK_ROOT/include" \
+  native/ngx_vulkan_probe.cpp "$SDK_ROOT/lib/Linux_aarch64/libnvsdk_ngx.a" \
+  -Wl,-l:libvulkan.so.1 -ldl -pthread -o "$PROBE_SCRATCH/ngx-vulkan-probe"
+HOME="$PROBE_SCRATCH" TMPDIR="$PROBE_SCRATCH" \
+  XDG_CACHE_HOME="$PROBE_SCRATCH" CUDA_CACHE_PATH="$PROBE_SCRATCH/cuda" \
+  __GL_SHADER_DISK_CACHE_PATH="$PROBE_SCRATCH/shaders" \
+  LD_LIBRARY_PATH="$NGX_RUNTIME_PATH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  "$PROBE_SCRATCH/ngx-vulkan-probe" "$NGX_RUNTIME_PATH" "$PROBE_SCRATCH" fg --create
+```
+
+The probe requires Vulkan 1.3. Inspect every operation result; exit zero means the requested diagnostic operations completed, not that video output exists. Failed feature-requirement queries report null support flags, so untouched zero-valued output cannot be mistaken for support. Without `--create`, successful capability discovery can still report an unavailable feature. Remove only the owned scratch folder afterward.
+
+Physical Spark evidence on driver 580.173.02 and SDK 310.9.1: Vulkan found GB10, all required extensions were present, Frame Generation requirements reported supported, its availability and initialization values were successful, and actual feature creation plus command submission/wait passed. CUDA's earlier unsupported result did not apply to this Vulkan path. The SDK/library copies, executable and driver caches were temporary RAM files; the owned container was removed and existing service/image inventories matched. No new Docker image or NAS resource was created. The test used the host's matched Vulkan loader/driver libraries inside an existing image; it does not validate future production Vulkan packaging. Pixel evaluation, video cadence and full-job integration remain unfinished.

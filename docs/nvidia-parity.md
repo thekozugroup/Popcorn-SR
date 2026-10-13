@@ -8,7 +8,7 @@ Popcorn SR's completion goal includes all five primary NVIDIA video enhancements
 | DLSS Super Resolution | DLAA, Quality, Balanced, Performance, Ultra Performance; preset and temporal quality | Native CUDA SDR video backend, controls and packaged paired delivery verified on Spark; representative quality and NAS delivery remain unverified |
 | RTX Video Super Resolution | Quality 1–4, scale or custom dimensions | Linux x86 VFX adapter; no verified Spark backend |
 | RTX Video HDR | Contrast, saturation, middle gray, peak luminance, precision | SDR-to-HDR processing, 10-bit encoding and validation remain unfinished |
-| DLSS frame generation | Target FPS, engine mode, optical-flow quality | Native DLSSG video processing and timing validation remain unfinished |
+| DLSS frame generation | Target FPS, engine mode, optical-flow quality | Native Vulkan requirements and feature creation passed on Spark; pixel/video processing and timing validation remain unfinished |
 
 Stages must be independently selectable, with compatible combinations and ordering. A preview must exercise the same settings and backend as the full job. Each enabled stage must pass its own real processing check on the selected worker. Unsupported stages stay unavailable with an actionable reason; availability does not count as completion.
 
@@ -37,3 +37,9 @@ The dedicated ARM64 NGX Docker worker built from commit `3be022b7620c2c6fccbb88c
 This establishes native SDR execution, short-clip timing and dedicated packaged paired delivery. It does not establish representative library quality, faithful color reproduction, large-resolution/long-job behavior or NAS → native SR worker → NAS delivery. These remain acceptance gates. No other NVIDIA stage is implied by Super Resolution passing.
 
 Separately provisioned NVIDIA components retain their [own terms](https://github.com/NVIDIA/DLSS/blob/main/LICENSE.txt). A proprietary reference application is a behavioral reference, not permission to copy or redistribute its implementation. Architecture/runtime constraints remain open completion requirements.
+
+## Vulkan frame-generation progress
+
+The independent headless Vulkan diagnostic subsequently passed on the same physical Spark. Vulkan identified GB10, all required extensions were available, and SDK Frame Generation requirements returned supported. NGX initialization, Frame Generation availability/initialization parameters, 256×192 RGBA8 feature creation and submitted initialization commands all succeeded. This corrects the API-specific CUDA limitation; it does not establish produced frames. The probe always reports `video_render_verified: false`, and no Frame Generation UI/worker engine is enabled by it.
+
+The temporary test used an existing image with the host's matched Vulkan loader/graphics libraries. SDK files, executable, shader/driver caches and scratch were in owned RAM folders and removed with the container; existing service/image inventories matched. No new image or NAS resource was created. SDK wrapper signatures, architecture and graphics-library discovery must be preserved in future packaging. Actual image evaluation, output cadence, controls, preview/full delivery and combinations remain completion requirements.

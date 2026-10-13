@@ -40,6 +40,8 @@ Ethernet through a router/switch works. Direct Ethernet works with reachable sta
 
 ## Engines and compatibility
 
+This table describes the published 0.2.0 preview. Native DLSS development on `main` is described above.
+
 | Engine | Linux x86 desktop | Linux ARM64 / Spark | Bundled? |
 |---|---|---|---|
 | FFmpeg resizing + encoding | Runtime-tested | Runtime-tested | Yes |
