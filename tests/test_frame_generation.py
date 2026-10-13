@@ -167,3 +167,32 @@ def test_submillisecond_final_frame_does_not_expand_to_a_nominal_period(tmp_path
     with av.open(str(path)) as result:
         assert len(list(result.decode(video=0))) == count
     assert abs(probe(path)['duration'] - float(end)) <= .0015
+
+
+def test_fractional_codec_declarations_need_actual_packet_cadence(tmp_path):
+    import av
+
+    from popcorn_sr.media import probe, validate_output
+    from popcorn_sr.models import Recipe
+
+    rate, clock = FPS['59.94'], Fraction(1, 60000)
+    for step, valid in [(1001, True), (2000, False)]:
+        path = tmp_path / f'cadence-{step}.mkv'
+        with encoded_video(path, 32, 16, rate, clock, [
+            '-c:v', 'libx265', '-bf', '0', '-x265-params', 'pools=1:frame-threads=1:log-level=error', '-pix_fmt', 'yuv420p',
+        ]) as (container, video):
+            for index in range(30):
+                frame = av.VideoFrame.from_ndarray(np.zeros((16, 32, 3), dtype=np.uint8), format='rgb24')
+                frame.pts, frame.time_base = index * step, clock
+                for packet in video.encode(frame):
+                    container.mux(packet)
+        info = probe(path)
+        # Real HEVC/Matroska approximates the declaration while packet timing
+        # distinguishes genuine 59.94 from deliberately mislabeled 30 fps.
+        assert abs(Fraction(info['frame_rate']) - rate) < rate / 100_000
+        recipe = Recipe(codec='hevc', encoder='nvidia', scale=1, frame_generation=True, frame_rate='59.94').model_dump()
+        if valid:
+            validate_output(path, info, recipe)
+        else:
+            with pytest.raises(ValueError, match='packet timing'):
+                validate_output(path, info, recipe)

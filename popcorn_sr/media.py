@@ -133,8 +133,13 @@ def validate_output(path: Path, source: dict, recipe: dict):
             actual_rate = Fraction(info["frame_rate"])
         except (ValueError, ZeroDivisionError):
             raise ValueError("Generated output has no valid frame rate.") from None
-        if actual_rate != FPS[recipe.get("frame_rate", "60")]:
+        target_rate = FPS[recipe.get("frame_rate", "60")]
+        # Matroska/codec declarations can rationally approximate 1001-based
+        # rates (e.g. HEVC reports 19001/317 for 60000/1001). Check the
+        # actual packet clock too, rather than accepting a label alone.
+        if abs(actual_rate - target_rate) > target_rate / 100_000:
             raise ValueError("Generated output frame rate differs from the requested cadence.")
+        verify_packet_cadence(path, info, target_rate)
     for key in ("audio_streams", "subtitle_streams", "attachment_streams"):
         if info[key] != source[key]:
             raise ValueError(f"Output lost {key.replace('_', ' ')}. Original preserved; result rejected.")
@@ -162,6 +167,29 @@ def validate_output(path: Path, source: dict, recipe: dict):
         raise ValueError("Output failed its playback check. Original preserved; result rejected.")
     info["sha256"] = sha256(path)
     return info
+
+
+def verify_packet_cadence(path, info, rate):
+    """Bounded packet timing sample; no decoding or reliance on nominal FPS alone."""
+    start = str(Fraction(info["video_start_time"])) if info.get("video_start_time") else "0"
+    # FFprobe expects decimal seek seconds, not a rational expression.
+    start = str(float(Fraction(start)))
+    result = subprocess.run([
+        "ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe", "-select_streams", "V:0",
+        "-read_intervals", f"{start}%+#1024", "-show_entries", "packet=pts_time", "-of", "json",
+        str(path.resolve()),
+    ], capture_output=True, text=True, timeout=60, check=True)
+    packets = json.loads(result.stdout).get("packets", [])
+    try:
+        first = Fraction(packets[0]["pts_time"])
+        valid = len(packets) >= 2 and all(
+            abs(Fraction(packet["pts_time"]) - first - index / rate) <= Fraction(1, 1000)
+            for index, packet in enumerate(packets)
+        )
+    except (ValueError, TypeError, KeyError, IndexError):
+        valid = False
+    if not valid:
+        raise ValueError("Generated output packet timing differs from the requested cadence.")
 
 
 def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict, *, video_only=False):
