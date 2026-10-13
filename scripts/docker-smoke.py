@@ -31,6 +31,55 @@ def docker(*arguments):
     return result.stdout.strip()
 
 
+def check_4k_validation(client, root):
+    """Exercise real manager validation; this fixture does not claim GPU work."""
+    clip = root / "library" / "validation-4k.mkv"
+    subprocess.run([
+        "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=3840x2160:rate=24",
+        "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "2",
+        "-c:v", "libx264", "-preset", "veryfast", "-threads", "2", "-bf", "0", "-refs", "3",
+        "-c:a", "aac", str(clip),
+    ], check=True)
+    original = hashlib.sha256(clip.read_bytes()).hexdigest()
+    code = client.post("/api/pair-codes").json()["code"]
+    response = client.post("/api/workers/pair", json={
+        "code": code, "name": "4K validation fixture",
+        "capabilities": {"engines": ["resize"], "encoders": ["h264_cpu"]},
+        "scratch": {"path": "/scratch", "free_bytes": 1024**3},
+    })
+    response.raise_for_status()
+    fixture = response.json()
+    headers = {"Authorization": f"Bearer {fixture['token']}"}
+    response = client.post("/api/jobs", json={
+        "path": clip.name, "worker_id": fixture["worker_id"],
+        "recipe": {"scale": 1, "output_directory": "validation"},
+    })
+    response.raise_for_status()
+    identity = response.json()["id"]
+    response = client.post("/api/worker/claim", headers=headers)
+    response.raise_for_status()
+    claim = response.json()["job"]
+    assert claim["id"] == identity
+    # Return the generated clip itself: only transport, validation and
+    # publication are under test. The real paired encode ran separately.
+    response = client.put(f"/api/worker/jobs/{identity}/result", content=clip.read_bytes(), headers={
+        **headers, "X-Job-Lease": claim["lease"], "X-Output-SHA256": original,
+    }, timeout=90)
+    response.raise_for_status()
+    job = next(j for j in client.get("/api/state").json()["jobs"] if j["id"] == identity)
+    assert job["status"] == "completed"
+    assert (job["result"]["width"], job["result"]["height"], job["result"]["audio_streams"]) == (3840, 2160, 1)
+    assert hashlib.sha256(clip.read_bytes()).hexdigest() == original
+    assert hashlib.sha256(client.get(f"/api/jobs/{identity}/download").content).hexdigest() == original
+    memory = json.loads(docker("exec", manager, "/app/.venv/bin/python", "-c",
+        "import json;from pathlib import Path;print(json.dumps({n:Path('/sys/fs/cgroup/'+n).read_text().strip() "
+        "for n in ['memory.peak','memory.events','memory.max']}))"))
+    events = dict(line.split() for line in memory["memory.events"].splitlines())
+    assert events["oom_kill"] == "0" and int(memory["memory.max"]) == 512 * 1024**2
+    return {"kind": "generated CPU validation fixture", "size": [3840, 2160],
+            "original_audio_and_download_hash_preserved": True, "cgroup": memory}
+
+
 Path("evidence").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").resolve()) as temp:
     root = Path(temp)
@@ -88,6 +137,10 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
             "--read-only",
             "--tmpfs",
             "/tmp:size=64m",
+            "--memory",
+            "512m",
+            "--cpus",
+            "0.5",
             "--cap-drop=ALL",
             "--security-opt=no-new-privileges:true",
             "-v",
@@ -182,6 +235,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 == job["result"]["sha256"]
             )
             assert not list((root / "scratch").glob("job-*"))
+            validation = check_4k_validation(client, root)
             report = {
                 "status": "passed",
                 "image": args.image,
@@ -193,6 +247,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 "result": job["result"],
                 "original_unchanged": True,
                 "scratch_cleaned": True,
+                "manager_4k_validation": validation,
             }
             args.report.parent.mkdir(parents=True, exist_ok=True)
             args.report.write_text(json.dumps(report, indent=2) + "\n")

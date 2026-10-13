@@ -189,8 +189,16 @@ def validate_output(path: Path, source: dict, recipe: dict):
     result = subprocess.run(
         [
             "ffmpeg",
+            "-nostdin",
             "-v",
             "error",
+            # Auto threading follows the host's CPU count, even when the
+            # lightweight manager has a small container memory/CPU limit.
+            # Bound decoder buffers for 4K validation on many-core hosts.
+            "-threads",
+            "2",
+            "-filter_threads",
+            "1",
             "-protocol_whitelist",
             "file,pipe",
             "-i",
@@ -199,6 +207,8 @@ def validate_output(path: Path, source: dict, recipe: dict):
             "2",
             "-map",
             "0:v:0",
+            "-threads",
+            "1",
             "-f",
             "null",
             "-",

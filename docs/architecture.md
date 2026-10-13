@@ -36,6 +36,8 @@ The worker preserves compatible audio, subtitle and attachment streams, chapters
 
 Before publishing, manager and worker check codec, dimensions, duration, stream counts and a real decode sample. Transfer SHA-256 verifies byte integrity. Publication links a hidden temporary file to a unique finished name inside a serialized job-state transaction. Cancelled uploads are discarded. Existing completed filenames are never replaced. Hard-crash leftovers remain temporary/unpublished and may need operator cleanup.
 
+The playback sample uses two decoder threads and one filter/output thread. FFmpeg's automatic thread count follows the host CPU inventory, which can exhaust a small NAS container's memory even when its CPU quota is low. These limits bound decoder buffers; they do not alter the exported video or remove the media-preservation checks. The Docker smoke test independently returns a generated 4K clip through a manager limited to 512 MiB and checks publication, audio, original/download hashes and absence of memory kills.
+
 ## Deployment boundaries
 
 Default images build for Linux AMD64/ARM64. NVIDIA encoders need driver libraries and Container Toolkit. AI runtimes are optional, larger and hardware-specific. No proprietary models or DLSS runtimes ship in the default image. Linux GPU execution, native Windows adapters, Spark AI and external-drive hot-unplug require actual device acceptance; tests on a CPU Mac/container do not establish those capabilities.

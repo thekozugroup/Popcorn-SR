@@ -3,7 +3,13 @@
 ## Objective
 Complete a standalone Docker NAS manager and paired or single-host Linux worker, with one simple Astryx workspace, configurable scratch/output storage and verified available NVIDIA processing. Input on the left, output queue on the right, settings underneath. Publish verified milestones on clean main. On 2026-10-13 the user deferred neural rendering and accepted previous available DLSS versions; the historical five-stage mandatory gate is superseded. VSR/HDR remain optional, genuinely checked integrations rather than advertised support without a runtime. The 0.2.0 published preview remains separate from development main.
 
-## Current iteration — simplify the workspace and family identity
+## Current iteration — 4K validation and native recovery
+
+Reproduced a valid generated 3840×2160 H.264 return being rejected by the actual manager on Spark at the prior clean commit `449542622800cfec6ea4e3d56d788678953a1b66`. With 20 visible CPUs, 0.5 CPU quota and 512 MiB memory, the container recorded one memory kill during the playback check and returned HTTP 400. The same standalone decode used 489 MiB with automatic threads versus 134 MiB with bounded threads. Exact imported filesystem layers, environment, revision and all Python module hashes matched; Docker's containerd index ID and Spark's legacy config ID differ legitimately. Original device containers/images and driver hash were preserved, and all owned diagnostic RAM/resources were removed. NAS untouched. Receipts: ignored `evidence/4k-validation-recovery-20261013/diagnostic.json` and `manager-api-before.json`.
+
+Bound the playback validator to two decoder threads and one filter/output thread, retaining the same two-second sample and all existing preservation/publication gates. Added a real generated 4K upload/download and cgroup-memory regression to the Docker smoke test, whose manager now runs within 512 MiB/0.5 CPU. Local checks, rebuilt-package acceptance and native 4K/recovery verification remain in progress; no success is claimed yet.
+
+## Previous iteration — simplify the workspace and family identity
 
 Implementation complete: removed sidebar/dashboard and separate library/queue views. The input and queue remain together, with three selectors underneath, one primary action, optional controls in More options and a secondary setup entry. Settings survive setup and changing sources. Explicit missing enhancement choices block submission rather than silently falling back. The header/login/favicon use the Batch geometry with a lower-right teal-500 circle. Rust assessment favors a measured worker/frame-buffer component and keeps the lightweight manager/browser stack; no Rust runtime or speedup is claimed.
 
@@ -55,7 +61,7 @@ A real Linux/Mac comparison reproduced the rejection without GPU inference: FFmp
 - Authenticated one-use pairing, durable queue, worker leases, cancel/retry, streaming transfers.
 - Original library read-only; independently validated output, collision-safe publishing.
 - CPU encode and conventional enhancement tested on actual media end to end.
-- NVIDIA codecs and enhancement stages enabled by real processing checks only. All five stages must have usable controls, previews and compatible combinations; see [parity requirements](docs/nvidia-parity.md).
+- NVIDIA codecs and available enhancement stages enabled by real processing checks only, with usable controls, previews and verified combinations. Neural rendering is deferred; optional VSR/HDR remain gated by actual compatible runtimes. See [parity requirements](docs/nvidia-parity.md).
 - NAS, worker, single-host and NVIDIA Docker examples with ARM64/AMD64 builds.
 - Browser desktop/mobile flows and error states verified.
 - Local verification, Docker smoke, public commits on main as thekozugroup@gmail.com. GitHub Actions are a manual fallback, not routine development.
