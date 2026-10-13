@@ -16,7 +16,13 @@ from urllib.parse import urlparse
 
 import httpx
 
-from .engines import detect_capabilities, engine_result, frame_generation_command, processing_command
+from .engines import (
+    detect_capabilities,
+    engine_result,
+    frame_generation_command,
+    hdr_command,
+    processing_command,
+)
 from .media import preserved_command, probe, validate_output
 from .scratch import atomic_private_json, read_marker
 from .storage_plan import estimate_scratch_bytes
@@ -97,7 +103,7 @@ class Worker:
         checking = {
             "initialization": "checking", "engines": [], "encoders": [], "device": "",
             "platform": platform.system(), "architecture": platform.machine(), "notes": {},
-            "dlss_sr": {}, "dlss_frame_generation": {},
+            "dlss_sr": {}, "dlss_frame_generation": {}, "rtx_hdr": {},
         }
         self.capabilities = checking
         # Consume the short-lived code and save credentials before GPU checks.
@@ -387,19 +393,28 @@ class Worker:
             else info["duration"]
         )
         generation = recipe.get("frame_generation", False)
-        initial_output = folder / "upscaled.nut" if generation else output
-        initial_recipe = recipe | {"codec": "ffv1"} if generation else recipe
+        hdr = recipe.get("hdr", False)
+        initial_output = folder / "upscaled.nut" if generation or hdr else output
+        initial_recipe = recipe | {"codec": "ffv1"} if generation or hdr else recipe
         await self.process(processing_command(engine_source, initial_output, initial_recipe, info), folder, duration)
         rendered = engine_result(recipe["engine"], initial_output) if recipe["engine"] != "resize" else initial_output
         timing = None
         if generation:
             self.status["stage"] = "Generating DLSS frames"
             report = folder / "frame-generation.json"
-            await self.process(frame_generation_command(rendered, output, recipe, report), folder, duration)
+            generated = folder / "generated.nut" if hdr else output
+            generation_recipe = recipe | {"codec": "ffv1"} if hdr else recipe
+            await self.process(frame_generation_command(rendered, generated, generation_recipe, report), folder, duration)
             timing = json.loads(report.read_text())
             rendered.unlink()
+            rendered = generated
+        if hdr:
+            self.status["stage"] = "Converting to HDR"
+            end = timing["source_video_duration"] if timing else None
+            await self.process(hdr_command(rendered, output, recipe, end_time=end), folder, duration)
+            rendered.unlink()
             rendered = output
-        if recipe["engine"] != "resize" or generation:
+        if recipe["engine"] != "resize" or generation or hdr:
             # Remux original streams ourselves: third-party exporters may discard subtitles or re-encode audio.
             remuxed = folder / "preserved.mkv"
             command = await asyncio.to_thread(preserved_command, rendered, source, remuxed, recipe, info, timing)

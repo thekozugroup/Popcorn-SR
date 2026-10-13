@@ -30,6 +30,12 @@ class Recipe(StrictModel):
     ] = "60"
     frame_generation_mode: Literal["auto", "native", "cascade"] = "auto"
     frame_generation_quality: Literal["low", "medium", "high"] = "high"
+    hdr: bool = False
+    hdr_contrast: int = Field(default=100, ge=0, le=200)
+    hdr_saturation: int = Field(default=100, ge=0, le=200)
+    hdr_middle_gray: int = Field(default=50, ge=10, le=100)
+    hdr_luminance: int = Field(default=650, ge=400, le=2000)
+    hdr_debanding: bool = True
     preview_seconds: Literal[0, 5, 10, 30] = 0
     output_directory: str = Field(default="enhanced", min_length=1, max_length=200)
 

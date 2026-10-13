@@ -75,7 +75,7 @@ def nearest_frames(frames, rate, end):
         index += 1
 
 
-def source_timing(path):
+def source_timeline(path):
     import av
 
     with av.open(str(path), options={"protocol_whitelist": "file,pipe"}) as source:
@@ -94,7 +94,13 @@ def source_timing(path):
             previous, count = timestamp, count + 1
         if not count:
             raise ValueError("Source has no decodable frames.")
-        return video.average_rate, previous - first + duration, count
+        return {"rate": video.average_rate, "duration": previous - first + duration, "frames": count,
+                "last_frame_time": previous - first, "time_base": Fraction(video.time_base)}
+
+
+def source_timing(path):
+    timing = source_timeline(path)
+    return timing["rate"], timing["duration"], timing["frames"]
 
 
 def adapter_process(command):
@@ -246,7 +252,7 @@ def main():
     parser.add_argument("--fps", choices=tuple(FPS), default="60")
     parser.add_argument("--mode", choices=("auto", "native", "cascade"), default="auto")
     parser.add_argument("--temporal-quality", choices=("high", "medium", "low"), default="high")
-    parser.add_argument("--codec", choices=("h264", "hevc", "av1"), default="h264")
+    parser.add_argument("--codec", choices=("h264", "hevc", "av1", "ffv1"), default="h264")
     parser.add_argument("--quality", type=int, choices=range(52), default=20)
     parser.add_argument("--report", help="Write timing and native-pass details to a private job report")
     parser.add_argument("--verify-settings", help="Write actual mode/motion render-check results")

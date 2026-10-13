@@ -36,3 +36,13 @@ def test_unknown_timing_or_unverified_native_limits_cannot_bypass_storage_planni
             estimate_scratch_bytes(invalid, recipe, CAPABILITIES)
     with pytest.raises(ValueError, match="estimate generation storage"):
         estimate_scratch_bytes(SOURCE, recipe, {})
+
+
+def test_hdr_reserves_lossless_input_and_ten_bit_export_before_processing():
+    recipe = Recipe(hdr=True, codec="hevc", encoder="nvidia", scale=1).model_dump()
+    full = estimate_scratch_bytes(SOURCE, recipe, {})
+    assert full > 1024**4
+    assert estimate_scratch_bytes(SOURCE, recipe | {"preview_seconds": 5}, {}) < full / 1000
+    assert estimate_scratch_bytes(SOURCE, recipe | {"frame_generation": True}, CAPABILITIES) > full
+    with pytest.raises(ValueError, match="estimate HDR storage"):
+        estimate_scratch_bytes(SOURCE | {"frame_rate": "0"}, recipe, {})

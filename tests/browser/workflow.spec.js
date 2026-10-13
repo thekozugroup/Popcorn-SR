@@ -9,6 +9,70 @@ test.afterEach(async ({page}) => {
   await page.unrouteAll({behavior:'wait'});
 });
 
+test('HDR controls preserve intent and require verified exports (UI fixture; no GPU execution)', async ({page}) => {
+  let ready=true, submitted;
+  await page.route('**/api/state', async route => {
+    const response=await route.fetch();
+    if(!response.ok()) {await route.fulfill({response});return;}
+    const state=await response.json();
+    state.workers.push({id:'hdr-ui-fixture',name:'HDR controls fixture',online:true,revoked:false,scratch:{path:'/scratch',free_bytes:1e9},capabilities:{
+      engines:['resize'],encoders:['h264_nvidia','hevc_nvidia','av1_nvidia'],device:'UI fixture · no GPU processing',platform:'Linux',architecture:'x86_64',notes:{},
+      rtx_hdr:{pipelines:ready?[['resize',false,'hevc'],['resize',false,'av1']]:[]},
+    }});
+    state.jobs.push({id:'hdr-summary-fixture',path:'HDR configuration fixture.mkv',status:'queued',stage:'UI fixture',progress:0,recipe:{engine:'resize',codec:'hevc',scale:2,hdr:true,hdr_luminance:1000,preview_seconds:5}});
+    await route.fulfill({response,json:state});
+  });
+  await page.route('**/api/jobs', async route => {
+    submitted=route.request().postDataJSON();
+    await route.fulfill({status:400,json:{detail:'HDR configuration fixture: no GPU job was submitted.'}});
+  });
+  await signIn(page);
+  await navigate(page,'Library');
+  await page.getByRole('button',{name:'A clearer picture.mkv',exact:true}).click();
+  await page.getByRole('combobox',{name:'Processing device',exact:true}).click();
+  await page.getByRole('option',{name:'Local CPU worker',exact:true}).click();
+  await expect(page.getByRole('checkbox',{name:'RTX Video HDR · experimental',exact:true})).toBeDisabled();
+  await page.getByRole('combobox',{name:'Processing device',exact:true}).click();
+  await page.getByRole('option',{name:'HDR controls fixture',exact:true}).click();
+  await page.getByRole('checkbox',{name:'RTX Video HDR · experimental',exact:true}).check();
+  await expect(page.getByRole('combobox',{name:'Video format',exact:true})).toContainText('H.265');
+  await page.getByRole('combobox',{name:'Video format',exact:true}).click();
+  await expect(page.getByRole('option',{name:'H.264 · broad compatibility',exact:true})).toHaveAttribute('aria-disabled','true');
+  await page.getByRole('option',{name:'AV1 · newer players',exact:true}).click();
+  await page.getByRole('button',{name:'More options',exact:true}).click();
+  for(const [label,value] of [['Peak brightness','1000'],['HDR contrast','85'],['HDR saturation','110'],['Midtone brightness','45']]) {
+    await page.getByRole('spinbutton',{name:label,exact:true}).fill(value);
+    await page.getByRole('spinbutton',{name:label,exact:true}).press('Tab');
+  }
+  await page.getByRole('checkbox',{name:'Reduce banding in HDR',exact:true}).uncheck();
+  await page.getByLabel('Save copies to').fill('hdr/movies');
+  await page.waitForTimeout(3200);
+  await expect(page.getByRole('spinbutton',{name:'Peak brightness',exact:true})).toHaveValue('1000');
+  await page.getByRole('button',{name:'Preview 5 seconds',exact:true}).click();
+  expect(submitted.recipe).toMatchObject({engine:'resize',hdr:true,codec:'av1',encoder:'nvidia',hdr_luminance:1000,hdr_contrast:85,hdr_saturation:110,hdr_middle_gray:45,hdr_debanding:false,preview_seconds:5,output_directory:'hdr/movies'});
+  for(const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/hdr-controls-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    for(const control of await page.getByRole('spinbutton').all()) {
+      expect((await control.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    }
+  }
+  ready=false;
+  await expect(page.getByText('HDR is unavailable',{exact:true})).toBeVisible({timeout:6000});
+  await expect(page.getByRole('checkbox',{name:'RTX Video HDR · experimental',exact:true})).toBeChecked();
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
+  await expect(page.getByRole('spinbutton',{name:'Peak brightness',exact:true})).toHaveValue('1000');
+  ready=true;
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeEnabled({timeout:6000});
+  await expect(page.getByRole('combobox',{name:'Video format',exact:true})).toContainText('AV1');
+  await navigate(page,'Queue');
+  await expect(page.locator('#jobs')).toContainText('RTX Video HDR · 10-bit · Peak brightness: 1000 nits');
+});
+
 test('DLSS controls obey verified combinations (UI fixture; no GPU execution)', async ({page}) => {
   // Browser-only contract data; real GPU acceptance runs separately on Spark.
   await page.route('**/api/state', async route => {

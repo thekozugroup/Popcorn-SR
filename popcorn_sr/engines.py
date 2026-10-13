@@ -175,6 +175,25 @@ def frame_generation_command(source: Path, output: Path, recipe: dict, report: P
     ]
 
 
+def hdr_command(source: Path, output: Path, recipe: dict, *, end_time=None):
+    if os.environ.get("POPCORN_NVIDIA_HDR") != "1":
+        raise ValueError("NVIDIA TrueHDR is not configured on this worker.")
+    command = [
+        os.environ.get("POPCORN_AI_PYTHON", sys.executable), "-m", "popcorn_sr.nvidia_hdr",
+        "--input", str(source.resolve()), "--output", str(output.resolve()),
+        "--codec", recipe["codec"], "--quality", str(recipe["quality"]),
+        "--contrast", str(recipe.get("hdr_contrast", 100)),
+        "--saturation", str(recipe.get("hdr_saturation", 100)),
+        "--middle-gray", str(recipe.get("hdr_middle_gray", 50)),
+        "--luminance", str(recipe.get("hdr_luminance", 650)),
+    ]
+    if not recipe.get("hdr_debanding", True):
+        command += ["--debanding-off"]
+    if end_time is not None:
+        command += ["--end-time", str(end_time)]
+    return command
+
+
 def run_check(command, *, timeout=60, scratch=None, stopped=None):
     try:
         env = os.environ.copy()
@@ -390,6 +409,79 @@ def detect_capabilities(scratch: Path, stopped=None):
             frame_generation = {}
         finally:
             shutil.rmtree(folder)
+    hdr = {"pipelines": []}
+    if os.environ.get("POPCORN_NVIDIA_HDR") == "1":
+        from .hdr import validate_hdr
+
+        folder = scratch / "check-hdr"
+        folder.mkdir()
+        try:
+            if not any(f"{codec}_nvidia" in encoders for codec in ("hevc", "av1")):
+                raise ValueError("No NVIDIA H.265 or AV1 encoder passed its hardware check.")
+            source = folder / "input.mkv"
+            if not run_check([
+                "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=256x144:rate=24",
+                "-frames:v", "3", "-c:v", "libx264", "-bf", "0", "-n", str(source),
+            ], scratch=scratch, stopped=stopped):
+                raise ValueError("Could not prepare an HDR test clip.")
+            eligible = ["resize"]
+            if "dlss-sr" in engines and os.environ.get("POPCORN_NGX_LIBRARY") and not os.environ.get("POPCORN_DLSS_COMMAND"):
+                eligible.append("dlss-sr")
+            for engine in eligible:
+                for generation in (False, True):
+                    if generation and engine not in frame_generation.get("upscalers", []):
+                        continue
+                    base = Recipe(engine=engine, encoder="nvidia", scale=2, hdr=True,
+                                  frame_generation=generation).model_dump()
+                    lossless = folder / f"{engine}-{generation}.nut"
+                    try:
+                        if not run_check(processing_command(source, lossless, base | {"codec": "ffv1"}, probe(source)),
+                                         timeout=120, scratch=scratch, stopped=stopped):
+                            raise ValueError("Lossless HDR input render failed.")
+                        rendered, end = lossless, None
+                        if generation:
+                            rendered = folder / f"{engine}-generated.nut"
+                            report = folder / f"{engine}-timing.json"
+                            if not run_check(frame_generation_command(lossless, rendered, base | {"codec": "ffv1"}, report),
+                                             timeout=120, scratch=scratch, stopped=stopped):
+                                raise ValueError("Lossless frame generation for HDR failed.")
+                            end = json.loads(report.read_text())["source_video_duration"]
+                        for codec in ("hevc", "av1"):
+                            if f"{codec}_nvidia" not in encoders:
+                                continue
+                            try:
+                                # Exercise every public setter and both debanding states.
+                                variants = [{}, {"hdr_contrast": 0, "hdr_saturation": 0, "hdr_middle_gray": 10,
+                                                 "hdr_luminance": 400, "hdr_debanding": False},
+                                            {"hdr_contrast": 200, "hdr_saturation": 200, "hdr_middle_gray": 100,
+                                             "hdr_luminance": 2000}]
+                                for index, controls in enumerate(variants):
+                                    output = folder / f"{engine}-{generation}-{codec}-{index}.mkv"
+                                    try:
+                                        if not run_check(hdr_command(rendered, output, base | {"codec": codec} | controls,
+                                                                     end_time=end), timeout=120, scratch=scratch, stopped=stopped):
+                                            raise ValueError("TrueHDR conversion/export check failed. Verify NVIDIA runtime, models and driver.")
+                                        result = probe(output)
+                                        validate_hdr(result)
+                                        if (result["width"], result["height"]) != (512, 288) or abs(result["duration"] - .125) > .002:
+                                            raise ValueError("HDR check changed dimensions or video duration.")
+                                        if not run_check(["ffmpeg", "-v", "error", "-i", str(output), "-f", "null", "-"],
+                                                         scratch=scratch, stopped=stopped):
+                                            raise ValueError("HDR export failed decoding.")
+                                    finally:
+                                        output.unlink(missing_ok=True)
+                                hdr["pipelines"].append([engine, generation, codec])
+                            except (ValueError, OSError, KeyError) as exc:
+                                notes[f"hdr-{engine}-{generation}-{codec}"] = str(exc)
+                    except (ValueError, OSError, KeyError) as exc:
+                        notes[f"hdr-{engine}-{generation}"] = str(exc)
+                    finally:
+                        for item in folder.glob("*.nut"):
+                            item.unlink()
+        except (ValueError, OSError, KeyError) as exc:
+            notes["hdr"] = str(exc)
+        finally:
+            shutil.rmtree(folder)
     return {
         "engines": engines,
         "encoders": encoders,
@@ -399,4 +491,5 @@ def detect_capabilities(scratch: Path, stopped=None):
         "notes": notes,
         "dlss_sr": dlss_settings,
         "dlss_frame_generation": frame_generation,
+        "rtx_hdr": hdr,
     }

@@ -22,7 +22,7 @@ def encoding_options(codec, quality):
 
 
 @contextmanager
-def encoded_video(path, width, height, rate, time_base, options, *, end_time=None,
+def encoded_video(path, width, height, rate, time_base, options, *, end_time=None, final_frame_time=None,
                   input_pix_fmt="rgb24", color_metadata=None):
     """NUT carries original PTS through a bounded OS pipe, including variable timing."""
     import av
@@ -46,7 +46,19 @@ def encoded_video(path, width, height, rate, time_base, options, *, end_time=Non
         # Matroska uses millisecond ticks. A rounded zero duration means
         # "unknown" to its muxer and expands to a whole nominal frame.
         expression = f"max(ceil(0.001/TB),min(DURATION,max(0,({end.numerator}/{end.denominator})/TB-PTS)))"
+        if final_frame_time is not None:
+            last = Fraction(final_frame_time)
+            if not 0 <= last < end:
+                raise ValueError("Final picture must precede the video end time.")
+            # An irregular final interval can be longer than nominal FPS. Its
+            # measured final PTS identifies the final packet without guessing
+            # from the duration supplied by a re-encoder.
+            final_tick = f"round(({last.numerator}/{last.denominator})/TB)"
+            remaining = f"max(ceil(0.001/TB),({end.numerator}/{end.denominator})/TB-PTS)"
+            expression = f"if(gte(PTS,{final_tick}),{remaining},{expression})"
         duration_options = ["-bsf:v", f"setts=duration='{expression}'"]
+    elif final_frame_time is not None:
+        raise ValueError("Final picture timing requires a measured video end time.")
     process = subprocess.Popen(
         [
             "ffmpeg", "-v", "error", "-nostdin", "-f", "nut", "-i", "pipe:0",

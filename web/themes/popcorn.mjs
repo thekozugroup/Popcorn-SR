@@ -38,6 +38,7 @@ export const popcornTheme = defineTheme({
     'collapsible-trigger': {base: {minHeight: '44px'}},
     button: {base: {minHeight: '44px', minWidth: '44px', flexShrink: '0'}},
     'text-input': {base: {minHeight: '44px'}},
+    'number-input': {base: {minHeight: '44px', paddingBlock: '0'}},
     selector: {base: {minHeight: '44px'}},
     'side-nav-item': {base: {minHeight: '44px'}},
     'checkbox-input': {base: {minHeight: '44px'}},

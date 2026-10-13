@@ -13,6 +13,7 @@
   [data-astryx-theme="popcorn"] { min-height: 100dvh; }
   ::selection { background: #bfdbfe; color: #09090b; }
   input { caret-color: var(--color-text-accent); }
+  .recipe input[role="spinbutton"] { min-height: 44px; }
   * { scrollbar-color: var(--color-border-emphasized) var(--color-background-body); scrollbar-width: thin; }
   .workspace { max-width: 1160px; margin-inline: auto; padding: 36px 40px 64px; }
   .page-head { display: flex; gap: 24px; align-items: start; justify-content: space-between; margin-bottom: 28px; }

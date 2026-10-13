@@ -245,6 +245,11 @@ def create_app(settings: Settings | None = None):
             beneath(cfg.output, body.recipe.output_directory)
             if body.recipe.engine != "resize" and body.recipe.encoder != "nvidia":
                 raise ValueError("AI engines require the NVIDIA encoding option.")
+            if body.recipe.hdr:
+                if body.recipe.encoder != "nvidia" or body.recipe.codec not in {"hevc", "av1"}:
+                    raise ValueError("RTX Video HDR requires NVIDIA encoding with H.265 or AV1.")
+                if body.recipe.engine not in {"resize", "dlss-sr"}:
+                    raise ValueError("This upscaler has no verified lossless HDR combination yet.")
             if body.recipe.frame_generation:
                 if body.recipe.encoder != "nvidia":
                     raise ValueError("DLSS frame generation requires NVIDIA encoding.")
@@ -270,7 +275,7 @@ def create_app(settings: Settings | None = None):
                 body.recipe.dlss_mode is not None or body.recipe.dlss_preset != "default"
                 or body.recipe.temporal_quality != "high"
             )
-            if (require_compatible or advanced_dlss or body.recipe.frame_generation) and not any(
+            if (require_compatible or advanced_dlss or body.recipe.frame_generation or body.recipe.hdr) and not any(
                 not w["revoked"]
                 and (not body.worker_id or w["id"] == body.worker_id)
                 and compatible_recipe(body.recipe.model_dump(), w["capabilities"])

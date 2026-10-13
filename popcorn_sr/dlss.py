@@ -30,6 +30,11 @@ def compatible_recipe(recipe, capabilities, source=None):
         return False
     if f"{recipe['codec']}_{recipe['encoder']}" not in capabilities.get("encoders", []):
         return False
+    if recipe.get("hdr"):
+        if recipe["encoder"] != "nvidia" or recipe["codec"] not in {"hevc", "av1"} or [
+            recipe["engine"], bool(recipe.get("frame_generation")), recipe["codec"],
+        ] not in capabilities.get("rtx_hdr", {}).get("pipelines", []):
+            return False
     if recipe.get("frame_generation"):
         from .frame_generation import FPS, plan_factors
 

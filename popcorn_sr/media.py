@@ -146,6 +146,12 @@ def validate_output(path: Path, source: dict, recipe: dict):
     expected_codec = {"h264": "h264", "hevc": "hevc", "av1": "av1"}[recipe["codec"]]
     if info["codec"] != expected_codec:
         raise ValueError("Output codec differs from the selected codec.")
+    if recipe.get("hdr"):
+        from .hdr import validate_hdr
+
+        validate_hdr(info)
+    elif info["hdr"]:
+        raise ValueError("Output unexpectedly changed SDR to HDR. Original preserved; result rejected.")
     if recipe.get("frame_generation"):
         from .frame_generation import FPS
 
