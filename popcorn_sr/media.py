@@ -88,6 +88,8 @@ def probe(path: Path) -> dict:
         "bit_depth": pixel_bit_depths().get(video.get("pix_fmt", ""), 0),
         "color_transfer": video.get("color_transfer", "unknown"),
         "color_primaries": video.get("color_primaries", "unknown"),
+        "color_space": video.get("color_space", "unknown"),
+        "color_range": video.get("color_range", "unknown"),
         "hdr": video.get("color_transfer") in {"smpte2084", "arib-std-b67"},
         "audio_streams": sum(s.get("codec_type") == "audio" for s in streams),
         "subtitle_streams": sum(s.get("codec_type") == "subtitle" for s in streams),

@@ -22,7 +22,8 @@ def encoding_options(codec, quality):
 
 
 @contextmanager
-def encoded_video(path, width, height, rate, time_base, options, *, end_time=None):
+def encoded_video(path, width, height, rate, time_base, options, *, end_time=None,
+                  input_pix_fmt="rgb24", color_metadata=None):
     """NUT carries original PTS through a bounded OS pipe, including variable timing."""
     import av
 
@@ -69,9 +70,13 @@ def encoded_video(path, width, height, rate, time_base, options, *, end_time=Non
             with av.open(process.stdin, mode="w", format="nut") as output:
                 video = output.add_stream("rawvideo", rate=rate)
                 video.width, video.height = width, height
-                video.pix_fmt = "rgb24"
+                video.pix_fmt = input_pix_fmt
                 video.time_base = time_base
                 video.codec_context.time_base = time_base
+                for field, value in (color_metadata or {}).items():
+                    if field not in {"color_range", "colorspace", "color_trc", "color_primaries"}:
+                        raise ValueError("Unsupported video color metadata field.")
+                    setattr(video.codec_context, field, value)
                 for_frame = (output, video)
                 yield for_frame
                 for packet in video.encode(None):

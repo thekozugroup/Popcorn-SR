@@ -22,6 +22,19 @@ Public wheel inventory checked on 2026-10-12: NVIDIA VFX 0.2.0.0 provides Linux 
 
 You can set `POPCORN_AI_PYTHON` to the interpreter containing the engine dependencies, but Popcorn SR must also be installed in that interpreter.
 
+## Experimental TrueHDR backend
+
+Development `main` includes `python -m popcorn_sr.nvidia_hdr`, an optional video-only TrueHDR CLI backend. It directly invokes the separately installed NVIDIA VFX `TrueHDR` binding and offers contrast (0–200), saturation (0–200), middle gray (10–100), target peak luminance (400–2,000 nits) and debanding. It accepts 8-bit SDR with known frame timing and square pixels, then exports H.265 or AV1 through 10-bit NVENC. It has no CPU fallback, and its result is rejected unless precision and BT.2020/PQ/limited-range signaling are correct.
+
+```sh
+python -m popcorn_sr.nvidia_hdr --input sdr-video.mkv --output hdr-video.mkv \
+  --codec hevc --luminance 1000
+```
+
+The NVIDIA packed RGB10A2 result is unpacked directly to planar 10-bit RGB before the memory pipe. Packed `x2bgr10le` cannot be safely carried by NUT: an actual test silently decoded it as RGB555. Planar transport passed exact comparison of all 1,024 channel levels, including row padding. Real CPU H.265/AV1 diagnostic exports retained ten-bit decoded pixels, HDR signaling and variable frame timing. These tests validate export plumbing, **not NVIDIA SDR-to-HDR conversion**. Frame-level color parameters are set explicitly because codec output flags alone did not retain PQ/primaries in the first real test.
+
+The API follows NVIDIA's [TrueHDR Python sample](https://github.com/NVIDIA-Maxine/nvidia-vfx-python-samples/blob/65faa030c1469dceb3c7b1781a01258ea4223647/true_hdr.py). No compatible VFX runtime was installed or executed on Spark; the public wheel index still lacks Linux ARM64. This backend is not yet integrated into paired jobs, capability discovery or the web controls. HDR source protection remains unchanged. Genuine SDK execution, appropriate output metadata/quality, combinations and manager-to-worker acceptance remain mandatory. It is not in the public 0.2.0 image.
+
 ## DLSS 4 / 4.5 Super Resolution and DLSS 5
 
 NVIDIA's [DLSS SDK](https://github.com/NVIDIA/DLSS) has Linux x86_64 and aarch64 libraries for Super Resolution, Ray Reconstruction and Frame Generation; the current [DLSS driver guide](https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/gaming.html) documents native Linux library loading. This is useful SDK plumbing, not a ready-to-run file upscaler. Video needs a renderer, temporal inputs/optical flow, timing and media integration.

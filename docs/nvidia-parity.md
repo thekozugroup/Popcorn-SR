@@ -7,7 +7,7 @@ Popcorn SR's completion goal includes all five primary NVIDIA video enhancements
 | DLSS neural rendering | Style, intensity, passes, tone/structure, masks, temporal quality | No native Linux video renderer or verified compatible neural runtime |
 | DLSS Super Resolution | DLAA, Quality, Balanced, Performance, Ultra Performance; preset and temporal quality | Native CUDA SDR video backend, controls and packaged Unraid → Spark → Unraid delivery verified in three codecs; representative quality and large/long jobs remain unverified |
 | RTX Video Super Resolution | Quality 1–4, scale or custom dimensions | Linux x86 VFX adapter; no verified Spark backend |
-| RTX Video HDR | Contrast, saturation, middle gray, peak luminance, precision | SDR-to-HDR processing, 10-bit encoding and validation remain unfinished |
+| RTX Video HDR | Contrast, saturation, middle gray, peak luminance, precision | TrueHDR CLI adapter and exact 10-bit transport/export checks implemented; genuine SDK execution, paired worker/UI integration and acceptance remain unfinished |
 | DLSS frame generation | Target FPS, engine mode, optical-flow quality | Native Vulkan SDR backend, target FPS/cascade controls and packaged Unraid → Spark → Unraid delivery passed in three codecs, including native SR/DLAA combinations and full-video continuation; representative quality and large/long jobs remain pending |
 
 Stages must be independently selectable, with compatible combinations and ordering. A preview must exercise the same settings and backend as the full job. Each enabled stage must pass its own real processing check on the selected worker. Unsupported stages stay unavailable with an actionable reason; availability does not count as completion.
