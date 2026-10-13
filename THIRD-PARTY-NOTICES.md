@@ -26,6 +26,6 @@ FFmpeg is installed from the base distribution's packages, under those build-spe
 
 Astryx Core, Neutral theme and CLI 0.6.8 are MIT-licensed, copyright Meta Platforms, Inc. and affiliates. React/React DOM 19 are MIT-licensed, copyright Meta Platforms, Inc. and affiliates. StyleX is MIT-licensed; Lucide icons are ISC-licensed. Their licenses remain with the bundled dependencies; see `licenses/astryx-MIT.txt`, `licenses/react-MIT.txt`, `licenses/stylex-MIT.txt` and `licenses/lucide-ISC.txt`. Tailwind CSS and Vite retain their MIT licenses.
 
-## Independent native diagnostic
+## Independent native adapters and diagnostics
 
-`native/ngx_probe.cpp` is independently written Popcorn SR source under `native/LICENSE` (MIT). It builds against operator-provisioned NVIDIA SDK headers and dynamically uses the separately installed driver/runtime. The NVIDIA SDK is not relicensed or included in the public source.
+The C++ sources and resource helpers under `native/` are independently written Popcorn SR source under `native/LICENSE` (MIT). They build against operator-provisioned NVIDIA SDK headers/wrappers and use separately installed drivers/runtimes. The NVIDIA SDK is not relicensed or included in the public source or default image. The optional Vulkan build check downloads pinned NVIDIA and Khronos headers into a temporary directory and removes them after compilation. The NGX image installs the distribution's Vulkan loader package, with its upstream terms and source identified by the package metadata.
