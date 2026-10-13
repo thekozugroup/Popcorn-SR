@@ -1,0 +1,39 @@
+name: Build device packages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.8.22'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: uv sync --frozen --extra dev --python 3.12
+      - run: mkdir -p evidence/device-package/manager evidence/device-package/ngx
+      - run: docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" -t popcorn-sr:device .
+      - run: uv run python scripts/docker-smoke.py --image popcorn-sr:device --report evidence/device-package/manager/docker-smoke.json
+      - run: python3 scripts/export-device-package.py --image popcorn-sr:device --architecture ${{ matrix.architecture }} --output evidence/device-package/manager
+      - run: docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" -f Dockerfile.ngx -t popcorn-sr-ngx:device .
+      - run: python3 scripts/export-device-package.py --image popcorn-sr-ngx:device --architecture ${{ matrix.architecture }} --output evidence/device-package/ngx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: device-package-linux-${{ matrix.architecture }}
+          path: evidence/device-package/
+          compression-level: 0
+          retention-days: 7

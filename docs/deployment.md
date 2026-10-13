@@ -106,3 +106,9 @@ For persistent operation, use a systemd service with `RequiresMountsFor=/mnt/opt
 ## Updates and recovery
 
 Stop the manager before backing up its state directory (including SQLite WAL files). Keep output/media separate. Rebuild from a tagged checkout and preserve state mounts. Workers retain pairing unless revoked. A worker lease expires after a disconnect and the job becomes failed; review and retry rather than silently rerunning. Interrupted outputs are never published as finished files. A hard process/host crash can leave hidden `.partial.mkv` files and worker `job-*` folders; inspect/remove those only after stopping the affected service and confirming the job is inactive. They are never originals.
+
+## Development device packages
+
+For development acceptance without compiling on a NAS or GPU host, run **Actions → Build device packages → Run workflow** at the intended commit. The workflow first runs the full verification suite, then builds on native AMD64/ARM64 runners. Each architecture's artifact contains separate manager and NGX archives, SHA-256 checksums, exact source commit/file hashes, image filesystem layers and environment, plus a real paired CPU-container processing receipt. Download the artifact matching the device architecture. These are temporary development artifacts, separate from the public release image.
+
+Check each archive against `package.json` before importing it. The `org.opencontainers.image.revision` label must match the intended commit. Docker can convert configuration IDs during archive import; compare filesystem layers, architecture and environment rather than assuming daemon image IDs will be identical. Use a dedicated test tag and remove only test resources you created. NVIDIA components are provisioned separately; an NGX package build/import does not establish GPU processing or feature availability.
