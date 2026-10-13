@@ -4,7 +4,11 @@ The manager needs no GPU. A worker needs FFmpeg and a usable encoder. Network wo
 
 ## Unraid manager
 
-Use `unraid/popcorn-sr.xml` as a local Docker template, or run Compose. The CPU-only custom Unraid build can manage the library while the Spark does processing.
+Use `unraid/popcorn-sr.xml` as a local Docker template. The CPU-only custom Unraid build can manage the library while the Spark does processing. Compose is optional and is not present on every Unraid installation.
+
+Without Compose, save the XML under Unraid's user-template directory (`/boot/config/plugins/dockerMan/templates-user/`), then use **Docker → Add Container** and select the Popcorn SR template. Set the library, output and state paths, access key and port in that form. The library mount stays read-only. Apply the template and open the container's Web UI. Create the chosen state/output folders first and use UID 99/GID 100 for ordinary Unraid share ownership. This is an installation step for the operator; acceptance tests must not change existing user templates or services.
+
+If Compose is already installed, use the alternative below:
 
 1. Create separate host folders for app data and finished copies. Keep the library separate. Example: `/mnt/user/appdata/popcorn-sr`, `/mnt/user/popcorn-output`, `/mnt/user/media`.
 2. Copy `.env.example` to `.env`, set those paths and `PUID=99`, `PGID=100`. They must exist and be writable by that user, except the read-only library.

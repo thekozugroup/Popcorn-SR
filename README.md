@@ -22,6 +22,8 @@ Popcorn Super Resolution is a self-hosted video manager and processing worker. P
 
 Development remains active. Full completion requires **DLSS neural rendering, DLSS Super Resolution, RTX Video Super Resolution, RTX Video HDR and DLSS frame generation**, with real processing, usable controls, previews and compatible combinations. [Acceptance and current gaps](docs/nvidia-parity.md). The preview features below do not establish five-stage parity.
 
+Development `main` now has an experimental native Linux CUDA DLSS Super Resolution video backend. Physical Spark tests passed all five SR modes, preset hints, three motion settings and H.264/H.265/AV1 video encoding with preserved frame timestamps. It needs separately provisioned NVIDIA components and is **not in the published 0.2.0 image**. [Setup and evidence](native/README.md). Packaged GPU delivery, representative quality and the other NVIDIA stages remain unfinished.
+
 ## Start on your NAS
 
 1. Copy `.env.example` to `.env`. Set existing library, output and state directories. Generate a random key with `openssl rand -hex 32`; put it in `POPCORN_ADMIN_TOKEN`.

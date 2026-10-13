@@ -19,6 +19,8 @@ import {popcornTheme} from './themes/popcorn.js';
 import './styles.css';
 
 const engines = {resize: 'Conventional resizing', realesrgan: 'Real-ESRGAN AI upscaling', 'rtx-vsr': 'RTX Video Super Resolution', 'dlss-sr': 'DLSS video upscaling · experimental', dlss5: 'DLSS 5 neural rendering · experimental'};
+const dlssModes = {dlaa:'DLAA · keep source size',quality:'Quality · 1.5×',balanced:'Balanced · about 1.72×',performance:'Performance · 2×','ultra-performance':'Ultra Performance · 3×'};
+const codecNames = {h264:'H.264',hevc:'H.265 / HEVC',av1:'AV1'};
 const bytes = n => n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${(n / 1024 ** 2).toFixed(1)} MB`;
 const navigation = [['overview','Overview'], ['library','Library'], ['processing','Processing'], ['queue','Queue'], ['settings','Settings']];
 async function api(path, options = {}) {
@@ -59,7 +61,8 @@ function Jobs({jobs, id, onAction, navigate}) {
     {!jobs.length ? <Empty title="Your first copy starts here" copy="Choose a video, try a preview, and let your worker handle the rest."><Button label="Browse library" onClick={() => navigate('library')}/></Empty> : jobs.map(job => <div className="row" key={job.id}><HStack gap={6} wrap="wrap" vAlign="start" hAlign="between">
       <VStack gap={2} className="min-w-0 flex-1 basis-60">
         <Text weight="semibold" wordBreak="break-word">{job.path.split('/').pop()}{job.recipe.preview_seconds ? ' · Preview' : ''}</Text>
-        <Copy type="supporting">{engines[job.recipe.engine] || job.recipe.engine} · {job.recipe.codec.toUpperCase()} / {job.recipe.scale}×</Copy>
+        <Copy type="supporting">{engines[job.recipe.engine] || job.recipe.engine} · {codecNames[job.recipe.codec] || job.recipe.codec} / {job.recipe.engine==='dlss-sr' && job.recipe.dlss_mode?dlssModes[job.recipe.dlss_mode]:`${job.recipe.scale}×`}</Copy>
+        {job.recipe.engine==='dlss-sr' && <Copy type="supporting">Preset: {job.recipe.dlss_preset && job.recipe.dlss_preset!=='default'?job.recipe.dlss_preset.toUpperCase():'Automatic'} · Motion estimation: {({high:'High',medium:'Balanced',low:'Fast'})[job.recipe.temporal_quality || 'high']}</Copy>}
         <Copy type="supporting">{job.stage}{job.status === 'running' ? ` / ${Math.floor(job.progress)}%` : ''}{job.status === 'queued' ? ' · Waiting for a compatible worker' : ''}</Copy>
         {job.error && <Banner status="error" title={job.error} collapsible={false}/>}
         {job.result && <Copy type="supporting" className="path">{job.result.path} / {bytes(job.result.bytes)}</Copy>}
@@ -94,7 +97,7 @@ function Overview({state,navigate,onAction}) {
   </VStack>;
 }
 function Recipe({path,state,onClose,onCreated}) {
-  const [desired,setDesired]=useState({worker:'',engine:'resize',scale:'2',codec:'h264',encoder:'cpu',quality:'23',output_directory:'enhanced',denoise:false,deinterlace:false,sharpen:false,interpolate:false});
+  const [desired,setDesired]=useState({worker:'',engine:'resize',scale:'2',codec:'h264',encoder:'cpu',quality:'23',dlss_mode:'performance',dlss_preset:'default',temporal_quality:'high',output_directory:'enhanced',denoise:false,deinterlace:false,sharpen:false,interpolate:false});
   const [error,setError]=useState(''), [busy,setBusy]=useState(false);
   const panel=useRef(null);
   useEffect(()=>{ panel.current?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}); panel.current?.querySelector('[role=combobox]')?.focus({preventScroll:true}); },[]);
@@ -104,7 +107,17 @@ function Recipe({path,state,onClose,onCreated}) {
   const supported=[...new Set(candidates.flatMap(w=>w.capabilities.engines || []))];
   const engine=supported.includes(desired.engine)?desired.engine:supported[0] || 'resize';
   const capable=candidates.filter(w=>(w.capabilities.engines || []).includes(engine));
-  const verified=[...new Set(capable.flatMap(w=>w.capabilities.encoders || []))].filter(c=>engine==='resize' || c.endsWith('_nvidia'));
+  const settings=capable.flatMap(w=>w.capabilities.dlss_sr?.settings || []);
+  const modes=Object.keys(dlssModes).filter(mode=>settings.some(([m])=>m===mode));
+  const advancedDLSS=engine==='dlss-sr' && modes.length>0;
+  const dlssMode=modes.includes(desired.dlss_mode)?desired.dlss_mode:modes[0];
+  const presets=[...new Set(settings.filter(([m])=>m===dlssMode).map(([,p])=>p))];
+  const dlssPreset=presets.includes(desired.dlss_preset)?desired.dlss_preset:presets[0];
+  const settingWorkers=advancedDLSS?capable.filter(w=>(w.capabilities.dlss_sr?.settings || []).some(([m,p])=>m===dlssMode && p===dlssPreset)):capable;
+  const temporalQualities=[...new Set(settingWorkers.flatMap(w=>w.capabilities.dlss_sr?.temporal_qualities || []))];
+  const temporalQuality=temporalQualities.includes(desired.temporal_quality)?desired.temporal_quality:temporalQualities[0];
+  const matching=advancedDLSS?settingWorkers.filter(w=>(w.capabilities.dlss_sr?.temporal_qualities || []).includes(temporalQuality)):capable;
+  const verified=[...new Set(matching.flatMap(w=>w.capabilities.encoders || []))].filter(c=>engine==='resize' || c.endsWith('_nvidia'));
   const codecs=[...new Set(verified.map(c=>c.split('_')[0]))];
   const codec=codecs.includes(desired.codec)?desired.codec:codecs[0] || 'h264';
   const encoders=verified.filter(c=>c.startsWith(`${codec}_`)).map(c=>c.split('_')[1]);
@@ -115,6 +128,7 @@ function Recipe({path,state,onClose,onCreated}) {
   async function submit(preview_seconds) {
     setBusy(true); setError('');
     const recipe={engine,scale:Number(scale),codec,encoder,quality:Number(desired.quality),output_directory:desired.output_directory,preview_seconds};
+    if(advancedDLSS) Object.assign(recipe,{dlss_mode:dlssMode,dlss_preset:dlssPreset,temporal_quality:temporalQuality});
     for(const key of ['denoise','deinterlace','sharpen','interpolate']) recipe[key]=engine==='resize' && desired[key];
     try { await api('/api/jobs',{method:'POST',body:JSON.stringify({path,recipe,worker_id:worker || null})}); await onCreated(preview_seconds); }
     catch(e){setError(e.message);}
@@ -126,12 +140,13 @@ function Recipe({path,state,onClose,onCreated}) {
       <div className="form-grid">
         <Selector label="Processing device" value={worker} onChange={v=>change('worker',v)} width="100%" options={[{value:'',label:'Any compatible worker'},...active.map(w=>({value:w.id,label:w.name+(w.online?'':' (offline)')}))]} description={candidates.length?'Jobs start when a compatible device is connected.':'Connect a worker in Processing to start jobs.'}/>
         <Selector label="Enhancement" value={engine} onChange={v=>change('engine',v)} width="100%" options={(supported.length?supported:['resize']).map(e=>({value:e,label:engines[e] || e}))} description={state.engine_notes[engine]}/>
-        <Selector label="Output size" value={scale} onChange={v=>change('scale',v)} width="100%" options={scales.map(v=>({value:v,label:({'1':'Keep source size (1×)','2':'Twice the size (2×)','3':'Three times the size (3×)','4':'Four times the size (4×)'})[v]}))} description="Aspect ratio stays the same."/>
-        <Selector label="Video format" value={codec} onChange={v=>change('codec',v)} width="100%" options={['h264','hevc','av1'].map(v=>({value:v,label:({h264:'H.264 · broad compatibility',hevc:'HEVC · smaller files',av1:'AV1 · newer players'})[v],disabled:!codecs.includes(v)}))} description="Finished copies use a Matroska (.mkv) container."/>
+        {advancedDLSS?<Selector label="DLSS mode" value={dlssMode} onChange={v=>change('dlss_mode',v)} width="100%" options={modes.map(value=>({value,label:dlssModes[value]}))} description="Higher multipliers make a larger copy. Aspect ratio stays the same, with even dimensions for encoding."/>:<Selector label="Output size" value={scale} onChange={v=>change('scale',v)} width="100%" options={scales.map(v=>({value:v,label:({'1':'Keep source size (1×)','2':'Twice the size (2×)','3':'Three times the size (3×)','4':'Four times the size (4×)'})[v]}))} description="Aspect ratio stays the same."/>}
+        <Selector label="Video format" value={codec} onChange={v=>change('codec',v)} width="100%" options={['h264','hevc','av1'].map(v=>({value:v,label:({h264:'H.264 · broad compatibility',hevc:'H.265 / HEVC · smaller files',av1:'AV1 · newer players'})[v],disabled:!codecs.includes(v)}))} description="Finished copies use a Matroska (.mkv) container."/>
       </div>
       <TextInput label="Save copies to" value={desired.output_directory} onChange={v=>change('output_directory',v)} isRequired maxLength={200} description="A folder inside your output mount. Example: enhanced/movies"/>
       {engine!=='resize' && <Banner status="warning" title="Preview AI processing first" description="AI processing can change fine detail or appearance. Compare the preview with your original." collapsible={false}/>}
       <Collapsible trigger="More options" defaultIsOpen={false}><VStack gap={4} paddingBlockStart={4}>
+        {advancedDLSS && <div className="form-grid"><Selector label="DLSS model preset" value={dlssPreset} onChange={v=>change('dlss_preset',v)} width="100%" options={presets.map(value=>({value,label:({default:'Automatic · recommended',j:'J · less ghosting, more flicker',k:'K · fine detail',l:'L · Ultra Performance default',m:'M · Performance default'})[value]}))} description="A model preference. NVIDIA may use a compatible preset instead."/><Selector label="Motion estimation" value={temporalQuality} onChange={v=>change('temporal_quality',v)} width="100%" options={['high','medium','low'].filter(v=>temporalQualities.includes(v)).map(value=>({value,label:({high:'High · most accurate',medium:'Balanced',low:'Fast · less accurate'})[value]}))} description="More accurate motion takes longer to process. Preview moving detail and scene cuts."/></div>}
         <div className="form-grid"><Selector label="Encoding hardware" value={encoder} onChange={v=>change('encoder',v)} width="100%" options={['cpu','nvidia'].map(v=>({value:v,label:v==='cpu'?'CPU':'NVIDIA GPU',disabled:!encoders.includes(v)}))} description="Only verified encoders are available."/><Selector label="Quality" value={desired.quality} onChange={v=>change('quality',v)} width="100%" options={[{value:'19',label:'High · larger file'},{value:'23',label:'Balanced'},{value:'28',label:'Compact · smaller file'}]} description="File size depends on the source and codec."/></div>
         <div className="form-grid">{[['denoise','Reduce noise'],['deinterlace','Deinterlace older video'],['sharpen','Light sharpening'],['interpolate','Smooth motion to 60 fps']].map(([key,label])=><div key={key} className="checkbox-row"><CheckboxInput label={label} value={engine==='resize' && desired[key]} onChange={v=>change(key,v)} isDisabled={engine!=='resize'}/></div>)}</div>
         <Copy type="supporting">Cleanup and 60 fps motion use conventional filters. Motion interpolation can be slow and changes the original cadence.</Copy>

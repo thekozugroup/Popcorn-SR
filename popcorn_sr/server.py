@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from . import __version__
 from .config import Settings, beneath
 from .db import Store, digest
+from .dlss import compatible_recipe
 from .media import VIDEO_EXTENSIONS, dimensions, inspect_source, sha256, validate_output
 from .models import Failure, Heartbeat, JobCreate, PairRequest
 
@@ -169,7 +170,7 @@ def create_app(settings: Settings | None = None):
                 "resize": "Lanczos resizing. Works without an AI runtime.",
                 "realesrgan": "Open-source AI restoration. Per-frame processing can introduce temporal flicker; preview first.",
                 "rtx-vsr": "AI upscaling through a separately installed RTX Video engine.",
-                "dlss-sr": "Experimental video DLSS through a separately installed video engine. No renderer is bundled.",
+                "dlss-sr": "Experimental video DLSS. Estimated motion and flat depth can affect detail; compare a preview.",
                 "dlss5": "Experimental neural rendering. May change the appearance of the original.",
             },
         }
@@ -252,21 +253,24 @@ def create_app(settings: Settings | None = None):
                 )
             if body.recipe.engine == "dlss5" and body.recipe.scale != 1:
                 raise ValueError("DLSS 5 changes appearance at source size. Choose 1×.")
-            if body.recipe.engine == "dlss-sr" and body.recipe.scale not in {1, 2, 3}:
+            if body.recipe.engine == "dlss-sr" and body.recipe.dlss_mode is None and body.recipe.scale not in {1, 2, 3}:
                 raise ValueError("Video DLSS supports 1×, 2× or 3× in this adapter.")
             if body.worker_id and body.worker_id not in {
                 w["id"] for w in store.workers() if not w["revoked"]
             }:
                 raise ValueError("Choose an active worker.")
-            if require_compatible and not any(
+            advanced_dlss = body.recipe.engine == "dlss-sr" and (
+                body.recipe.dlss_mode is not None or body.recipe.dlss_preset != "default"
+                or body.recipe.temporal_quality != "high"
+            )
+            if (require_compatible or advanced_dlss) and not any(
                 not w["revoked"]
                 and (not body.worker_id or w["id"] == body.worker_id)
-                and body.recipe.engine in w["capabilities"].get("engines", [])
-                and f"{body.recipe.codec}_{body.recipe.encoder}" in w["capabilities"].get("encoders", [])
+                and compatible_recipe(body.recipe.model_dump(), w["capabilities"])
                 for w in store.workers()
             ):
                 raise ValueError(
-                    "No worker supports these preview settings. Reconnect its worker or create a new preview."
+                    "No worker has verified these settings. Connect a compatible worker or choose verified settings."
                 )
             source = await asyncio.to_thread(inspect_source, path)
             if expected_source and source["sha256"] != expected_source["sha256"]:

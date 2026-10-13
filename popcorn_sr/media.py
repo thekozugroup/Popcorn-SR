@@ -5,6 +5,8 @@ import subprocess
 from functools import lru_cache
 from pathlib import Path
 
+from .dlss import scale_for_recipe
+
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".mov", ".avi", ".webm", ".m4v", ".ts", ".m2ts", ".mpg", ".mpeg"}
 
 
@@ -100,7 +102,8 @@ def inspect_source(path: Path):
 
 def dimensions(source, recipe):
     alignment = 8 if recipe["engine"] == "rtx-vsr" else 2
-    return tuple(math.ceil(source[k] * recipe["scale"] / alignment) * alignment for k in ("width", "height"))
+    scale = scale_for_recipe(recipe)
+    return tuple(math.ceil(source[k] * scale / alignment) * alignment for k in ("width", "height"))
 
 
 def validate_output(path: Path, source: dict, recipe: dict):

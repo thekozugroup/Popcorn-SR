@@ -7,6 +7,8 @@ import time
 import uuid
 from pathlib import Path
 
+from .dlss import compatible_recipe
+
 
 def digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
@@ -149,8 +151,7 @@ class Store:
             ).fetchall()
             for row in rows:
                 recipe = json.loads(row["recipe"])
-                encoder = f"{recipe['codec']}_{recipe['encoder']}"
-                if recipe["engine"] not in caps.get("engines", []) or encoder not in caps.get("encoders", []):
+                if not compatible_recipe(recipe, caps):
                     continue
                 if recipe["engine"] != "resize" and recipe["encoder"] != "nvidia":
                     continue

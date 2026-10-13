@@ -9,7 +9,7 @@ from contextlib import contextmanager
 def nvidia_options(codec, quality):
     return [
         "-c:v", f"{codec}_nvenc", "-preset", "p6", "-rc", "vbr",
-        "-cq", str(quality), "-b:v", "0", "-pix_fmt", "yuv420p",
+        "-cq", str(quality), "-b:v", "0", "-bf", "0", "-pix_fmt", "yuv420p",
     ]
 
 
@@ -58,7 +58,7 @@ def encoded_video(path, width, height, rate, time_base, options):
                 yield for_frame
                 for packet in video.encode(None):
                     output.mux(packet)
-        except BrokenPipeError as exc:
+        except (BrokenPipeError, av.error.PyAVCallbackError) as exc:
             broken = exc
         finally:
             try:

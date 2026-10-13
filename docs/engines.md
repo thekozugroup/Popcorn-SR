@@ -32,6 +32,8 @@ The user's reference [Visual Enhancer](https://github.com/Merserk/dlss5-visual-e
 
 DLSS Super Resolution supports source-size DLAA, 2× Performance, and 3× Ultra Performance in the included Windows adapter. DLSS 5 neural rendering keeps source dimensions and may modify appearance, lighting and detail. Select it consciously; it is not interchangeable with faithful restoration.
 
+Development `main` now includes an independent experimental native CUDA DLSS SDR video bridge. It requires operator-provisioned NVIDIA SDK/runtime files; they are not bundled. It exposes verified DLAA/Quality/Balanced/Performance/Ultra Performance modes, preset hints and motion-estimation quality. The source manager gates advanced settings and preserves older recipes. See [native setup and limitations](../native/README.md). This development backend is not present in the published 0.2.0 image. Five-stage parity remains unfinished.
+
 ## External command contract
 
 The worker operator, not a web request, configures a JSON array of arguments. It is executed directly, without a shell. Placeholder values are fixed by the validated job. Use `POPCORN_VSR_COMMAND`, `POPCORN_DLSS_COMMAND` or `POPCORN_DLSS5_COMMAND` for your separately installed engine:

@@ -3,6 +3,66 @@ import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 fs.mkdirSync('evidence/screenshots',{recursive:true});
 
+test('DLSS controls obey verified combinations (UI fixture; no GPU execution)', async ({page}) => {
+  // Browser-only contract data; real GPU acceptance runs separately on Spark.
+  await page.route('**/api/state', async route => {
+    const response=await route.fetch();
+    if (!response.ok()) { await route.fulfill({response}); return; }
+    const state=await response.json();
+    state.workers.push({id:'dlss-ui-fixture',name:'DLSS controls fixture',online:true,revoked:false,scratch:{path:'/scratch',free_bytes:1e9},capabilities:{
+      engines:['dlss-sr'],encoders:['h264_nvidia'],device:'UI fixture',platform:'Linux',architecture:'aarch64',notes:{},
+      dlss_sr:{settings:[['quality','k'],['performance','m']],temporal_qualities:['high','low']},
+    }});
+    state.jobs.push({id:'dlss-summary-fixture',path:'Configuration fixture.mkv',status:'queued',stage:'UI fixture',progress:0,recipe:{engine:'dlss-sr',codec:'hevc',scale:2,dlss_mode:'quality',dlss_preset:'k',temporal_quality:'low',preview_seconds:5}});
+    await route.fulfill({response,json:state});
+  });
+  let submitted;
+  await page.route('**/api/jobs', async route => {
+    submitted=route.request().postDataJSON();
+    await route.fulfill({status:400,json:{detail:'Configuration fixture: no GPU job was submitted.'}});
+  });
+  await signIn(page);
+  await navigate(page,'Library');
+  await page.getByRole('button',{name:'A clearer picture.mkv'}).click();
+  await page.getByRole('combobox',{name:'Processing device',exact:true}).click();
+  await page.getByRole('option',{name:'DLSS controls fixture',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'DLSS mode',exact:true})).toBeVisible();
+  await page.getByRole('combobox',{name:'DLSS mode',exact:true}).click();
+  await page.getByRole('option',{name:'Quality · 1.5×',exact:true}).click();
+  await page.getByRole('button',{name:'More options',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'DLSS model preset',exact:true})).toContainText('K · fine detail');
+  await page.getByRole('combobox',{name:'DLSS model preset',exact:true}).click();
+  await expect(page.getByRole('option',{name:'M · Performance default',exact:true})).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.getByRole('combobox',{name:'Motion estimation',exact:true}).click();
+  await page.getByRole('option',{name:'Fast · less accurate',exact:true}).click();
+  await page.getByLabel('Save copies to').fill('dlss/quality');
+  await page.waitForTimeout(2200);
+  await expect(page.getByRole('combobox',{name:'DLSS mode',exact:true})).toContainText('Quality');
+  await page.getByRole('button',{name:'Preview 5 seconds',exact:true}).click();
+  await expect(page.getByText('Configuration fixture: no GPU job was submitted.',{exact:true})).toBeVisible();
+  expect(submitted.recipe).toMatchObject({engine:'dlss-sr',dlss_mode:'quality',dlss_preset:'k',temporal_quality:'low',codec:'h264',encoder:'nvidia',preview_seconds:5,output_directory:'dlss/quality'});
+  for (const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/dlss-controls-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  }
+  await navigate(page,'Queue');
+  await expect(page.locator('#jobs')).toContainText('H.265 / HEVC');
+  await expect(page.locator('#jobs')).toContainText('Preset: K · Motion estimation: Fast');
+  for (const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/dlss-summary-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  }
+});
+
 async function navigate(page, name) {
   const toggle = page.getByTestId('mobile-nav-toggle');
   if (await toggle.isVisible()) {

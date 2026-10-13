@@ -33,6 +33,10 @@ def test_frame_pipe_preserves_variable_timing_and_reports_encoder_failure(tmp_pa
         [t / 1000 for t in timestamps], abs=0.001
     )
     assert set(tmp_path.iterdir()) == {result}
+    metadata = json.loads(subprocess.check_output([
+        "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_streams", "-of", "json", str(result),
+    ]))["streams"][0]
+    assert Fraction(metadata["avg_frame_rate"]) == 25
 
     with pytest.raises(RuntimeError, match="FFmpeg video encoding failed"):
         with encoded_video(

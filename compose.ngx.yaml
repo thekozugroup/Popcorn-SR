@@ -1,0 +1,25 @@
+# Layer over compose.worker.yaml or compose.single.yaml. Build locally.
+# SDK/driver paths are mandatory; never download proprietary components silently.
+services:
+  worker:
+    image: popcorn-sr-ngx:dev
+    build:
+      context: .
+      dockerfile: Dockerfile.ngx
+    gpus: all
+    environment:
+      POPCORN_NGX_LIBRARY: /opt/ngx/libpopcorn-dlss.so
+      POPCORN_NGX_RUNTIME: /opt/ngx
+      LD_LIBRARY_PATH: /opt/ngx-driver:/opt/ngx:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility,graphics
+    volumes:
+      - type: bind
+        source: "${POPCORN_NGX_BUNDLE:?Set the folder containing the native bridge and licensed DLSS runtime}"
+        target: /opt/ngx
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${POPCORN_NGX_DRIVER:?Set the host NVIDIA libnvidia-ngx.so.1 file path}"
+        target: /opt/ngx-driver/libnvidia-ngx.so.1
+        read_only: true
+        bind: {create_host_path: false}

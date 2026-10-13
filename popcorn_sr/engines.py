@@ -10,6 +10,7 @@ import sys
 import time
 from pathlib import Path
 
+from .dlss import mode_for_recipe
 from .media import dimensions, ffmpeg_command
 
 
@@ -50,8 +51,21 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             "scale": str(recipe["scale"]),
             "codec": recipe["codec"],
             "quality": str(recipe["quality"]),
+            "dlss_mode": mode_for_recipe(recipe) if engine == "dlss-sr" else "",
+            "dlss_preset": recipe.get("dlss_preset", "default"),
+            "temporal_quality": recipe.get("temporal_quality", "high"),
         }
         return [s.format_map(values) for s in template]
+    if engine == "dlss-sr" and os.environ.get("POPCORN_NGX_LIBRARY") and os.environ.get("POPCORN_NGX_RUNTIME"):
+        return [
+            os.environ.get("POPCORN_NGX_PYTHON", sys.executable), "-m", "popcorn_sr.dlss_sr",
+            "--input", str(source.resolve()), "--output", str(output.resolve()),
+            "--width", str(width), "--height", str(height),
+            "--codec", recipe["codec"], "--quality", str(recipe["quality"]),
+            "--mode", mode_for_recipe(recipe), "--preset", recipe.get("dlss_preset", "default"),
+            "--temporal-quality", recipe.get("temporal_quality", "high"),
+            "--library", os.environ["POPCORN_NGX_LIBRARY"], "--runtime", os.environ["POPCORN_NGX_RUNTIME"],
+        ]
     if engine == "rtx-vsr" and os.environ.get("POPCORN_NVIDIA_VFX") == "1":
         return [
             os.environ.get("POPCORN_AI_PYTHON", sys.executable),
@@ -249,7 +263,9 @@ def detect_capabilities(scratch: Path, stopped=None):
     configured = {}
     if os.environ.get("POPCORN_ESRGAN_MODEL"):
         configured["realesrgan"] = True
-    if os.environ.get("POPCORN_DLSS_COMMAND"):
+    if os.environ.get("POPCORN_DLSS_COMMAND") or (
+        os.environ.get("POPCORN_NGX_LIBRARY") and os.environ.get("POPCORN_NGX_RUNTIME")
+    ):
         configured["dlss-sr"] = True
     if os.environ.get("POPCORN_DLSS5_COMMAND"):
         configured["dlss5"] = True
@@ -261,6 +277,7 @@ def detect_capabilities(scratch: Path, stopped=None):
         configured["rtx-vsr"] = True
     if os.environ.get("POPCORN_VISUAL_ENHANCER") and platform.system() == "Windows":
         configured.update({"rtx-vsr": True, "dlss-sr": True, "dlss5": True})
+    dlss_settings = {}
     for engine in configured:
         if stopped is not None and stopped.is_set():
             raise ValueError("Worker initialization stopped.")
@@ -311,6 +328,15 @@ def detect_capabilities(scratch: Path, stopped=None):
             ):
                 raise ValueError("Engine test output failed decoding.")
             engines.append(engine)
+            if engine == "dlss-sr" and os.environ.get("POPCORN_NGX_LIBRARY") and not os.environ.get("POPCORN_DLSS_COMMAND"):
+                report = folder / "settings.json"
+                if run_check(
+                    adapter_command(engine, source, output, recipe, info) + ["--verify-settings", str(report)],
+                    timeout=420, scratch=scratch, stopped=stopped,
+                ):
+                    dlss_settings = json.loads(report.read_text())
+                else:
+                    notes[engine] = "Default DLSS works; advanced settings failed verification."
         except (ValueError, OSError, KeyError) as exc:
             notes[engine] = str(exc)
         finally:
@@ -322,4 +348,5 @@ def detect_capabilities(scratch: Path, stopped=None):
         "platform": platform.system(),
         "architecture": platform.machine(),
         "notes": notes,
+        "dlss_sr": dlss_settings,
     }

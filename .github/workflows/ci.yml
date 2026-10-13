@@ -28,6 +28,7 @@ jobs:
       - run: npm run test:browser
       - run: docker build -t popcorn-sr:dev .
       - run: uv run python scripts/docker-smoke.py
+      - run: docker build -f Dockerfile.ngx -t popcorn-sr-ngx:dev .
       - uses: actions/upload-artifact@v4
         if: always()
         with:

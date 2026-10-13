@@ -15,6 +15,9 @@ class Recipe(StrictModel):
     codec: Codec = "h264"
     encoder: Literal["cpu", "nvidia"] = "cpu"
     scale: Literal[1, 2, 3, 4] = 2
+    dlss_mode: Literal["dlaa", "quality", "balanced", "performance", "ultra-performance"] | None = None
+    dlss_preset: Literal["default", "j", "k", "l", "m"] = "default"
+    temporal_quality: Literal["low", "medium", "high"] = "high"
     quality: int = Field(default=23, ge=16, le=32)
     denoise: bool = False
     deinterlace: bool = False

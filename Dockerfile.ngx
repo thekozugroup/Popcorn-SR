@@ -1,0 +1,27 @@
+# Native DLSS SDR worker; operator mounts the bridge and licensed SDK separately.
+FROM python:3.12-slim-trixie
+LABEL org.opencontainers.image.title="Popcorn SR NGX Worker" \
+      org.opencontainers.image.source="https://github.com/thekozugroup/Popcorn-SR" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 UV_NO_CACHE=1
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -u 1000 -m popcorn \
+    && mkdir /state /scratch && chown popcorn:popcorn /state /scratch
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN pip install uv==0.8.22 \
+    && uv sync --frozen --extra ngx --no-dev --no-install-project --python /usr/local/bin/python
+COPY LICENSE THIRD-PARTY-NOTICES.md ./
+COPY licenses ./licenses
+COPY popcorn_sr ./popcorn_sr
+RUN uv sync --frozen --extra ngx --no-dev --no-editable --python /usr/local/bin/python \
+    && /app/.venv/bin/python -c "import av, numpy, cv2; import popcorn_sr.dlss_sr"
+ENV PATH="/app/.venv/bin:$PATH" \
+    POPCORN_NGX_LIBRARY=/opt/ngx/libpopcorn-dlss.so POPCORN_NGX_RUNTIME=/opt/ngx \
+    LD_LIBRARY_PATH=/opt/ngx-driver:/opt/ngx:/usr/local/nvidia/lib:/usr/local/nvidia/lib64 \
+    XDG_CACHE_HOME=/scratch/cache CUDA_CACHE_PATH=/scratch/cache/cuda \
+    NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=compute,video,utility,graphics
+USER 1000:1000
+ENTRYPOINT ["/usr/bin/tini", "--", "popcorn-sr"]
+CMD ["worker"]
