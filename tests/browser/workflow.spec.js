@@ -3,6 +3,12 @@ import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 fs.mkdirSync('evidence/screenshots',{recursive:true});
 
+test.afterEach(async ({page}) => {
+  // Polling can still be inside route.fetch/json when assertions finish.
+  // Drain those handlers before Playwright disposes the request context.
+  await page.unrouteAll({behavior:'wait'});
+});
+
 test('DLSS controls obey verified combinations (UI fixture; no GPU execution)', async ({page}) => {
   // Browser-only contract data; real GPU acceptance runs separately on Spark.
   await page.route('**/api/state', async route => {
