@@ -63,6 +63,93 @@ test('DLSS controls obey verified combinations (UI fixture; no GPU execution)', 
   }
 });
 
+
+test('frame generation is independent, verified, and saved with the codec (UI fixture; no GPU execution)', async ({page}) => {
+  let available=true;
+  await page.route('**/api/state', async route => {
+    const response=await route.fetch();
+    if (!response.ok()) { await route.fulfill({response}); return; }
+    const state=await response.json();
+    state.workers.push({id:'fg-ui-fixture',name:'Frame-generation controls fixture',online:true,revoked:false,scratch:{path:'/scratch',free_bytes:1e9},capabilities:{
+      engines:['resize','dlss-sr'],encoders:['h264_nvidia','hevc_nvidia','av1_nvidia'],device:'UI fixture',platform:'Linux',architecture:'aarch64',notes:{},
+      dlss_sr:{settings:[['quality','k']],temporal_qualities:['high']},
+      dlss_frame_generation:available?{maximum_factor:6,upscalers:['resize','dlss-sr'],settings:[['auto','high'],['native','low'],['cascade','medium']]}:{},
+    }});
+    state.jobs.push({id:'fg-summary-fixture',path:'Cadence fixture.mkv',status:'queued',stage:'UI fixture',progress:0,recipe:{engine:'resize',codec:'hevc',scale:1,frame_generation:true,frame_rate:'480',frame_generation_mode:'cascade',frame_generation_quality:'medium',preview_seconds:5}});
+    await route.fulfill({response,json:state});
+  });
+  let submitted;
+  await page.route('**/api/jobs', async route => {
+    submitted=route.request().postDataJSON();
+    await route.fulfill({status:400,json:{detail:'Configuration fixture: no GPU job was submitted.'}});
+  });
+  await signIn(page);
+  await navigate(page,'Library');
+  await page.getByRole('button',{name:'A clearer picture.mkv'}).click();
+  const workerNames=(await (await page.request.get('/api/state')).json()).workers.map(w=>w.name);
+  await page.getByRole('combobox',{name:'Processing device',exact:true}).click();
+  await page.getByRole('option',{name:workerNames[0],exact:true}).click();
+  const toggle=page.getByRole('checkbox',{name:'DLSS frame generation · experimental',exact:true});
+  await expect(toggle).toBeDisabled();
+  await page.getByRole('combobox',{name:'Processing device',exact:true}).click();
+  await page.getByRole('option',{name:'Frame-generation controls fixture',exact:true}).click();
+  await expect(toggle).toBeEnabled();
+  await toggle.check();
+  await page.getByRole('combobox',{name:'Output size',exact:true}).click();
+  await page.getByRole('option',{name:'Keep source size (1×)',exact:true}).click();
+  await page.getByRole('combobox',{name:'Frame rate',exact:true}).click();
+  for(const rate of ['23.976','25','29.97','30','50','59.94','60','90','119.88','120','144','165','180','240','360','480']) {
+    await expect(page.getByRole('option',{name:`${rate} fps`,exact:true})).toBeAttached();
+  }
+  await page.getByRole('option',{name:'480 fps',exact:true}).click();
+  await page.getByRole('combobox',{name:'Video format',exact:true}).click();
+  await page.getByRole('option',{name:'H.265 / HEVC · smaller files',exact:true}).click();
+  await page.getByRole('button',{name:'More options',exact:true}).click();
+  await page.getByRole('combobox',{name:'Frame-generation mode',exact:true}).click();
+  await page.getByRole('option',{name:'Cascade · multiple NVIDIA passes',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'Frame-generation motion',exact:true})).toContainText('Balanced');
+  await expect(page.getByRole('combobox',{name:'Encoding hardware',exact:true})).toContainText('NVIDIA GPU');
+  await expect(page.getByRole('checkbox',{name:'Smooth motion to 60 fps',exact:true})).toBeDisabled();
+  await page.waitForTimeout(2200);
+  await expect(page.getByRole('combobox',{name:'Frame rate',exact:true})).toContainText('480 fps');
+  for (const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/frame-generation-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  }
+  await page.getByRole('button',{name:'Preview 5 seconds',exact:true}).click();
+  await expect(page.getByText('Configuration fixture: no GPU job was submitted.',{exact:true})).toBeVisible();
+  expect(submitted.recipe).toMatchObject({engine:'resize',scale:1,frame_generation:true,frame_rate:'480',frame_generation_mode:'cascade',frame_generation_quality:'medium',codec:'hevc',encoder:'nvidia',interpolate:false,preview_seconds:5});
+  available=false;
+  await expect(page.getByText('Your selection is kept. Choose a compatible worker or turn off frame generation to continue.',{exact:true})).toBeVisible({timeout:5000});
+  await expect(toggle).toBeChecked();
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Enhance full video',exact:true})).toBeDisabled();
+  for (const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/frame-generation-unavailable-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  }
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+  await navigate(page,'Queue');
+  await expect(page.locator('#jobs')).toContainText('DLSS frame generation: 480 fps · Cascade · Motion: Balanced');
+  for (const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/frame-generation-summary-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  }
+});
+
 async function navigate(page, name) {
   const toggle = page.getByTestId('mobile-nav-toggle');
   // Astryx's inherited md breakpoint is 768px. Viewport updates resolve

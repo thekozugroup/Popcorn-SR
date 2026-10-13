@@ -151,7 +151,7 @@ class Store:
             ).fetchall()
             for row in rows:
                 recipe = json.loads(row["recipe"])
-                if not compatible_recipe(recipe, caps):
+                if not compatible_recipe(recipe, caps, json.loads(row["source"])):
                     continue
                 if recipe["engine"] != "resize" and recipe["encoder"] != "nvidia":
                     continue

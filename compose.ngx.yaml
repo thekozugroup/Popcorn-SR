@@ -9,6 +9,7 @@ services:
     gpus: all
     environment:
       POPCORN_NGX_LIBRARY: /opt/ngx/libpopcorn-dlss.so
+      POPCORN_NGX_DLSSG_LIBRARY: /opt/ngx/libpopcorn-dlssg.so
       POPCORN_NGX_RUNTIME: /opt/ngx
       LD_LIBRARY_PATH: /opt/ngx-driver:/opt/ngx:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
       NVIDIA_DRIVER_CAPABILITIES: compute,video,utility,graphics

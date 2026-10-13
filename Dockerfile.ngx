@@ -16,9 +16,10 @@ COPY LICENSE THIRD-PARTY-NOTICES.md ./
 COPY licenses ./licenses
 COPY popcorn_sr ./popcorn_sr
 RUN uv sync --frozen --extra ngx --no-dev --no-editable --python /usr/local/bin/python \
-    && /app/.venv/bin/python -c "import ctypes, av, numpy, cv2; ctypes.CDLL('libvulkan.so.1'); ctypes.CDLL('libEGL.so.1'); import popcorn_sr.dlss_sr, popcorn_sr.dlssg"
+    && /app/.venv/bin/python -c "import ctypes, av, numpy, cv2; ctypes.CDLL('libvulkan.so.1'); ctypes.CDLL('libEGL.so.1'); import popcorn_sr.dlss_sr, popcorn_sr.dlssg, popcorn_sr.frame_generation"
 ENV PATH="/app/.venv/bin:$PATH" \
     POPCORN_NGX_LIBRARY=/opt/ngx/libpopcorn-dlss.so POPCORN_NGX_RUNTIME=/opt/ngx \
+    POPCORN_NGX_DLSSG_LIBRARY=/opt/ngx/libpopcorn-dlssg.so \
     LD_LIBRARY_PATH=/opt/ngx-driver:/opt/ngx:/usr/local/nvidia/lib:/usr/local/nvidia/lib64 \
     XDG_CACHE_HOME=/scratch/cache CUDA_CACHE_PATH=/scratch/cache/cuda \
     NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=compute,video,utility,graphics

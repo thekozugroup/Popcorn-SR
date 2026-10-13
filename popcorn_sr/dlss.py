@@ -23,11 +23,27 @@ def scale_for_recipe(recipe):
     return recipe["scale"]
 
 
-def compatible_recipe(recipe, capabilities):
+def compatible_recipe(recipe, capabilities, source=None):
     if recipe["engine"] not in capabilities.get("engines", []):
         return False
     if f"{recipe['codec']}_{recipe['encoder']}" not in capabilities.get("encoders", []):
         return False
+    if recipe.get("frame_generation"):
+        from .frame_generation import FPS, plan_factors
+
+        checked = capabilities.get("dlss_frame_generation", {})
+        if recipe["encoder"] != "nvidia" or recipe["engine"] not in checked.get("upscalers", []) or [
+            recipe.get("frame_generation_mode", "auto"), recipe.get("frame_generation_quality", "high"),
+        ] not in checked.get("settings", []):
+            return False
+        if source is not None:
+            try:
+                plan_factors(
+                    Fraction(source["frame_rate"]), FPS[recipe.get("frame_rate", "60")],
+                    checked.get("maximum_factor", 0), recipe.get("frame_generation_mode", "auto"),
+                )
+            except (ValueError, ZeroDivisionError, KeyError, TypeError):
+                return False
     if recipe["engine"] == "dlss-sr" and (
         recipe.get("dlss_mode") is not None or recipe.get("dlss_preset", "default") != "default"
         or recipe.get("temporal_quality", "high") != "high"

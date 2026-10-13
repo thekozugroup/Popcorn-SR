@@ -4,6 +4,7 @@ import os
 import subprocess
 import threading
 from contextlib import contextmanager
+from fractions import Fraction
 
 
 def nvidia_options(codec, quality):
@@ -13,8 +14,15 @@ def nvidia_options(codec, quality):
     ]
 
 
+def encoding_options(codec, quality):
+    if codec == "ffv1":
+        # Internal RGB intermediate; NUT retains sub-millisecond timestamps.
+        return ["-c:v", "ffv1", "-level", "3", "-coder", "1", "-context", "1", "-pix_fmt", "bgr0"]
+    return nvidia_options(codec, quality)
+
+
 @contextmanager
-def encoded_video(path, width, height, rate, time_base, options):
+def encoded_video(path, width, height, rate, time_base, options, *, end_time=None):
     """NUT carries original PTS through a bounded OS pipe, including variable timing."""
     import av
 
@@ -24,10 +32,20 @@ def encoded_video(path, width, height, rate, time_base, options):
         fd = int(active_fd)
         os.fstat(fd)
         inherited["pass_fds"] = (fd,)
+    duration_options = []
+    if end_time is not None:
+        end = Fraction(end_time)
+        if end <= 0:
+            raise ValueError("Video end time must be positive.")
+        # Clip the final encoded packet when the duration is not a whole tick.
+        # Matroska uses millisecond ticks. A rounded zero duration means
+        # "unknown" to its muxer and expands to a whole nominal frame.
+        expression = f"max(ceil(0.001/TB),min(DURATION,max(0,({end.numerator}/{end.denominator})/TB-PTS)))"
+        duration_options = ["-bsf:v", f"setts=duration='{expression}'"]
     process = subprocess.Popen(
         [
             "ffmpeg", "-v", "error", "-nostdin", "-f", "nut", "-i", "pipe:0",
-            "-map", "0:v:0", *options, "-fps_mode", "passthrough",
+            "-map", "0:v:0", *options, *duration_options, "-fps_mode", "passthrough",
             "-enc_time_base", "-1", "-n", str(path),
         ],
         stdin=subprocess.PIPE,

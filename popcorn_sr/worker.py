@@ -14,8 +14,8 @@ from urllib.parse import urlparse
 
 import httpx
 
-from .engines import detect_capabilities, engine_result, processing_command
-from .media import probe, validate_output
+from .engines import detect_capabilities, engine_result, frame_generation_command, processing_command
+from .media import preserved_command, probe, validate_output
 from .scratch import atomic_private_json, read_marker
 
 
@@ -300,37 +300,23 @@ class Worker:
             if recipe["preview_seconds"]
             else info["duration"]
         )
-        await self.process(processing_command(engine_source, output, recipe, info), folder, duration)
-        rendered = engine_result(recipe["engine"], output) if recipe["engine"] != "resize" else output
-        if recipe["engine"] != "resize":
+        generation = recipe.get("frame_generation", False)
+        initial_output = folder / "upscaled.nut" if generation else output
+        initial_recipe = recipe | {"codec": "ffv1"} if generation else recipe
+        await self.process(processing_command(engine_source, initial_output, initial_recipe, info), folder, duration)
+        rendered = engine_result(recipe["engine"], initial_output) if recipe["engine"] != "resize" else initial_output
+        timing = None
+        if generation:
+            self.status["stage"] = "Generating DLSS frames"
+            report = folder / "frame-generation.json"
+            await self.process(frame_generation_command(rendered, output, recipe, report), folder, duration)
+            timing = json.loads(report.read_text())
+            rendered.unlink()
+            rendered = output
+        if recipe["engine"] != "resize" or generation:
             # Remux original streams ourselves: third-party exporters may discard subtitles or re-encode audio.
             remuxed = folder / "preserved.mkv"
-            cmd = [
-                "ffmpeg",
-                "-v",
-                "error",
-                "-i",
-                str(rendered),
-                "-i",
-                str(source),
-                "-map",
-                "0:V:0",
-                "-map",
-                "1:a?",
-                "-map",
-                "1:s?",
-                "-map",
-                "1:t?",
-                "-map_metadata",
-                "1",
-                "-map_chapters",
-                "1",
-                "-c",
-                "copy",
-            ]
-            if recipe["preview_seconds"]:
-                cmd += ["-t", str(recipe["preview_seconds"])]
-            await self.process([*cmd, "-n", str(remuxed)], folder, duration)
+            await self.process(preserved_command(rendered, source, remuxed, recipe, info, timing), folder, duration)
             rendered = remuxed
         self.status.update(progress=86, stage="Checking result")
         result = await asyncio.to_thread(validate_output, rendered, job["source"], recipe)

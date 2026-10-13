@@ -2,6 +2,7 @@ import hashlib
 import json
 import math
 import subprocess
+from fractions import Fraction
 from functools import lru_cache
 from pathlib import Path
 
@@ -76,6 +77,9 @@ def probe(path: Path) -> dict:
         "width": width,
         "height": height,
         "duration": duration,
+        "frame_rate": video.get("avg_frame_rate", "0/0"),
+        "video_start_time": video.get("start_time"),
+        "start_time": data.get("format", {}).get("start_time"),
         "codec": video.get("codec_name"),
         "pix_fmt": video.get("pix_fmt", ""),
         "bit_depth": pixel_bit_depths().get(video.get("pix_fmt", ""), 0),
@@ -122,6 +126,15 @@ def validate_output(path: Path, source: dict, recipe: dict):
     expected_codec = {"h264": "h264", "hevc": "hevc", "av1": "av1"}[recipe["codec"]]
     if info["codec"] != expected_codec:
         raise ValueError("Output codec differs from the selected codec.")
+    if recipe.get("frame_generation"):
+        from .frame_generation import FPS
+
+        try:
+            actual_rate = Fraction(info["frame_rate"])
+        except (ValueError, ZeroDivisionError):
+            raise ValueError("Generated output has no valid frame rate.") from None
+        if actual_rate != FPS[recipe.get("frame_rate", "60")]:
+            raise ValueError("Generated output frame rate differs from the requested cadence.")
     for key in ("audio_streams", "subtitle_streams", "attachment_streams"):
         if info[key] != source[key]:
             raise ValueError(f"Output lost {key.replace('_', ' ')}. Original preserved; result rejected.")
@@ -151,7 +164,7 @@ def validate_output(path: Path, source: dict, recipe: dict):
     return info
 
 
-def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict):
+def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict, *, video_only=False):
     filters = []
     if recipe["deinterlace"]:
         filters.append("bwdif=mode=send_frame:parity=auto:deint=all")
@@ -163,7 +176,7 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict):
         filters.append("unsharp=5:5:0.5:5:5:0")
     if recipe["interpolate"]:
         filters.append("minterpolate=fps=60:mi_mode=mci")
-    codec = {"h264": "libx264", "hevc": "libx265", "av1": "libsvtav1"}[recipe["codec"]]
+    codec = {"h264": "libx264", "hevc": "libx265", "av1": "libsvtav1", "ffv1": "ffv1"}[recipe["codec"]]
     encoding = [
         "-c:v",
         codec,
@@ -172,7 +185,9 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict):
         "-preset",
         "6" if recipe["codec"] == "av1" else "medium",
     ]
-    if recipe["encoder"] == "nvidia":
+    if recipe["codec"] == "ffv1":
+        encoding = ["-c:v", "ffv1", "-level", "3", "-pix_fmt", "bgr0"]
+    elif recipe["encoder"] == "nvidia":
         encoding = [
             "-c:v",
             {"h264": "h264_nvenc", "hevc": "hevc_nvenc", "av1": "av1_nvenc"}[recipe["codec"]],
@@ -185,6 +200,10 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict):
             "-b:v",
             "0",
         ]
+    preservation = [] if video_only else [
+        "-map", "0:a?", "-map", "0:s?", "-map", "0:t?",
+        "-map_metadata", "0", "-map_chapters", "0", "-c:a", "copy", "-c:s", "copy", "-c:t", "copy",
+    ]
     cmd = [
         "ffmpeg",
         "-hide_banner",
@@ -197,28 +216,32 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict):
         str(source.resolve()),
         "-map",
         "0:V:0",
-        "-map",
-        "0:a?",
-        "-map",
-        "0:s?",
-        "-map",
-        "0:t?",
-        "-map_metadata",
-        "0",
-        "-map_chapters",
-        "0",
+        *preservation,
         "-vf",
         ",".join(filters),
         *encoding,
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "copy",
-        "-c:s",
-        "copy",
-        "-c:t",
-        "copy",
+        "-pix_fmt", "bgr0" if recipe["codec"] == "ffv1" else "yuv420p",
+        "-fps_mode", "passthrough",
     ]
     if recipe["preview_seconds"]:
         cmd += ["-t", str(recipe["preview_seconds"])]
     return [*cmd, "-progress", "pipe:1", "-n", str(output.resolve())]
+
+
+def preserved_command(rendered, source, output, recipe, info, timing=None):
+    timing_options, duration_options = [], []
+    if timing is not None:
+        if info.get("video_start_time") is None or info.get("start_time") is None:
+            raise ValueError("Original stream offsets are unavailable; refusing to guess synchronization.")
+        offset = Fraction(info["video_start_time"]) - Fraction(info["start_time"])
+        timing_options = ["-copyts", "-start_at_zero", "-itsoffset", str(float(offset))]
+        end = Fraction(timing["source_video_duration"]) + offset
+        duration_options = ["-bsf:v", f"setts=duration='max(ceil(0.001/TB),min(DURATION,max(0,({end.numerator}/{end.denominator})/TB-PTS)))'"]
+    command = [
+        "ffmpeg", "-v", "error", "-nostdin", *timing_options, "-i", str(rendered), "-i", str(source),
+        "-map", "0:V:0", "-map", "1:a?", "-map", "1:s?", "-map", "1:t?",
+        "-map_metadata", "1", "-map_chapters", "1", "-c", "copy", *duration_options,
+    ]
+    if recipe["preview_seconds"]:
+        command += ["-t", str(recipe["preview_seconds"])]
+    return [*command, "-n", str(output)]

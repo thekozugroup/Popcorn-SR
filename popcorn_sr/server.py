@@ -245,6 +245,13 @@ def create_app(settings: Settings | None = None):
             beneath(cfg.output, body.recipe.output_directory)
             if body.recipe.engine != "resize" and body.recipe.encoder != "nvidia":
                 raise ValueError("AI engines require the NVIDIA encoding option.")
+            if body.recipe.frame_generation:
+                if body.recipe.encoder != "nvidia":
+                    raise ValueError("DLSS frame generation requires NVIDIA encoding.")
+                if body.recipe.interpolate:
+                    raise ValueError("Choose DLSS frame generation or conventional motion interpolation.")
+                if body.recipe.engine not in {"resize", "dlss-sr"}:
+                    raise ValueError("This upscaler has no verified lossless frame-generation combination yet.")
             if body.recipe.engine != "resize" and any(
                 [body.recipe.denoise, body.recipe.deinterlace, body.recipe.sharpen, body.recipe.interpolate]
             ):
@@ -263,7 +270,7 @@ def create_app(settings: Settings | None = None):
                 body.recipe.dlss_mode is not None or body.recipe.dlss_preset != "default"
                 or body.recipe.temporal_quality != "high"
             )
-            if (require_compatible or advanced_dlss) and not any(
+            if (require_compatible or advanced_dlss or body.recipe.frame_generation) and not any(
                 not w["revoked"]
                 and (not body.worker_id or w["id"] == body.worker_id)
                 and compatible_recipe(body.recipe.model_dump(), w["capabilities"])
@@ -281,6 +288,25 @@ def create_app(settings: Settings | None = None):
                 raise ValueError(
                     "HDR and high-bit-depth sources are protected. This release accepts 8-bit SDR only; keep this source unchanged."
                 )
+            if body.recipe.frame_generation:
+                from .frame_generation import FPS
+
+                try:
+                    from fractions import Fraction
+
+                    incoming = Fraction(source["frame_rate"])
+                    if incoming <= 0 or FPS[body.recipe.frame_rate] <= incoming:
+                        raise ValueError("Choose a target above the source frame rate.")
+                except (ZeroDivisionError, KeyError):
+                    raise ValueError("Source frame rate is unavailable; refusing to guess motion timing.") from None
+                if source["video_start_time"] is None or source["start_time"] is None:
+                    raise ValueError("Source stream offsets are unavailable; refusing to guess synchronization.")
+                if not any(
+                    not w["revoked"] and (not body.worker_id or w["id"] == body.worker_id)
+                    and compatible_recipe(body.recipe.model_dump(), w["capabilities"], source)
+                    for w in store.workers()
+                ):
+                    raise ValueError("This target exceeds the verified native limit. Choose Auto or Cascade, or another worker.")
             if max(dimensions(source, body.recipe.model_dump())) > 7680:
                 raise ValueError(
                     "Requested output exceeds this release's 8K safety limit. Choose a smaller scale."

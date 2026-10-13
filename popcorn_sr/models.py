@@ -23,6 +23,13 @@ class Recipe(StrictModel):
     deinterlace: bool = False
     sharpen: bool = False
     interpolate: bool = False
+    frame_generation: bool = False
+    frame_rate: Literal[
+        "23.976", "25", "29.97", "30", "50", "59.94", "60", "90", "119.88", "120",
+        "144", "165", "180", "240", "360", "480",
+    ] = "60"
+    frame_generation_mode: Literal["auto", "native", "cascade"] = "auto"
+    frame_generation_quality: Literal["low", "medium", "high"] = "high"
     preview_seconds: Literal[0, 5, 10, 30] = 0
     output_directory: str = Field(default="enhanced", min_length=1, max_length=200)
 

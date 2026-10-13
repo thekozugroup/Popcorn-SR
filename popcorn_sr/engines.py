@@ -158,8 +158,21 @@ def engine_result(engine: str, output: Path):
 
 def processing_command(source: Path, output: Path, recipe: dict, info: dict):
     if recipe["engine"] == "resize":
-        return ffmpeg_command(source, output, recipe, info)
+        return ffmpeg_command(source, output, recipe, info, video_only=recipe.get("codec") == "ffv1")
     return adapter_command(recipe["engine"], source, output, recipe, info)
+
+
+def frame_generation_command(source: Path, output: Path, recipe: dict, report: Path):
+    if not os.environ.get("POPCORN_NGX_DLSSG_LIBRARY") or not os.environ.get("POPCORN_NGX_RUNTIME"):
+        raise ValueError("Native DLSS frame generation is not configured on this worker.")
+    return [
+        os.environ.get("POPCORN_NGX_PYTHON", sys.executable), "-m", "popcorn_sr.frame_generation",
+        "--input", str(source.resolve()), "--output", str(output.resolve()),
+        "--library", os.environ["POPCORN_NGX_DLSSG_LIBRARY"], "--runtime", os.environ["POPCORN_NGX_RUNTIME"],
+        "--fps", recipe.get("frame_rate", "60"), "--mode", recipe.get("frame_generation_mode", "auto"),
+        "--temporal-quality", recipe.get("frame_generation_quality", "high"),
+        "--codec", recipe["codec"], "--quality", str(recipe["quality"]), "--report", str(report.resolve()),
+    ]
 
 
 def run_check(command, *, timeout=60, scratch=None, stopped=None):
@@ -341,6 +354,42 @@ def detect_capabilities(scratch: Path, stopped=None):
             notes[engine] = str(exc)
         finally:
             shutil.rmtree(folder)
+    frame_generation = {}
+    if os.environ.get("POPCORN_NGX_DLSSG_LIBRARY") and os.environ.get("POPCORN_NGX_RUNTIME"):
+        folder = scratch / "check-dlssg"
+        folder.mkdir()
+        try:
+            if "h264_nvidia" not in encoders:
+                raise ValueError("NVIDIA H.264 encoding failed its hardware check.")
+            source, output, report = folder / "input.mkv", folder / "result.mkv", folder / "settings.json"
+            if not run_check([
+                "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=256x144:rate=24",
+                "-frames:v", "3", "-c:v", "libx264", "-bf", "0", "-n", str(source),
+            ], scratch=scratch, stopped=stopped):
+                raise ValueError("Could not prepare a frame-generation test clip.")
+            recipe = Recipe(encoder="nvidia", scale=1, frame_generation=True).model_dump()
+            command = frame_generation_command(source, output, recipe, report)
+            if not run_check(command + ["--verify-settings", str(report)], timeout=420, scratch=scratch, stopped=stopped):
+                raise ValueError("DLSS frame-generation render/cadence check failed. Verify bridge, runtime and driver.")
+            frame_generation = json.loads(report.read_text())
+            # Only the in-tree native SR adapter has a verified lossless contract.
+            if "dlss-sr" in engines and os.environ.get("POPCORN_NGX_LIBRARY") and not os.environ.get("POPCORN_DLSS_COMMAND"):
+                upscaled = folder / "upscaled.nut"
+                combined = recipe | {"engine": "dlss-sr", "scale": 2, "codec": "ffv1"}
+                if run_check(adapter_command("dlss-sr", source, upscaled, combined, probe(source)), timeout=120, scratch=scratch, stopped=stopped) and run_check(
+                    frame_generation_command(upscaled, output, recipe, folder / "combined.json"),
+                    timeout=120, scratch=scratch, stopped=stopped,
+                ) and run_check(["ffmpeg", "-v", "error", "-i", str(output), "-f", "null", "-"], scratch=scratch, stopped=stopped):
+                    result = probe(output)
+                    if (result["width"], result["height"]) == (512, 288) and abs(result["duration"] - .125) <= .001:
+                        frame_generation["upscalers"].append("dlss-sr")
+                else:
+                    notes["dlssg-combined"] = "DLSS upscaling plus frame generation failed its combined render check."
+        except (ValueError, OSError, KeyError) as exc:
+            notes["dlssg"] = str(exc)
+            frame_generation = {}
+        finally:
+            shutil.rmtree(folder)
     return {
         "engines": engines,
         "encoders": encoders,
@@ -349,4 +398,5 @@ def detect_capabilities(scratch: Path, stopped=None):
         "architecture": platform.machine(),
         "notes": notes,
         "dlss_sr": dlss_settings,
+        "dlss_frame_generation": frame_generation,
     }

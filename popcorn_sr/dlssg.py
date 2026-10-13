@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .dlss_sr import MotionEstimator
 from .media import probe
-from .video_pipe import encoded_video, nvidia_options
+from .video_pipe import encoded_video, encoding_options
 
 
 def intermediate_times(previous, current, factor):
@@ -29,7 +29,10 @@ def output_time_base(source_time_base, source_rate, factor):
     source_time_base, source_rate = Fraction(source_time_base), Fraction(source_rate)
     if source_time_base <= 0 or source_rate <= 0 or not 2 <= factor <= 8:
         raise ValueError("Positive timing and a supported frame multiplier are required.")
-    return Fraction(1, math.lcm(source_time_base.denominator, source_rate.numerator) * factor)
+    denominator = math.lcm(source_time_base.denominator, source_rate.numerator) * factor
+    if denominator > 2_147_483_647:
+        raise ValueError("Video timing exceeds the encoder's exact clock range.")
+    return Fraction(1, denominator)
 
 
 @contextmanager
@@ -136,15 +139,19 @@ def render(args):
         # Anamorphic geometry needs a separate preservation check before enabling.
         if video.sample_aspect_ratio and video.sample_aspect_ratio != 1:
             raise ValueError("Native DLSSG anamorphic video preservation is not verified yet.")
-        rate = video.average_rate * args.factor
-        time_base = output_time_base(video.time_base, video.average_rate, args.factor)
-        if rate > 480:
-            raise ValueError("Native output exceeds 480 frames per second.")
+        nominal = Fraction(args.source_rate) if args.source_rate else video.average_rate
+        if nominal <= 0:
+            raise ValueError("Source frame rate must be positive.")
+        rate = nominal * args.factor
+        time_base = output_time_base(video.time_base, nominal, args.factor)
+        limit = 3840 if args.codec == "ffv1" else 480
+        if rate > limit:
+            raise ValueError(f"Native output exceeds {limit} frames per second.")
         estimator = MotionEstimator(args.temporal_quality)
         count, output_count, disabled_count, resets = 0, 0, 0, 0
         first, previous, last_rgb, last_duration = None, None, None, None
         with NativeDLSSG(args.library, args.runtime, scratch, info["width"], info["height"], args.factor) as engine:
-            with encoded_video(args.output, info["width"], info["height"], rate, time_base, nvidia_options(args.codec, args.quality)) as (output, encoded):
+            with encoded_video(args.output, info["width"], info["height"], rate, time_base, encoding_options(args.codec, args.quality)) as (output, encoded):
                 def write(rgb, timestamp):
                     nonlocal output_count
                     frame = av.VideoFrame.from_ndarray(rgb, format="rgb24")
@@ -161,7 +168,7 @@ def render(args):
                         raise ValueError("Missing frame timestamps; refusing to change timing.")
                     timestamp = Fraction(frame.pts) * frame.time_base
                     rgb = frame.to_ndarray(format="rgb24")
-                    motion, reset = estimator.estimate(rgb, timestamp, 1 / video.average_rate)
+                    motion, reset = estimator.estimate(rgb, timestamp, 1 / nominal)
                     resets += reset
                     first = timestamp if first is None else first
                     if previous is None:
@@ -175,7 +182,7 @@ def render(args):
                             disabled_count += disabled
                     write(rgb, timestamp)
                     duration = getattr(frame, "duration", 0)
-                    last_duration = Fraction(duration) * frame.time_base if duration and duration > 0 else 1 / video.average_rate
+                    last_duration = Fraction(duration) * frame.time_base if duration and duration > 0 else 1 / nominal
                     previous, last_rgb = timestamp, rgb
                     count += 1
                     print(f"out_time_us={int((timestamp - first) * 1_000_000)}", flush=True)
@@ -203,10 +210,22 @@ def main():
     parser.add_argument("--library", required=True)
     parser.add_argument("--runtime", required=True)
     parser.add_argument("--factor", type=int, choices=range(2, 9), default=2)
+    parser.add_argument("--source-rate", help="Nominal rational rate carried between lossless cascade passes")
     parser.add_argument("--temporal-quality", choices=("high", "medium", "low"), default="high")
-    parser.add_argument("--codec", choices=("h264", "hevc", "av1"), default="h264")
+    parser.add_argument("--codec", choices=("h264", "hevc", "av1", "ffv1"), default="h264")
     parser.add_argument("--quality", type=int, default=20)
-    render(parser.parse_args())
+    parser.add_argument("--inspect-native", action="store_true", help="Query native limits only; does not verify rendered video.")
+    args = parser.parse_args()
+    if args.inspect_native:
+        import json
+
+        info = probe(Path(args.input))
+        with graphics_scratch(args.output) as scratch, NativeDLSSG(
+            args.library, args.runtime, scratch, info["width"], info["height"], 2,
+        ) as engine:
+            print("dlssg_native_info=" + json.dumps({"maximum_factor": min(engine.maximum_factor, 8), "render_verified": False}), flush=True)
+    else:
+        render(args)
 
 
 if __name__ == "__main__":

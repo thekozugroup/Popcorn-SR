@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .dlss import MODES, PRESETS
 from .media import probe
-from .video_pipe import encoded_video, nvidia_options
+from .video_pipe import encoded_video, encoding_options
 
 
 class MotionEstimator:
@@ -172,7 +172,7 @@ def render(args):
                 first, count, resets = None, 0, 0
                 with encoded_video(
                     args.output, args.width, args.height, video.average_rate, video.time_base,
-                    nvidia_options(args.codec, args.quality),
+                    encoding_options(args.codec, args.quality),
                 ) as (output, encoded):
                     for frame in source.decode(video):
                         if frame.pts is None or frame.time_base is None:
@@ -273,7 +273,7 @@ def main():
     parser.add_argument("--mode", choices=MODES, default="performance")
     parser.add_argument("--preset", choices=PRESETS, default="default")
     parser.add_argument("--temporal-quality", choices=["low", "medium", "high"], default="high")
-    parser.add_argument("--codec", choices=["h264", "hevc", "av1"], default="h264")
+    parser.add_argument("--codec", choices=["h264", "hevc", "av1", "ffv1"], default="h264")
     parser.add_argument("--quality", type=int, choices=range(16, 33), default=23)
     parser.add_argument("--verify-settings", help="Write actual mode/preset pixel-check results instead of a video")
     parser.add_argument("--pixel-check", action="store_true", help=argparse.SUPPRESS)
