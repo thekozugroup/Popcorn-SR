@@ -280,3 +280,92 @@ def test_cancel_does_not_wait_for_unreachable_manager(setup, auth, tmp_path, mon
 
     asyncio.run(run())
     assert not list(worker.scratch.glob("job-*"))
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX immediate process termination")
+@pytest.mark.parametrize("fault", ["full", "replaced"])
+def test_storage_failure_stops_real_process_without_waiting_for_heartbeat(setup, auth, tmp_path, monkeypatch, fault):
+    client, store, worker, claim = claimed_worker(setup, auth, tmp_path)
+    started, stopped = asyncio.Event(), asyncio.Event()
+    processes, broken = [], False
+    original_marker = json.loads((worker.scratch / ".popcorn-scratch").read_text())
+    actual_storage, actual_spawn = worker.storage, asyncio.create_subprocess_exec
+    worker.reserve = 1
+    unknown = worker.scratch / "job-unknown"
+    unknown.mkdir()
+    (unknown / "keep").write_text("unrelated")
+
+    def storage():
+        observed = actual_storage()
+        if broken and fault == "full":
+            observed["free_bytes"] = 0
+        return observed
+
+    async def spawn(*command, **kwargs):
+        process = await actual_spawn(*command, **kwargs)
+        processes.append(process)
+        started.set()
+        return process
+
+    async def held_processing(api, job, folder):
+        await worker.process([sys.executable, "-c", "import time; time.sleep(60)"], folder, 60)
+
+    monkeypatch.setattr(worker, "storage", storage)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", spawn)
+    monkeypatch.setattr(worker, "perform", held_processing)
+
+    async def run():
+        nonlocal broken
+        async with remote(client, worker) as api:
+            original_post = api.post
+
+            async def stalled_post(url, **kwargs):
+                if url.endswith("/fail"):
+                    assert processes and all(p.returncode is not None for p in processes)
+                    stopped.set()
+                    await asyncio.sleep(60)
+                return await original_post(url, **kwargs)
+
+            monkeypatch.setattr(api, "post", stalled_post)
+            job = asyncio.create_task(worker.run_job(api, claim, 60))
+            await asyncio.wait_for(started.wait(), 5)
+            broken = True
+            if fault == "replaced":
+                atomic_private_json(worker.scratch / ".popcorn-scratch", original_marker | {"drive_id": "replacement"})
+            await asyncio.wait_for(stopped.wait(), 2)
+            await asyncio.wait_for(job, 3)
+        # Reconnect after failure reporting was unavailable. Restore the original
+        # owned marker; recovery must leave unrelated folders untouched.
+        broken = False
+        atomic_private_json(worker.scratch / ".popcorn-scratch", original_marker)
+        async with remote(client, worker) as api:
+            response = await api.post(f"/api/worker/jobs/{claim['id']}/fail", json={"lease": claim["lease"], "error": "Storage interrupted"})
+            response.raise_for_status()
+            await worker.recover_scratch(api)
+
+    asyncio.run(run())
+    assert store.job(claim["id"])["status"] == "failed"
+    assert [path.name for path in worker.scratch.glob("job-*")] == ["job-unknown"]
+    assert (unknown / "keep").read_text() == "unrelated"
+
+
+def test_generation_rejects_insufficient_lossless_space_before_downloading(setup, auth, tmp_path, monkeypatch):
+    client, store, worker, claim = claimed_worker(setup, auth, tmp_path)
+    claim["recipe"] = Recipe(encoder="nvidia", frame_generation=True, scale=2).model_dump()
+    worker.capabilities = {"dlss_frame_generation": {"maximum_factor": 6}}
+    observed = worker.storage()
+    monkeypatch.setattr(worker, "storage", lambda: observed | {"free_bytes": claim["source"]["size"] * 4 + 1})
+
+    async def forbidden_transfer(*args):
+        pytest.fail("Generation downloaded a source despite inadequate lossless storage")
+
+    monkeypatch.setattr(worker, "perform", forbidden_transfer)
+
+    async def run():
+        async with remote(client, worker) as api:
+            await worker.run_job(api, claim, 1)
+
+    asyncio.run(run())
+    assert store.job(claim["id"])["status"] == "failed"
+    assert "free temporary storage" in store.job(claim["id"])["error"]
+    assert not list(worker.scratch.glob("job-*"))

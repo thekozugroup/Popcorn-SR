@@ -17,6 +17,7 @@ import httpx
 from .engines import detect_capabilities, engine_result, frame_generation_command, processing_command
 from .media import preserved_command, probe, validate_output
 from .scratch import atomic_private_json, read_marker
+from .storage_plan import estimate_scratch_bytes
 
 
 @contextmanager
@@ -163,6 +164,13 @@ class Worker:
                     raise ValueError(
                         "Manager connection interrupted. Processing stopped; retry when connected."
                     ) from None
+
+    async def monitor_storage(self, interval=1):
+        """Drive failure must not wait for a slow or disconnected heartbeat."""
+        while True:
+            await asyncio.sleep(interval)
+            if self.storage()["free_bytes"] < self.reserve:
+                raise ValueError("Scratch drive is full. Processing stopped to preserve the drive reserve.")
 
     async def process(self, command, folder, duration):
         env = os.environ.copy()
@@ -369,11 +377,19 @@ class Worker:
 
         try:
             storage = self.storage()
-            # Conservative estimate, with continuous checks while transferring.
-            if storage["free_bytes"] < job["source"]["size"] * 4 + self.reserve:
-                raise ValueError(
-                    "Scratch drive has too little space. Free at least 4× the source size plus the reserve."
-                )
+            required = estimate_scratch_bytes(job["source"], job["recipe"], self.capabilities) + self.reserve
+            if storage["free_bytes"] < required:
+                if job["recipe"].get("frame_generation"):
+                    action = (
+                        "Free space or use a larger temporary drive."
+                        if job["recipe"].get("preview_seconds") == 5
+                        else "Use a larger temporary drive or a shorter preview."
+                    )
+                    raise ValueError(
+                        f"Frame generation needs about {required / 1024**3:.2f} GiB of free temporary storage; "
+                        f"{storage['free_bytes'] / 1024**3:.2f} GiB is available. {action}"
+                    )
+                raise ValueError("Scratch drive has too little space. Free at least 4× the source size plus the reserve.")
             folder.mkdir(exist_ok=False)
             created = True
             atomic_private_json(
@@ -392,6 +408,7 @@ class Worker:
             tasks = [
                 asyncio.create_task(self.perform(client, job, folder)),
                 asyncio.create_task(self.heartbeat(client, job, interval)),
+                asyncio.create_task(self.monitor_storage()),
             ]
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in done:
