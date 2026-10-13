@@ -4,7 +4,7 @@ LABEL org.opencontainers.image.title="Popcorn SR NGX Worker" \
       org.opencontainers.image.source="https://github.com/thekozugroup/Popcorn-SR" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 UV_NO_CACHE=1
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libvulkan1 ca-certificates tini \
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libvulkan1 libegl1 ca-certificates tini \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -u 1000 -m popcorn \
     && mkdir /state /scratch && chown popcorn:popcorn /state /scratch
@@ -16,7 +16,7 @@ COPY LICENSE THIRD-PARTY-NOTICES.md ./
 COPY licenses ./licenses
 COPY popcorn_sr ./popcorn_sr
 RUN uv sync --frozen --extra ngx --no-dev --no-editable --python /usr/local/bin/python \
-    && /app/.venv/bin/python -c "import av, numpy, cv2; import popcorn_sr.dlss_sr, popcorn_sr.dlssg"
+    && /app/.venv/bin/python -c "import ctypes, av, numpy, cv2; ctypes.CDLL('libvulkan.so.1'); ctypes.CDLL('libEGL.so.1'); import popcorn_sr.dlss_sr, popcorn_sr.dlssg"
 ENV PATH="/app/.venv/bin:$PATH" \
     POPCORN_NGX_LIBRARY=/opt/ngx/libpopcorn-dlss.so POPCORN_NGX_RUNTIME=/opt/ngx \
     LD_LIBRARY_PATH=/opt/ngx-driver:/opt/ngx:/usr/local/nvidia/lib:/usr/local/nvidia/lib64 \
