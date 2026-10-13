@@ -1,13 +1,13 @@
 # Verified Docker release kits
 
-The [0.4.0 preview](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.4.0) contains the simple input/queue workspace, large frame comparison and experimental native DLSS SR/frame generation worker. The public multi-architecture registry supplies 0.4.0 as `ghcr.io/thekozugroup/popcorn-sr:0.4.0` and its native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.0`. Versioned tags and stable promotion require anonymous verification before deployment. A kit provides prebuilt manager and NGX worker images without requiring registry credentials or a build on your NAS. NVIDIA SDK libraries and AI weights are not included.
+The 0.4.1 release candidate contains the simple input/queue workspace, large frame comparison and experimental native DLSS SR/frame generation worker. After acceptance and publication, the multi-architecture registry supplies 0.4.1 as `ghcr.io/thekozugroup/popcorn-sr:0.4.1` and its native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.1`. Versioned tags and stable promotion require anonymous verification before deployment. A kit provides prebuilt manager and NGX worker images without requiring registry credentials or a build on your NAS. NVIDIA SDK libraries and AI weights are not included.
 
 Download the kit matching the host and its `.sha256` file from the [GitHub releases](https://github.com/thekozugroup/Popcorn-SR/releases). Use AMD64 for an ordinary Unraid/x86 desktop and ARM64 for DGX Spark. Verify that one archive before extracting it. The release also supplies a combined SHA256SUMS, exact source commit and build/delivery evidence.
 
 ```sh
-sha256sum --check popcorn-sr-0.4.0-linux-amd64.tar.gz.sha256
-tar -xzf popcorn-sr-0.4.0-linux-amd64.tar.gz
-cd popcorn-sr-0.4.0-linux-amd64
+sha256sum --check popcorn-sr-0.4.1-linux-amd64.tar.gz.sha256
+tar -xzf popcorn-sr-0.4.1-linux-amd64.tar.gz
+cd popcorn-sr-0.4.1-linux-amd64
 ./load.sh manager
 ```
 
