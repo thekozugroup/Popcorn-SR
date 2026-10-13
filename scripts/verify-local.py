@@ -32,7 +32,7 @@ def main():
     dirty = subprocess.check_output(["git", "status", "--porcelain"], cwd=repo, text=True).splitlines()
     image = "popcorn-sr:local-" + stamp.lower()
     commands = [
-        ("Locked dependencies", ["uv", "sync", "--frozen", "--extra", "dev"]),
+        ("Locked dependencies", ["uv", "sync", "--frozen", "--extra", "dev", "--reinstall-package", "popcorn-sr"]),
         ("Python lint", ["uv", "run", "ruff", "check", "."]),
         ("Compose layouts", ["uv", "run", "python", "scripts/check-compose.py"]),
         ("Native source", ["uv", "run", "python", "scripts/check-native-source.py", "--download-headers"]),

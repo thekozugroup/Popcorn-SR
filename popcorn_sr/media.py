@@ -125,6 +125,8 @@ def inspect_source(path: Path):
 
 
 def dimensions(source, recipe):
+    if recipe["engine"] == "rtx-vsr" and recipe.get("output_width") is not None:
+        return recipe["output_width"], recipe["output_height"]
     alignment = 8 if recipe["engine"] == "rtx-vsr" else 2
     scale = scale_for_recipe(recipe)
     return tuple(math.ceil(source[k] * scale / alignment) * alignment for k in ("width", "height"))

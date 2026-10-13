@@ -30,6 +30,20 @@ def compatible_recipe(recipe, capabilities, source=None):
         return False
     if f"{recipe['codec']}_{recipe['encoder']}" not in capabilities.get("encoders", []):
         return False
+    if recipe["engine"] == "rtx-vsr":
+        checked = capabilities.get("rtx_vsr", {})
+        if (recipe.get("frame_generation") or recipe.get("hdr")) and not checked.get("lossless"):
+            return False
+        if recipe.get("vsr_quality") is not None and recipe["vsr_quality"] not in checked.get("qualities", []):
+            return False
+        if recipe.get("vsr_strength") is not None and not checked.get("strength"):
+            return False
+        if recipe.get("output_width") is not None and not checked.get("custom_size"):
+            return False
+        if any(recipe.get(k) is not None for k in ("vsr_quality", "vsr_strength", "output_width")) and (
+            recipe["encoder"] != "nvidia" or recipe["codec"] not in checked.get("codecs", [])
+        ):
+            return False
     if recipe.get("hdr"):
         if recipe["encoder"] != "nvidia" or recipe["codec"] not in {"hevc", "av1"} or [
             recipe["engine"], bool(recipe.get("frame_generation")), recipe["codec"],

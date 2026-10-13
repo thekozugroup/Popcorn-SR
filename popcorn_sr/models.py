@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Engine = Literal["resize", "realesrgan", "rtx-vsr", "dlss-sr", "dlss5"]
 Codec = Literal["h264", "hevc", "av1"]
@@ -15,6 +15,10 @@ class Recipe(StrictModel):
     codec: Codec = "h264"
     encoder: Literal["cpu", "nvidia"] = "cpu"
     scale: Literal[1, 2, 3, 4] = 2
+    vsr_quality: Literal[1, 2, 3, 4] | None = None
+    vsr_strength: float | None = Field(default=None, ge=0, le=1)
+    output_width: int | None = Field(default=None, ge=64, le=7680)
+    output_height: int | None = Field(default=None, ge=64, le=7680)
     dlss_mode: Literal["dlaa", "quality", "balanced", "performance", "ultra-performance"] | None = None
     dlss_preset: Literal["default", "j", "k", "l", "m"] = "default"
     temporal_quality: Literal["low", "medium", "high"] = "high"
@@ -38,6 +42,17 @@ class Recipe(StrictModel):
     hdr_debanding: bool = True
     preview_seconds: Literal[0, 5, 10, 30] = 0
     output_directory: str = Field(default="enhanced", min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def vsr_controls(self):
+        controls = (self.vsr_quality, self.vsr_strength, self.output_width, self.output_height)
+        if any(value is not None for value in controls) and self.engine != "rtx-vsr":
+            raise ValueError("RTX Video settings require the RTX Video Super Resolution engine.")
+        if (self.output_width is None) != (self.output_height is None):
+            raise ValueError("Enter both output width and height.")
+        if self.output_width is not None and (self.output_width % 8 or self.output_height % 8):
+            raise ValueError("RTX Video output dimensions must be multiples of 8 pixels.")
+        return self
 
 
 class JobCreate(StrictModel):

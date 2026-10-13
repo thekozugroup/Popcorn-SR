@@ -9,6 +9,76 @@ test.afterEach(async ({page}) => {
   await page.unrouteAll({behavior:'wait'});
 });
 
+test('VSR controls keep exact dimensions and verified quality intent (UI fixture; no GPU execution)', async ({page}) => {
+  let ready=true, submitted;
+  await page.route('**/api/state', async route => {
+    const response=await route.fetch();
+    if(!response.ok()) {await route.fulfill({response});return;}
+    const state=await response.json();
+    state.workers.push({id:'vsr-ui-fixture',name:'VSR controls fixture',online:true,revoked:false,scratch:{path:'/scratch',free_bytes:1e9},capabilities:{
+      engines:['rtx-vsr'],encoders:['h264_nvidia','hevc_nvidia','av1_nvidia'],device:'UI fixture · no GPU processing',platform:'Linux',architecture:'x86_64',notes:{},
+      rtx_vsr:ready?{qualities:[1,2,3,4],strength:true,custom_size:true,codecs:['h264','hevc','av1'],lossless:true}:{},
+      dlss_frame_generation:{upscalers:['rtx-vsr'],settings:[['auto','high']],maximum_factor:6},
+      rtx_hdr:{pipelines:[['rtx-vsr',false,'hevc'],['rtx-vsr',true,'hevc'],['rtx-vsr',false,'av1'],['rtx-vsr',true,'av1']]},
+    }});
+    state.jobs.push({id:'vsr-summary-fixture',path:'VSR configuration fixture.mkv',status:'queued',stage:'UI fixture',progress:0,recipe:{engine:'rtx-vsr',codec:'av1',scale:2,vsr_quality:4,vsr_strength:.6,output_width:1920,output_height:1080,preview_seconds:5}});
+    await route.fulfill({response,json:state});
+  });
+  await page.route('**/api/jobs', async route => {
+    submitted=route.request().postDataJSON();
+    await route.fulfill({status:400,json:{detail:'VSR configuration fixture: no GPU job was submitted.'}});
+  });
+  await signIn(page);
+  await navigate(page,'Library');
+  await page.getByRole('button',{name:'A clearer picture.mkv',exact:true}).click();
+  await page.getByRole('combobox',{name:'Processing device',exact:true}).click();
+  await page.getByRole('option',{name:'VSR controls fixture',exact:true}).click();
+  await page.getByRole('combobox',{name:'Enhancement',exact:true}).click();
+  await page.getByRole('option',{name:'RTX Video Super Resolution',exact:true}).click();
+  await page.getByRole('combobox',{name:'VSR quality',exact:true}).click();
+  await page.getByRole('option',{name:'Level 4 · Ultra',exact:true}).click();
+  await page.getByRole('combobox',{name:'Output size',exact:true}).click();
+  await page.getByRole('option',{name:'Custom dimensions',exact:true}).click();
+  await page.getByRole('spinbutton',{name:'Output width',exact:true}).fill('1921');
+  await page.getByRole('spinbutton',{name:'Output width',exact:true}).press('Tab');
+  await expect(page.getByText('Check the output dimensions',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
+  await page.getByRole('spinbutton',{name:'Output width',exact:true}).fill('1920');
+  await page.getByRole('spinbutton',{name:'Output width',exact:true}).press('Tab');
+  await page.getByRole('button',{name:'More options',exact:true}).click();
+  await page.getByRole('spinbutton',{name:'VSR strength',exact:true}).fill('60');
+  await page.getByRole('spinbutton',{name:'VSR strength',exact:true}).press('Tab');
+  await page.getByRole('combobox',{name:'Video format',exact:true}).click();
+  await page.getByRole('option',{name:'AV1 · newer players',exact:true}).click();
+  await page.getByLabel('Save copies to').fill('vsr/movies');
+  await page.waitForTimeout(3200);
+  await expect(page.getByRole('combobox',{name:'VSR quality',exact:true})).toContainText('Level 4');
+  await expect(page.getByRole('spinbutton',{name:'VSR strength',exact:true})).toHaveValue('60');
+  for(const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/vsr-controls-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    for(const control of await page.getByRole('spinbutton').all()) expect((await control.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  }
+  ready=false;
+  await expect(page.getByText('RTX Video settings are unavailable',{exact:true})).toBeVisible({timeout:6000});
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
+  await expect(page.getByRole('spinbutton',{name:'Output width',exact:true})).toHaveValue('1920');
+  await expect(page.getByRole('spinbutton',{name:'VSR strength',exact:true})).toHaveValue('60');
+  ready=true;
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeEnabled({timeout:6000});
+  await page.getByRole('checkbox',{name:'DLSS frame generation · experimental',exact:true}).check();
+  await page.getByRole('checkbox',{name:'RTX Video HDR · experimental',exact:true}).check();
+  await page.getByRole('button',{name:'Preview 5 seconds',exact:true}).click();
+  expect(submitted.recipe).toMatchObject({engine:'rtx-vsr',vsr_quality:4,vsr_strength:.6,output_width:1920,output_height:1080,codec:'av1',encoder:'nvidia',frame_generation:true,hdr:true,preview_seconds:5,output_directory:'vsr/movies'});
+  await navigate(page,'Queue');
+  await expect(page.locator('#jobs')).toContainText('VSR quality: Level 4 · Ultra · Strength: 60%');
+  await expect(page.locator('#jobs')).toContainText('1920 × 1080 px');
+});
+
 test('HDR controls preserve intent and require verified exports (UI fixture; no GPU execution)', async ({page}) => {
   let ready=true, submitted;
   await page.route('**/api/state', async route => {

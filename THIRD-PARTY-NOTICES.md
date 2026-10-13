@@ -16,7 +16,7 @@ NVIDIA VFX/RTX Video, DLSS, PyTorch NGC images, CUDA and NVENC APIs retain NVIDI
 
 ## NVIDIA VFX Python API examples
 
-The optional TrueHDR adapter follows the public Python API contract in [NVIDIA VFX Python Samples](https://github.com/NVIDIA-Maxine/nvidia-vfx-python-samples/tree/65faa030c1469dceb3c7b1781a01258ea4223647), copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. MIT attribution is included in `licenses/NVIDIA-VFX-Samples-MIT.txt`. Popcorn SR provides its own timestamped system-FFmpeg pipeline and precision validation. No NVIDIA runtime, models or sample media are included.
+The optional VSR and TrueHDR adapters follow the public Python API contract in [NVIDIA VFX Python Samples](https://github.com/NVIDIA-Maxine/nvidia-vfx-python-samples/tree/65faa030c1469dceb3c7b1781a01258ea4223647), copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. MIT attribution is included in `licenses/NVIDIA-VFX-Samples-MIT.txt`. Popcorn SR provides its own timestamped system-FFmpeg pipeline and precision validation. No NVIDIA runtime, models or sample media are included.
 
 ## Reference projects
 

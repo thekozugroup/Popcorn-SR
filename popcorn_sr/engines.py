@@ -83,6 +83,8 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             recipe["codec"],
             "--quality",
             str(recipe["quality"]),
+            "--vsr-quality", str(recipe.get("vsr_quality") or 3),
+            "--strength", str(recipe["vsr_strength"] if recipe.get("vsr_strength") is not None else 1.),
         ]
     if engine == "rtx-vsr" and os.environ.get("POPCORN_VSR_COMMAND"):
         template = json.loads(os.environ["POPCORN_VSR_COMMAND"])
@@ -96,10 +98,19 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             "scale": str(recipe["scale"]),
             "codec": recipe["codec"],
             "quality": str(recipe["quality"]),
+            "vsr_quality": str(recipe.get("vsr_quality") or 3),
+            "vsr_strength": str(recipe["vsr_strength"] if recipe.get("vsr_strength") is not None else 1.),
         }
+        for control in ("vsr_quality", "vsr_strength"):
+            if recipe.get(control) is not None and not any("{" + control + "}" in item for item in template):
+                raise ValueError(f"The external VSR command does not accept {control}.")
         return [s.format_map(values) for s in template]
     fast = os.environ.get("POPCORN_FAST_RTXVSR")
     if engine == "rtx-vsr" and fast:
+        from .nvidia_vsr import QUALITY_NAMES
+
+        if recipe.get("vsr_strength") is not None or recipe["codec"] == "ffv1":
+            raise ValueError("This fast-rtxvsr adapter has no verified strength/lossless contract.")
         return [
             fast,
             "run",
@@ -109,7 +120,7 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             "--height",
             str(height),
             "--quality",
-            "ULTRA",
+            QUALITY_NAMES[recipe.get("vsr_quality") or 4],
             "--codec",
             recipe["codec"],
             "--out-dir",
@@ -162,10 +173,10 @@ def processing_command(source: Path, output: Path, recipe: dict, info: dict):
     return adapter_command(recipe["engine"], source, output, recipe, info)
 
 
-def frame_generation_command(source: Path, output: Path, recipe: dict, report: Path):
+def frame_generation_command(source: Path, output: Path, recipe: dict, report: Path, *, end_time=None):
     if not os.environ.get("POPCORN_NGX_DLSSG_LIBRARY") or not os.environ.get("POPCORN_NGX_RUNTIME"):
         raise ValueError("Native DLSS frame generation is not configured on this worker.")
-    return [
+    command = [
         os.environ.get("POPCORN_NGX_PYTHON", sys.executable), "-m", "popcorn_sr.frame_generation",
         "--input", str(source.resolve()), "--output", str(output.resolve()),
         "--library", os.environ["POPCORN_NGX_DLSSG_LIBRARY"], "--runtime", os.environ["POPCORN_NGX_RUNTIME"],
@@ -173,6 +184,9 @@ def frame_generation_command(source: Path, output: Path, recipe: dict, report: P
         "--temporal-quality", recipe.get("frame_generation_quality", "high"),
         "--codec", recipe["codec"], "--quality", str(recipe["quality"]), "--report", str(report.resolve()),
     ]
+    if end_time is not None:
+        command += ["--source-end-time", str(end_time)]
+    return command
 
 
 def hdr_command(source: Path, output: Path, recipe: dict, *, end_time=None):
@@ -309,7 +323,7 @@ def detect_capabilities(scratch: Path, stopped=None):
         configured["rtx-vsr"] = True
     if os.environ.get("POPCORN_VISUAL_ENHANCER") and platform.system() == "Windows":
         configured.update({"rtx-vsr": True, "dlss-sr": True, "dlss5": True})
-    dlss_settings = {}
+    dlss_settings, vsr_settings = {}, {}
     for engine in configured:
         if stopped is not None and stopped.is_set():
             raise ValueError("Worker initialization stopped.")
@@ -360,6 +374,17 @@ def detect_capabilities(scratch: Path, stopped=None):
             ):
                 raise ValueError("Engine test output failed decoding.")
             engines.append(engine)
+            if engine == "rtx-vsr" and os.environ.get("POPCORN_NVIDIA_VFX") == "1":
+                report = folder / "settings.json"
+                codecs = ",".join(codec for codec in ("h264", "hevc", "av1") if f"{codec}_nvidia" in encoders)
+                if run_check(adapter_command(engine, source, output, recipe, info) + [
+                    "--verify-settings", str(report), "--verify-codecs", codecs,
+                ], timeout=420, scratch=scratch, stopped=stopped):
+                    vsr_settings = json.loads(report.read_text())
+                    if not vsr_settings.get("codecs"):
+                        notes[engine] = "Default RTX Video works; selectable controls failed verification."
+                else:
+                    notes[engine] = "Default RTX Video works; selectable controls failed verification."
             if engine == "dlss-sr" and os.environ.get("POPCORN_NGX_LIBRARY") and not os.environ.get("POPCORN_DLSS_COMMAND"):
                 report = folder / "settings.json"
                 if run_check(
@@ -391,19 +416,24 @@ def detect_capabilities(scratch: Path, stopped=None):
             if not run_check(command + ["--verify-settings", str(report)], timeout=420, scratch=scratch, stopped=stopped):
                 raise ValueError("DLSS frame-generation render/cadence check failed. Verify bridge, runtime and driver.")
             frame_generation = json.loads(report.read_text())
-            # Only the in-tree native SR adapter has a verified lossless contract.
+            lossless_engines = []
             if "dlss-sr" in engines and os.environ.get("POPCORN_NGX_LIBRARY") and not os.environ.get("POPCORN_DLSS_COMMAND"):
-                upscaled = folder / "upscaled.nut"
-                combined = recipe | {"engine": "dlss-sr", "scale": 2, "codec": "ffv1"}
-                if run_check(adapter_command("dlss-sr", source, upscaled, combined, probe(source)), timeout=120, scratch=scratch, stopped=stopped) and run_check(
+                lossless_engines.append("dlss-sr")
+            if "rtx-vsr" in engines and vsr_settings.get("lossless"):
+                lossless_engines.append("rtx-vsr")
+            for engine in lossless_engines:
+                upscaled = folder / f"{engine}-upscaled.nut"
+                combined = recipe | {"engine": engine, "scale": 2, "codec": "ffv1"}
+                output.unlink(missing_ok=True)
+                if run_check(adapter_command(engine, source, upscaled, combined, probe(source)), timeout=120, scratch=scratch, stopped=stopped) and run_check(
                     frame_generation_command(upscaled, output, recipe, folder / "combined.json"),
                     timeout=120, scratch=scratch, stopped=stopped,
                 ) and run_check(["ffmpeg", "-v", "error", "-i", str(output), "-f", "null", "-"], scratch=scratch, stopped=stopped):
                     result = probe(output)
                     if (result["width"], result["height"]) == (512, 288) and abs(result["duration"] - .125) <= .001:
-                        frame_generation["upscalers"].append("dlss-sr")
+                        frame_generation["upscalers"].append(engine)
                 else:
-                    notes["dlssg-combined"] = "DLSS upscaling plus frame generation failed its combined render check."
+                    notes[f"dlssg-{engine}"] = "Upscaling plus frame generation failed its combined render check."
         except (ValueError, OSError, KeyError) as exc:
             notes["dlssg"] = str(exc)
             frame_generation = {}
@@ -427,6 +457,8 @@ def detect_capabilities(scratch: Path, stopped=None):
             eligible = ["resize"]
             if "dlss-sr" in engines and os.environ.get("POPCORN_NGX_LIBRARY") and not os.environ.get("POPCORN_DLSS_COMMAND"):
                 eligible.append("dlss-sr")
+            if "rtx-vsr" in engines and vsr_settings.get("lossless"):
+                eligible.append("rtx-vsr")
             for engine in eligible:
                 for generation in (False, True):
                     if generation and engine not in frame_generation.get("upscalers", []):
@@ -490,6 +522,7 @@ def detect_capabilities(scratch: Path, stopped=None):
         "architecture": platform.machine(),
         "notes": notes,
         "dlss_sr": dlss_settings,
+        "rtx_vsr": vsr_settings,
         "dlss_frame_generation": frame_generation,
         "rtx_hdr": hdr,
     }

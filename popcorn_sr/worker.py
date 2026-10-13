@@ -7,10 +7,12 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 from contextlib import contextmanager
+from fractions import Fraction
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -103,7 +105,7 @@ class Worker:
         checking = {
             "initialization": "checking", "engines": [], "encoders": [], "device": "",
             "platform": platform.system(), "architecture": platform.machine(), "notes": {},
-            "dlss_sr": {}, "dlss_frame_generation": {}, "rtx_hdr": {},
+            "dlss_sr": {}, "dlss_frame_generation": {}, "rtx_hdr": {}, "rtx_vsr": {},
         }
         self.capabilities = checking
         # Consume the short-lived code and save credentials before GPU checks.
@@ -394,6 +396,20 @@ class Worker:
         )
         generation = recipe.get("frame_generation", False)
         hdr = recipe.get("hdr", False)
+        source_end = None
+        if generation or hdr:
+            # A process-group child can stop immediately on cancel, storage
+            # loss or manager disconnection; a decoding thread cannot.
+            stage = self.status["stage"]
+            self.status["stage"] = "Checking video timing"
+            timing_report = folder / "source-timing.json"
+            interpreter = os.environ.get("POPCORN_AI_PYTHON" if hdr or recipe["engine"] == "rtx-vsr" else "POPCORN_NGX_PYTHON", sys.executable)
+            await self.process([interpreter, "-m", "popcorn_sr.timeline", "--input", str(engine_source),
+                                "--report", str(timing_report)], folder, duration)
+            source_end = Fraction(json.loads(timing_report.read_text())["duration"])
+            self.status["stage"] = stage
+            if recipe["preview_seconds"]:
+                source_end = min(source_end, recipe["preview_seconds"])
         initial_output = folder / "upscaled.nut" if generation or hdr else output
         initial_recipe = recipe | {"codec": "ffv1"} if generation or hdr else recipe
         await self.process(processing_command(engine_source, initial_output, initial_recipe, info), folder, duration)
@@ -404,13 +420,14 @@ class Worker:
             report = folder / "frame-generation.json"
             generated = folder / "generated.nut" if hdr else output
             generation_recipe = recipe | {"codec": "ffv1"} if hdr else recipe
-            await self.process(frame_generation_command(rendered, generated, generation_recipe, report), folder, duration)
+            await self.process(frame_generation_command(rendered, generated, generation_recipe, report,
+                                                       end_time=source_end), folder, duration)
             timing = json.loads(report.read_text())
             rendered.unlink()
             rendered = generated
         if hdr:
             self.status["stage"] = "Converting to HDR"
-            end = timing["source_video_duration"] if timing else None
+            end = timing["source_video_duration"] if timing else source_end
             await self.process(hdr_command(rendered, output, recipe, end_time=end), folder, duration)
             rendered.unlink()
             rendered = output

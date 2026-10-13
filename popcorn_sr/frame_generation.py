@@ -166,7 +166,12 @@ def render(args):
     if info["hdr"] or info["bit_depth"] != 8:
         raise ValueError("Native frame generation currently accepts 8-bit SDR only.")
     rate = FPS[args.fps]
-    source_rate, duration, source_count = source_timing(args.input)
+    timing = source_timeline(args.input)
+    source_rate, duration, source_count = timing["rate"], timing["duration"], timing["frames"]
+    if getattr(args, "source_end_time", None) is not None:
+        duration = Fraction(args.source_end_time)
+        if duration <= timing["last_frame_time"]:
+            raise ValueError("The measured source end must follow its final picture.")
     if rate <= source_rate:
         raise ValueError("Choose a target above the incoming frame rate.")
     with tempfile.TemporaryDirectory(prefix="dlssg-pipeline-", dir=Path(args.output).resolve().parent) as temporary:
@@ -255,6 +260,7 @@ def main():
     parser.add_argument("--codec", choices=("h264", "hevc", "av1", "ffv1"), default="h264")
     parser.add_argument("--quality", type=int, choices=range(52), default=20)
     parser.add_argument("--report", help="Write timing and native-pass details to a private job report")
+    parser.add_argument("--source-end-time", type=Fraction, help="Measured original video end before lossless transport")
     parser.add_argument("--verify-settings", help="Write actual mode/motion render-check results")
     args = parser.parse_args()
     if args.verify_settings:

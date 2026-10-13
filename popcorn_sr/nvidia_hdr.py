@@ -47,7 +47,9 @@ def main():
         raise ValueError("10-bit 4:2:0 export requires even dimensions.")
     timing = source_timeline(args.input)
     end = args.end_time if args.end_time is not None else timing["duration"]
-    if not timing["last_frame_time"] < end <= timing["duration"] + Fraction(1, 1000):
+    # NUT retains dense picture timestamps but can lose the final packet's
+    # duration. A preceding stage supplies the independently measured end.
+    if not timing["last_frame_time"] < end:
         raise ValueError("HDR end time does not match the source picture timeline.")
     import av
     import torch

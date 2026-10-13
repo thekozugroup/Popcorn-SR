@@ -248,14 +248,14 @@ def create_app(settings: Settings | None = None):
             if body.recipe.hdr:
                 if body.recipe.encoder != "nvidia" or body.recipe.codec not in {"hevc", "av1"}:
                     raise ValueError("RTX Video HDR requires NVIDIA encoding with H.265 or AV1.")
-                if body.recipe.engine not in {"resize", "dlss-sr"}:
+                if body.recipe.engine not in {"resize", "dlss-sr", "rtx-vsr"}:
                     raise ValueError("This upscaler has no verified lossless HDR combination yet.")
             if body.recipe.frame_generation:
                 if body.recipe.encoder != "nvidia":
                     raise ValueError("DLSS frame generation requires NVIDIA encoding.")
                 if body.recipe.interpolate:
                     raise ValueError("Choose DLSS frame generation or conventional motion interpolation.")
-                if body.recipe.engine not in {"resize", "dlss-sr"}:
+                if body.recipe.engine not in {"resize", "dlss-sr", "rtx-vsr"}:
                     raise ValueError("This upscaler has no verified lossless frame-generation combination yet.")
             if body.recipe.engine != "resize" and any(
                 [body.recipe.denoise, body.recipe.deinterlace, body.recipe.sharpen, body.recipe.interpolate]
@@ -275,7 +275,10 @@ def create_app(settings: Settings | None = None):
                 body.recipe.dlss_mode is not None or body.recipe.dlss_preset != "default"
                 or body.recipe.temporal_quality != "high"
             )
-            if (require_compatible or advanced_dlss or body.recipe.frame_generation or body.recipe.hdr) and not any(
+            advanced_vsr = body.recipe.engine == "rtx-vsr" and any(value is not None for value in (
+                body.recipe.vsr_quality, body.recipe.vsr_strength, body.recipe.output_width,
+            ))
+            if (require_compatible or advanced_dlss or advanced_vsr or body.recipe.frame_generation or body.recipe.hdr) and not any(
                 not w["revoked"]
                 and (not body.worker_id or w["id"] == body.worker_id)
                 and compatible_recipe(body.recipe.model_dump(), w["capabilities"])

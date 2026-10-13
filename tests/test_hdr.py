@@ -123,7 +123,8 @@ def test_hdr_queue_requires_exact_verified_pipeline_and_bounds(setup, auth):
 
 @pytest.mark.parametrize("codec", ["hevc", "av1"])
 @pytest.mark.parametrize("generation", [False, True])
-def test_hdr_pipeline_delivery_keeps_media_and_saved_settings_with_cpu_diagnostics(setup, auth, tmp_path, monkeypatch, codec, generation):
+@pytest.mark.parametrize("engine", ["resize", "rtx-vsr", "rtx-vsr-irregular"])
+def test_hdr_pipeline_delivery_keeps_media_and_saved_settings_with_cpu_diagnostics(setup, auth, tmp_path, monkeypatch, codec, generation, engine):
     """Exercise delivery and stage ordering. SDK calls are explicit CPU fixtures."""
     import asyncio
     import json
@@ -138,12 +139,26 @@ def test_hdr_pipeline_delivery_keeps_media_and_saved_settings_with_cpu_diagnosti
     from tests.conftest import pair_worker
 
     client, store, cfg, clip = setup
+    irregular = engine == "rtx-vsr-irregular"
+    if irregular:
+        engine = "rtx-vsr"
+        variable = tmp_path / "variable.mkv"
+        with encoded_video(variable, 128, 96, Fraction(25), Fraction(1, 1000), ["-c:v", "ffv1", "-pix_fmt", "bgr0"],
+                           end_time=Fraction(36, 100), final_frame_time=Fraction(1, 5)) as (container, stream):
+            for pts in (0, 40, 120, 200):
+                frame = av.VideoFrame.from_ndarray(np.full((96, 128, 3), pts, dtype=np.uint8), format="rgb24")
+                frame.pts, frame.time_base = pts, Fraction(1, 1000)
+                for packet in stream.encode(frame):
+                    container.mux(packet)
+        variable.replace(clip)
     original = sha256(clip)
-    caps = {"engines": ["resize"], "encoders": [f"{codec}_nvidia"],
-            "rtx_hdr": {"pipelines": [["resize", generation, codec]]},
-            "dlss_frame_generation": {"upscalers": ["resize"], "settings": [["auto", "high"]], "maximum_factor": 6}}
+    caps = {"engines": [engine], "encoders": [f"{codec}_nvidia"],
+            "rtx_hdr": {"pipelines": [[engine, generation, codec]]},
+            "rtx_vsr": {"qualities": [4], "strength": True, "custom_size": True, "codecs": [codec], "lossless": True},
+            "dlss_frame_generation": {"upscalers": [engine], "settings": [["auto", "high"]], "maximum_factor": 6}}
     credentials, _ = pair_worker(client, caps)
     recipe = Recipe(scale=1, hdr=True, codec=codec, encoder="nvidia", preview_seconds=5,
+                    engine=engine, **({"vsr_quality": 4, "vsr_strength": .6, "output_width": 264, "output_height": 200} if engine == "rtx-vsr" else {}),
                     hdr_luminance=1000, hdr_contrast=85, hdr_saturation=110,
                     hdr_middle_gray=45, hdr_debanding=False, frame_generation=generation).model_dump()
     queued = client.post("/api/jobs", json={"path": clip.name, "recipe": recipe})
@@ -165,18 +180,26 @@ def test_hdr_pipeline_delivery_keeps_media_and_saved_settings_with_cpu_diagnosti
     worker.capabilities = caps
     actual_process, stages = worker.process, []
     monkeypatch.setenv("POPCORN_NVIDIA_HDR", "1")
+    monkeypatch.setenv("POPCORN_NVIDIA_VFX", "1")
     monkeypatch.setenv("POPCORN_NGX_DLSSG_LIBRARY", "/fixture/not-loaded")
     monkeypatch.setenv("POPCORN_NGX_RUNTIME", "/fixture/not-loaded")
 
     async def diagnostic_process(command, folder, duration):
         stages.append((worker.status["stage"], command))
-        if "popcorn_sr.frame_generation" in command:
+        if "popcorn_sr.nvidia_vsr" in command:
+            assert command[command.index("--codec") + 1] == "ffv1"
+            assert command[command.index("--vsr-quality") + 1] == "4"
+            assert command[command.index("--strength") + 1] == "0.6"
+            incoming, returned = [command[command.index(flag) + 1] for flag in ("--input", "--output")]
+            await actual_process(ffmpeg_command(Path(incoming), Path(returned), recipe | {"codec": "ffv1", "encoder": "cpu"}, inspect_source(Path(incoming)), video_only=True), folder, duration)
+        elif "popcorn_sr.frame_generation" in command:
             assert command[command.index("--codec") + 1] == "ffv1"
             timing = source_timeline(command[command.index("--input") + 1])
+            measured_end = Fraction(command[command.index("--source-end-time") + 1])
             count = cadence(command[command.index("--input") + 1], command[command.index("--output") + 1],
-                            Fraction(60), timing["duration"], "ffv1", 23)
+                            Fraction(60), measured_end, "ffv1", 23)
             Path(command[command.index("--report") + 1]).write_text(json.dumps({
-                "source_video_duration": str(timing["duration"]), "output_frames": count,
+                "source_video_duration": str(measured_end), "output_frames": count,
             }))
         elif "popcorn_sr.nvidia_hdr" in command:
             assert command[command.index("--luminance") + 1] == "1000" and "--debanding-off" in command
@@ -216,10 +239,13 @@ def test_hdr_pipeline_delivery_keeps_media_and_saved_settings_with_cpu_diagnosti
     result = store.job(claim["id"])
     assert result["status"] == "completed", result["error"]
     validate_hdr(result["result"])
+    if irregular:
+        assert result["result"]["duration"] == pytest.approx(.36, abs=.002)
     assert sha256(clip) == original
     assert not list(scratch.glob("job-*"))
-    assert [stage for stage, _ in stages] == ["Encoding video", *(["Generating DLSS frames"] if generation else []), "Converting to HDR", "Converting to HDR"]
-    assert stages[0][1][stages[0][1].index("-c:v") + 1] == "ffv1"
+    assert [stage for stage, _ in stages] == [*(["Receiving source"] if engine == "rtx-vsr" else []), "Checking video timing", "Enhancing video" if engine == "rtx-vsr" else "Encoding video", *(["Generating DLSS frames"] if generation else []), "Converting to HDR", "Converting to HDR"]
+    if engine == "resize":
+        assert stages[1][1][stages[1][1].index("-c:v") + 1] == "ffv1"
     continued = client.post(f"/api/jobs/{claim['id']}/full")
     assert continued.status_code == 200, continued.text
     assert continued.json()["recipe"] == recipe | {"preview_seconds": 0}
