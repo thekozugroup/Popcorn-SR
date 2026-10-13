@@ -103,7 +103,7 @@ def source_timing(path):
     return timing["rate"], timing["duration"], timing["frames"]
 
 
-def adapter_process(command):
+def adapter_process(command, *, progress_range=None, duration=None):
     """Keep the parent job lock inherited and propagate bounded progress lines."""
     inherited = {}
     if os.name == "posix" and (active := os.environ.get("POPCORN_ACTIVE_JOB_FD")):
@@ -114,6 +114,10 @@ def adapter_process(command):
         for line in process.stdout:
             if line.startswith("dlssg_native_info="):
                 report = json.loads(line.split("=", 1)[1])
+            elif line.startswith("out_time_us=") and progress_range is not None:
+                fraction = min(1, max(0, float(line.split("=", 1)[1]) / 1_000_000 / float(duration)))
+                start, span = progress_range
+                print(f"pipeline_progress={start + fraction * span}", flush=True)
             elif line.startswith(("out_time_us=", "dlssg_")):
                 print(line.rstrip(), flush=True)
         if process.wait():
@@ -126,7 +130,7 @@ def adapter_process(command):
         process.stdout.close()
 
 
-def cadence(input_path, output_path, rate, end, codec, quality):
+def cadence(input_path, output_path, rate, end, codec, quality, *, progress_range=None):
     import av
 
     rate, end = Fraction(rate), Fraction(end)
@@ -157,7 +161,11 @@ def cadence(input_path, output_path, rate, end, codec, quality):
                     packet.duration = int(duration / packet.time_base)
                     output.mux(packet)
                 count += 1
-                print(f"out_time_us={int(timestamp * 1_000_000)}", flush=True)
+                if progress_range is None:
+                    print(f"out_time_us={int(timestamp * 1_000_000)}", flush=True)
+                else:
+                    start, span = progress_range
+                    print(f"pipeline_progress={start + float(timestamp / end) * span}", flush=True)
         return count
 
 
@@ -181,6 +189,7 @@ def render(args):
         if not report or not isinstance(report.get("maximum_factor"), int):
             raise ValueError("Native frame-generation limit unavailable.")
         factors = plan_factors(source_rate, rate, report["maximum_factor"], args.mode)
+        span = 1 / (len(factors) + 1)
         previous = Path(args.input).resolve()
         nominal = source_rate
         for index, factor in enumerate(factors):
@@ -189,12 +198,14 @@ def render(args):
                 *base, "--input", str(previous), "--output", str(current),
                 "--factor", str(factor), "--source-rate", str(nominal),
                 "--codec", "ffv1", "--temporal-quality", args.temporal_quality,
-            ])
+            ], progress_range=(index * span, span), duration=duration)
             nominal *= factor
             if previous.is_relative_to(root):
                 previous.unlink()
             previous = current
-        count = cadence(previous, args.output, rate, duration, args.codec, args.quality)
+        count = cadence(previous, args.output, rate, duration, args.codec, args.quality,
+                        progress_range=(len(factors) * span, span))
+        print("pipeline_progress=1", flush=True)
         report = {
             "target_fps": str(rate), "mode": args.mode, "native_factors": factors,
             "source_frames": source_count, "output_frames": count, "source_video_duration": str(duration),

@@ -2,6 +2,7 @@
 """Local test-only workspace. Uses generated video and a real CPU worker."""
 
 import json
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -43,6 +44,8 @@ with tempfile.TemporaryDirectory(prefix="popcorn-browser-") as temp:
         ],
         check=True,
     )
+    # A second generated input makes the actual batch path reviewable.
+    shutil.copyfile(library / "A clearer picture.mkv", library / "Another moment.mkv")
     app = create_app(
         Settings(
             root / "state", library, root / "output", "local-test-only-access-key-12345", reserve_bytes=0

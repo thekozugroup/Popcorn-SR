@@ -12,6 +12,8 @@ Taste + Impeccable. Restrained Apple-like hierarchy, native system typography, z
 ## Main workspace
 Input on the left, output queue with status on the right, upscaling settings underneath. Stack those sections on small screens. No dashboard, sidebar, onboarding diagram or separate queue/library pages. Show method, output size and format; one primary Add to queue action. Put device selection, destination and optional processing controls under More options. Devices & storage is secondary setup, with a direct return to videos. Keep selections/settings when visiting setup.
 
+When inputs are selected, show one large Original/Enhanced frame comparison between the input/queue and settings. A batch picker appears only for multiple inputs; a time picker selects the frame. Expand the comparison without adding navigation or a modal. Use actual processing, invalidate changed frame/settings, and make full continuation available after both images load. Keep audiovisual samples for motion/HDR review; still comparison is SDR-only.
+
 ## Family identity
 Use Popcorn Batch's three-circle triangular mark. Batch colors the top circle blue-500; SR colors the lower-right circle teal-500 (#14b8a6). This is a brand detail; actions/focus remain blue-500. Neutral circles/tile invert with the theme. The favicon uses the fixed dark tile.
 

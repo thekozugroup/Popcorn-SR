@@ -19,3 +19,9 @@ Rust's safe ownership model can prevent invalid buffer lifetimes in Rust-managed
 ## Adoption gate
 
 Start with one worker-only component, preserve the HTTP and recipe contracts, and benchmark the same source/settings on the same hardware. Record elapsed time, peak resident memory, scratch bytes and output timing/media preservation. Require buffer-length checks at the native boundary, bounded queues, deterministic cancellation and cleanup, and regression tests for invalid input, source changes and native errors. Repeat physical NVIDIA acceptance before replacing the current path. Rust alone will not fix whole-video intermediate storage or supply an unavailable NVIDIA SDK.
+
+## Measured NAS boundary
+
+A generated two-second 3840×2160 H.264 return exposed a memory failure in the manager's external FFmpeg playback check. On Spark with 20 visible CPUs, a 0.5 CPU quota and a 512 MiB container limit, automatic decoder threading caused one memory kill and rejected the valid return. Bounding decoder threads to two reduced the actual manager's peak to about 167 MiB and accepted the same clip, with its original and downloaded bytes preserved. This was verified against committed package `3f66291031108c9fff6187a7eaaa405be27f9487`.
+
+The measured correction was thread/buffer control in an existing native program. It supports keeping the lightweight manager stack while profiling the worker's buffer ownership and conversion costs before introducing Rust. These numbers describe validation of that generated clip; inference throughput and perceptual quality need their own measurements.

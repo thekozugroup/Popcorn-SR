@@ -62,7 +62,7 @@ function Login({onLogin, initialError}) {
     <Copy type="supporting">Self-hosted. Your videos stay on your devices.</Copy>
   </VStack></main></div>;
 }
-function Jobs({jobs,onAction}) {
+function Jobs({jobs,onAction,onCompare}) {
   return <div id="jobs" className="pane-content" aria-label="Output jobs">
     {!jobs.length ? <Empty title="Finished copies appear here" copy="Choose an input, then add it to the queue."/> : jobs.map(job => <article className="row job-row" key={job.id} data-job-id={job.id} aria-label={job.path.split('/').pop()}>
       <HStack gap={3} hAlign="between" vAlign="start"><Text weight="semibold" className="path">{job.path.split('/').pop()}{job.recipe.preview_seconds ? ' · Preview' : ''}</Text><Text type="supporting" className="job-status">{({completed:'Ready',failed:'Failed',cancelled:'Cancelled',queued:'Queued',running:`${Math.floor(job.progress)}%`})[job.status] || job.status}</Text></HStack>
@@ -70,7 +70,7 @@ function Jobs({jobs,onAction}) {
       {job.status==='running' && <ProgressBar label={`Processing ${job.path}`} value={job.progress} isLabelHidden/>}
       {job.error && <Banner status="error" title={job.error} collapsible={false}/>}
       <HStack gap={2} wrap="wrap">
-        {job.status==='completed'?<><Button href={`/api/jobs/${job.id}/download`} label={`Download ${job.recipe.preview_seconds?'preview':'copy'}`}/>{!!job.recipe.preview_seconds && <Button label="Enhance full video" clickAction={()=>onAction(job.id,'full')}/>}</>:['failed','cancelled'].includes(job.status)?<Button label="Retry" clickAction={()=>onAction(job.id,'retry')}/>:<Button variant="ghost" label="Cancel" clickAction={()=>onAction(job.id,'cancel')}/>}
+        {job.status==='completed'?<><Button href={`/api/jobs/${job.id}/download`} label={`Download ${job.recipe.preview_seconds?'preview':'copy'}`}/>{!!job.recipe.preview_seconds && <>{!job.recipe.hdr && <Button label="Compare frame" onClick={()=>onCompare(job)}/>} {job.recipe.preview_frame_time==null && <Button label="Enhance full video" clickAction={()=>onAction(job.id,'full')}/>}</>}</>:['failed','cancelled'].includes(job.status)?<Button label="Retry" clickAction={()=>onAction(job.id,'retry')}/>:<Button variant="ghost" label="Cancel" clickAction={()=>onAction(job.id,'cancel')}/>}
         <Collapsible trigger="Details" defaultIsOpen={false}><VStack gap={2} paddingBlockStart={2}>
           <Copy type="supporting">{engines[job.recipe.engine] || job.recipe.engine} · {codecNames[job.recipe.codec] || job.recipe.codec} / {job.recipe.output_width?`${job.recipe.output_width} × ${job.recipe.output_height} px`:job.recipe.engine==='dlss-sr' && job.recipe.dlss_mode?dlssModes[job.recipe.dlss_mode]:`${job.recipe.scale}×`}</Copy>
           {job.recipe.engine==='rtx-vsr' && <Copy type="supporting">VSR quality: {job.recipe.vsr_quality?vsrLevels[job.recipe.vsr_quality]:'Worker default'}{job.recipe.vsr_strength!=null?` · Strength: ${Math.round(job.recipe.vsr_strength*100)}%`:''}</Copy>}
@@ -83,9 +83,30 @@ function Jobs({jobs,onAction}) {
     </article>)}
   </div>;
 }
-function Recipe({path,state,onCreated}) {
+function Recipe({paths,state,onCreated,compareJob}) {
+  const [chosen,setChosen]=useState(null), [frameTime,setFrameTime]=useState(0), [info,setInfo]=useState(null), [frameError,setFrameError]=useState(''), [review,setReview]=useState(null), [loaded,setLoaded]=useState({});
+  const path=paths.includes(chosen)?chosen:paths[0] || null;
+  const panel=useRef(null);
+  const [expanded,setExpanded]=useState(false);
+  useEffect(()=>{const changed=()=>setExpanded(document.fullscreenElement===panel.current);document.addEventListener('fullscreenchange',changed);return()=>document.removeEventListener('fullscreenchange',changed);},[]);
+  async function expand(){try{if(document.fullscreenElement===panel.current)await document.exitFullscreen();else await panel.current.requestFullscreen();}catch{setFrameError('Expanded view is unavailable in this browser. Use browser zoom for a larger comparison.');}}
+  useEffect(()=>{let live=true;setInfo(null);setFrameError('');setLoaded({});
+    if(path) api(`/api/library/info?path=${encodeURIComponent(path)}`).then(v=>{if(live)setInfo(v);}).catch(e=>{if(live)setFrameError(e.message);});
+    return()=>{live=false;};
+  },[path]);
+  useEffect(()=>{if(compareJob?.path===path && review?.id===compareJob.id)return;setFrameTime(0);setReview(null);},[path]);
   const [desired,setDesired]=useState({worker:'',engine:'auto',scale:'2',size_mode:'scale',output_width:1920,output_height:1080,vsr_quality:'default',vsr_strength:null,codec:'h264',encoder:'auto',quality:'23',dlss_mode:'performance',dlss_preset:'default',temporal_quality:'high',frame_generation:false,frame_rate:'60',frame_generation_mode:'auto',frame_generation_quality:'high',hdr:false,hdr_contrast:100,hdr_saturation:100,hdr_middle_gray:50,hdr_luminance:650,hdr_debanding:true,output_directory:'enhanced',denoise:false,deinterlace:false,sharpen:false,interpolate:false});
   const [error,setError]=useState(''), [busy,setBusy]=useState(false);
+  useEffect(()=>{
+    if(!compareJob)return;
+    const r=compareJob.recipe;
+    const restored={...desired,...r,worker:compareJob.target || '',scale:String(r.scale),quality:String(r.quality),vsr_quality:r.vsr_quality?String(r.vsr_quality):'default',vsr_strength:r.vsr_strength==null?null:r.vsr_strength*100,size_mode:r.output_width?'custom':'scale',dlss_mode:r.dlss_mode || 'performance'};
+    delete restored.preview_seconds;delete restored.preview_frame_time;
+    setDesired(restored);setChosen(compareJob.path);setFrameTime(r.preview_frame_time || 0);
+    setReview({id:compareJob.id,path:compareJob.path,time:r.preview_frame_time || 0,selection:JSON.stringify(restored)});
+    panel.current?.scrollIntoView({block:'start',behavior:'auto'});
+  },[compareJob]);
+
   const active=state.workers.filter(w=>!w.revoked);
   const worker=active.some(w=>w.id===desired.worker)?desired.worker:'';
   const selected=active.filter(w=>!worker || w.id===worker);
@@ -133,7 +154,8 @@ function Recipe({path,state,onCreated}) {
   const scales=engine==='dlss5'?['1']:engine==='dlss-sr'?['1','2','3']:['1','2','3','4'];
   const scale=scales.includes(desired.scale)?desired.scale:scales[0];
   const change=(key,value)=>setDesired(current=>({...current,[key]:value,...(key==='frame_generation' && value?{interpolate:false}: {})}));
-  async function submit(preview_seconds) {
+  async function submit(preview_seconds, frame=false, reviewed=false) {
+    if(reviewed && (!comparisonReady || loaded.Original!==originalURL || loaded.Enhanced!==enhancedURL))return;
     if(!path || busy || engineUnavailable || !codecs.length || !desired.output_directory.trim()) return;
     if(vsrUnavailable || sizeInvalid) { setError('Choose verified RTX Video settings and dimensions that are multiples of 8.'); return; }
     if(generation && !fgModes.length) { setError('DLSS frame generation is unavailable. Choose a compatible worker or turn off frame generation.'); return; }
@@ -148,11 +170,53 @@ function Recipe({path,state,onCreated}) {
     if(hdr) Object.assign(recipe,{hdr:true,...Object.fromEntries(['hdr_contrast','hdr_saturation','hdr_middle_gray','hdr_luminance','hdr_debanding'].map(key=>[key,desired[key]]))});
     for(const key of ['denoise','deinterlace','sharpen','interpolate']) recipe[key]=engine==='resize' && desired[key];
     if(generation) recipe.interpolate=false;
-    try { await api('/api/jobs',{method:'POST',body:JSON.stringify({path,recipe,worker_id:worker || null})}); await onCreated(preview_seconds); }
+    if(frame) recipe.preview_frame_time=frameTime;
+    try {
+      if(preview_seconds) {
+        const job=await api('/api/jobs',{method:'POST',body:JSON.stringify({path,recipe,worker_id:worker || null})});
+        if(frame)setReview({id:job.id,path,time:frameTime,selection:JSON.stringify(desired)});
+        await onCreated(preview_seconds,false);
+      } else {
+        let completed=0;
+        for(const input of paths) {
+          if(reviewed && input===review.path) await api(`/api/jobs/${review.id}/full`,{method:'POST'});
+          else await api('/api/jobs',{method:'POST',body:JSON.stringify({path:input,recipe,worker_id:worker || null})});
+          completed++;
+          await onCreated(0,completed===paths.length,input);
+        }
+      }
+    }
     catch(e){setError(e.message);}
     finally{setBusy(false);}
   }
-  return <section className="recipe" aria-label="Upscaling settings"><VStack gap={5}>
+  const reviewedJob=review && state.jobs.find(j=>j.id===review.id);
+  const currentReview=review && review.path===path && review.time===frameTime && review.selection===JSON.stringify(desired);
+  const comparisonReady=currentReview && reviewedJob?.status==='completed';
+  const originalURL=path && info && Number.isFinite(frameTime) && frameTime>=0 && frameTime<info.duration?comparisonReady?`/api/jobs/${review.id}/frame?side=original`:`/api/library/frame?path=${encodeURIComponent(path)}&seconds=${frameTime}`:null;
+  const enhancedURL=comparisonReady?`/api/jobs/${review.id}/frame?side=enhanced`:null;
+  const canPreview=!!path && !busy && !!codecs.length && !engineUnavailable && !sizeInvalid && !!desired.output_directory.trim();
+  return <>
+    {path && <section className="panel frame-preview" aria-label="Frame comparison" ref={panel}><VStack gap={5} padding={6}>
+      <HStack hAlign="between" gap={3} wrap="wrap"><div><Heading level={2}>Compare a frame</Heading><Copy>Preview one moment before running the full video.</Copy></div>{document.fullscreenEnabled && <Button label={expanded?'Exit expanded preview':'Expand preview'} variant="ghost" onClick={expand}/>}</HStack>
+      <div className="frame-controls">
+        {paths.length>1 && <Selector label="Preview video" value={path} onChange={setChosen} width="100%" options={paths.map(value=>({value,label:value.split('/').pop()}))}/>}
+        <NumberInput label="Frame at" value={frameTime} onChange={v=>{setFrameTime(v);setLoaded({});setFrameError('');}} min={0} max={info?Math.max(0,info.duration-.05):undefined} step={1} units={info?'seconds':undefined} isWheelEnabled={false} width="100%" isDisabled={!info}/>
+        <Button label="Preview frame" onClick={()=>submit(5,true)} isLoading={busy} isDisabled={!canPreview || !info || !Number.isFinite(frameTime) || frameTime<0 || frameTime>=info.duration || hdr}/>
+      </div>
+      <div className="frame-pair">
+        {[['Original',originalURL,info],['Enhanced',enhancedURL,reviewedJob?.result]].map(([label,url,dimensions])=><figure key={label}>
+          <figcaption><Text weight="medium">{label}</Text>{url && dimensions && <Text type="supporting" color="secondary">{dimensions.width} × {dimensions.height}</Text>}</figcaption>
+          <div className="frame-image">{url?<img key={url} src={url} alt={`${label} frame from ${path.split('/').pop()} at ${frameTime} seconds`} onLoad={()=>setLoaded(v=>({...v,[label]:url}))} onError={()=>{setLoaded(v=>({...v,[label]:null}));setFrameError('Frame unavailable. Choose another time or create a new preview.');}}/>:<Copy type="supporting">{label==='Original'?'Choose a time in this video.':reviewedJob && currentReview && !['failed','cancelled'].includes(reviewedJob.status)?'Processing your preview…':'Your processed frame appears here.'}</Copy>}</div>
+        </figure>)}
+      </div>
+      {frameError && <Banner status="error" title={frameError} collapsible={false}/>}
+      {currentReview && reviewedJob?.error && <Banner status="error" title={reviewedJob.error} collapsible={false}/>}
+      {currentReview && reviewedJob && ['queued','running'].includes(reviewedJob.status) && <Copy role="status">{reviewedJob.stage}{reviewedJob.status==='running'?` · ${Math.floor(reviewedJob.progress)}%`:''}</Copy>}
+      {review && !currentReview && <Copy role="status">The frame or settings changed. Preview again to compare this selection.</Copy>}
+      {hdr && <Copy>Review HDR in a video preview on an HDR display. Still comparison supports SDR.</Copy>}
+      <div className="recipe-actions"><Copy type="supporting">{paths.length>1?`${paths.length} videos selected. This frame previews ${path.split('/').pop()}.`:'Preview uses a short video sample. Your original stays untouched.'}</Copy><Button label={paths.length>1?'Run full batch':'Run full video'} variant="primary" onClick={()=>submit(0,false,true)} isLoading={busy} isDisabled={!canPreview || !comparisonReady || loaded.Original!==originalURL || loaded.Enhanced!==enhancedURL}/></div>
+    </VStack></section>}
+    <section className="recipe" aria-label="Upscaling settings"><VStack gap={5}>
     <Heading level={2}>Upscaling settings</Heading>
     <form onSubmit={e=>{e.preventDefault();submit(0);}}><VStack gap={6}>
       <div className="settings-grid">
@@ -187,29 +251,29 @@ function Recipe({path,state,onCreated}) {
       {error && <Banner status="error" title={error} collapsible={false}/>}
       {engineUnavailable && <Banner status="warning" title="Selected enhancement is unavailable" description="Your settings are kept. Choose a compatible device or another enhancement." collapsible={false}/>}
       {!codecs.length && !engineUnavailable && <Copy type="supporting">{checking?'Your device is checking support. Processing becomes available when it is ready.':'Connect a compatible device in Devices & storage to start.'}</Copy>}
-      <div className="recipe-actions"><Copy type="supporting">{path?`Selected: ${path.split('/').pop()}`:'Choose an input above.'}{path && engine!=='resize'?' · Experimental AI; compare a short preview first.':''}</Copy><HStack gap={3} wrap="wrap"><Button label="Preview 5 seconds" onClick={()=>submit(5)} isDisabled={!path || busy || !codecs.length || engineUnavailable || sizeInvalid || !desired.output_directory.trim()}/><Button label="Add to queue" type="submit" variant="primary" isLoading={busy} isDisabled={!path || !codecs.length || engineUnavailable || sizeInvalid || !desired.output_directory.trim()}/></HStack></div>
+      <div className="recipe-actions"><Copy type="supporting">{path?`Selected: ${path.split('/').pop()}`:'Choose an input above.'}{path && engine!=='resize'?' · Experimental AI; compare a short preview first.':''}</Copy><HStack gap={3} wrap="wrap"><Button label="Preview 5 seconds" onClick={()=>submit(5)} isDisabled={!path || busy || !codecs.length || engineUnavailable || sizeInvalid || !desired.output_directory.trim()}/><Button label={paths.length>1?`Add ${paths.length} videos to queue`:'Add to queue'} type="submit" variant={review?'secondary':'primary'} isLoading={busy} isDisabled={!path || !codecs.length || engineUnavailable || sizeInvalid || !desired.output_directory.trim()}/></HStack></div>
 
     </VStack></form>
-  </VStack></section>;
+  </VStack></section></>;
 }
 function Workspace({state,onNotice,refresh,onAction}) {
-  const [directory,setDirectory]=useState('.'),[offset,setOffset]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState(''),[revision,setRevision]=useState(0),[selected,setSelected]=useState(null);
+  const [directory,setDirectory]=useState('.'),[offset,setOffset]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState(''),[revision,setRevision]=useState(0),[selected,setSelected]=useState([]),[compareJob,setCompareJob]=useState(null);
   useEffect(()=>{let live=true;setListing(null);setError('');api(`/api/library?directory=${encodeURIComponent(directory)}&offset=${offset}`).then(data=>{if(live)setListing(data);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[directory,offset,revision]);
-  function folder(path){setDirectory(path);setOffset(0);setSelected(null);}
-  async function created(preview){setSelected(null);await refresh();onNotice({text:preview?'Preview queued.':'Video queued. Your original is preserved.'});}
+  function folder(path){setDirectory(path);setOffset(0);setSelected([]);setCompareJob(null);}
+  async function created(preview,clear=true,queuedPath=null){if(queuedPath)setSelected(current=>current.filter(p=>p!==queuedPath));if(clear){setSelected([]);setCompareJob(null);}await refresh();onNotice({text:preview?'Preview queued.':'Video queued. Your original is preserved.'});}
   return <VStack gap={8}>
     <div><Heading level={1}>Upscale your videos</Heading><Copy>Choose an input. Make a better copy. Keep the original.</Copy></div>
     <div className="io-grid">
       <section className="panel io-pane" aria-label="Input"><HStack className="pane-heading" hAlign="between" gap={3}><Heading level={2}>Input</Heading><Button label="Refresh" variant="ghost" onClick={()=>setRevision(v=>v+1)}/></HStack>
         <HStack className="folder-bar" hAlign="between" gap={3} wrap="wrap"><Text type="supporting" color="secondary" className="path min-w-0">{directory==='.'?'Your library':directory}</Text>{directory!=='.' && <Button label="Up a folder" variant="ghost" onClick={()=>folder(directory.split('/').slice(0,-1).join('/') || '.')}/>}</HStack>
         <div className="pane-content">
-          {error?<Empty title="Library unavailable" copy={error}/>:!listing?<Empty title="Loading your library…" copy="Reading your videos."/>:!listing.items.length?<Empty title="No videos here" copy="Choose another folder, or check your library mount in Devices & storage."/>:listing.items.map(item=><div className={`row file-row ${selected===item.path?'selected-file':''}`} key={item.path}><Button label={item.name} variant="ghost" aria-pressed={!item.directory?selected===item.path:undefined} onClick={()=>item.directory?folder(item.path):setSelected(selected===item.path?null:item.path)}><VStack gap={1} hAlign="start" className="min-w-0"><Text weight="medium" className="path">{item.name}</Text><Copy type="supporting">{item.directory?'Open folder':bytes(item.size)}</Copy></VStack></Button>{selected===item.path && <Text type="supporting">Selected</Text>}</div>)}
+          {error?<Empty title="Library unavailable" copy={error}/>:!listing?<Empty title="Loading your library…" copy="Reading your videos."/>:!listing.items.length?<Empty title="No videos here" copy="Choose another folder, or check your library mount in Devices & storage."/>:listing.items.map(item=><div className={`row file-row ${selected.includes(item.path)?'selected-file':''}`} key={item.path}><Button label={item.name} variant="ghost" aria-pressed={!item.directory?selected.includes(item.path):undefined} onClick={()=>item.directory?folder(item.path):setSelected(current=>current.includes(item.path)?current.filter(p=>p!==item.path):[...current,item.path])}><VStack gap={1} hAlign="start" className="min-w-0"><Text weight="medium" className="path">{item.name}</Text><Copy type="supporting">{item.directory?'Open folder':bytes(item.size)}</Copy></VStack></Button>{selected.includes(item.path) && <Text type="supporting">Selected</Text>}</div>)}
         </div>
         {listing?.total>100 && <HStack className="row" gap={3} hAlign="between" wrap="wrap"><Button label="Previous" variant="ghost" isDisabled={!offset} onClick={()=>setOffset(v=>Math.max(0,v-100))}/><Copy type="supporting">{offset+1}–{Math.min(offset+100,listing.total)} of {listing.total}</Copy><Button label="Next" variant="ghost" isDisabled={offset+100>=listing.total} onClick={()=>setOffset(v=>v+100)}/></HStack>}
       </section>
-      <section className="panel io-pane" aria-label="Output queue"><HStack className="pane-heading" hAlign="between" gap={3}><Heading level={2}>Output queue</Heading><Text type="supporting" color="secondary">{state.jobs.length?`${state.jobs.length} ${state.jobs.length===1?'video':'videos'}`:'No jobs yet'}</Text></HStack><Jobs jobs={state.jobs} onAction={onAction}/></section>
+      <section className="panel io-pane" aria-label="Output queue"><HStack className="pane-heading" hAlign="between" gap={3}><Heading level={2}>Output queue</Heading><Text type="supporting" color="secondary">{state.jobs.length?`${state.jobs.length} ${state.jobs.length===1?'video':'videos'}`:'No jobs yet'}</Text></HStack><Jobs jobs={state.jobs} onAction={onAction} onCompare={job=>{setSelected(current=>current.includes(job.path)?current:[...current,job.path]);setCompareJob(job);}}/></section>
     </div>
-    <Recipe path={selected} state={state} onCreated={created}/>
+    <Recipe paths={selected} state={state} onCreated={created} compareJob={compareJob}/>
   </VStack>;
 }
 function Processing({state,onAction,onNotice}) {

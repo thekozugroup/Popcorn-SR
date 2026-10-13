@@ -41,10 +41,13 @@ class Recipe(StrictModel):
     hdr_luminance: int = Field(default=650, ge=400, le=2000)
     hdr_debanding: bool = True
     preview_seconds: Literal[0, 5, 10, 30] = 0
+    preview_frame_time: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     output_directory: str = Field(default="enhanced", min_length=1, max_length=200)
 
     @model_validator(mode="after")
     def vsr_controls(self):
+        if self.preview_frame_time is not None and self.preview_seconds != 5:
+            raise ValueError("Frame comparisons require a five-second preview sample.")
         controls = (self.vsr_quality, self.vsr_strength, self.output_width, self.output_height)
         if any(value is not None for value in controls) and self.engine != "rtx-vsr":
             raise ValueError("RTX Video settings require the RTX Video Super Resolution engine.")

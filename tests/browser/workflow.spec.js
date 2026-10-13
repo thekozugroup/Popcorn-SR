@@ -563,3 +563,76 @@ test('an explicit DLSS choice survives missing support without switching to resi
   await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeEnabled({timeout:6000});
   await expect(enhancement).toContainText('DLSS video upscaling');
 });
+
+test('large real frame comparison reviews a batch, invalidates edits, and continues saved full settings', async ({page}) => {
+  const errors=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  await signIn(page);
+  await expect.poll(()=>page.locator('#connection').textContent()).toMatch(/connected/i);
+  await page.getByRole('button',{name:'A clearer picture.mkv',exact:true}).click();
+  await page.getByRole('button',{name:'Another moment.mkv',exact:true}).click();
+  const comparison=page.getByRole('region',{name:'Frame comparison',exact:true});
+  await comparison.getByRole('combobox',{name:'Preview video',exact:true}).click();
+  await page.getByRole('option',{name:'Another moment.mkv',exact:true}).click();
+  const time=comparison.getByRole('spinbutton',{name:'Frame at',exact:true});
+  await time.fill('2');await time.press('Tab');
+  await expect(comparison.getByRole('img',{name:/Original frame/})).toBeVisible();
+  await expect(comparison.getByRole('button',{name:'Run full batch',exact:true})).toBeDisabled();
+  const [queued]=await Promise.all([
+    page.waitForResponse(r=>r.url().endsWith('/api/jobs') && r.request().method()==='POST'),
+    comparison.getByRole('button',{name:'Preview frame',exact:true}).click(),
+  ]);
+  expect(queued.ok()).toBeTruthy();
+  const preview=await queued.json();
+  expect(preview.path).toBe('Another moment.mkv');
+  expect(preview.recipe).toMatchObject({preview_frame_time:2,preview_seconds:5,scale:2,codec:'h264'});
+  const run=comparison.getByRole('button',{name:'Run full batch',exact:true});
+  await expect(run).toBeEnabled({timeout:30000});
+  const images=await comparison.locator('img').evaluateAll(imgs=>imgs.map(img=>({width:img.naturalWidth,height:img.naturalHeight,loaded:img.complete})));
+  expect(images).toEqual([{width:320,height:180,loaded:true},{width:640,height:360,loaded:true}]);
+  for(const [width,height,mode] of [[1440,1200,'light'],[768,1024,'dark'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    expect((await accessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    const boxes=await comparison.locator('.frame-image').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().toJSON()));
+    if(width>=768)expect(boxes[1].x).toBeGreaterThan(boxes[0].x+boxes[0].width);
+    else expect(boxes[1].y).toBeGreaterThan(boxes[0].y+boxes[0].height);
+    fs.mkdirSync('evidence/frame-comparison-20261013',{recursive:true});
+    await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0);});
+    await page.screenshot({path:`evidence/frame-comparison-20261013/actual-cpu-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+  }
+  await page.setViewportSize({width:1440,height:1200});await page.emulateMedia({colorScheme:'light'});
+  await comparison.getByRole('button',{name:'Expand preview',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>document.fullscreenElement?.getAttribute('aria-label'))).toBe('Frame comparison');
+  await comparison.getByRole('button',{name:'Exit expanded preview',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>!!document.fullscreenElement)).toBe(false);
+  await time.fill('3');await time.press('Tab');
+  await expect(run).toBeDisabled();
+  await expect(comparison.getByText('The frame or settings changed. Preview again to compare this selection.')).toBeVisible();
+  await time.fill('2');await time.press('Tab');await expect(run).toBeEnabled();
+  await page.getByRole('combobox',{name:'Output size',exact:true}).click();
+  await page.getByRole('option',{name:'Three times the size (3×)',exact:true}).click();
+  await expect(run).toBeDisabled();
+  await page.locator(`[data-job-id="${preview.id}"]`).getByRole('button',{name:'Compare frame',exact:true}).click();
+  await expect(run).toBeEnabled();
+  await expect(page.getByRole('combobox',{name:'Output size',exact:true})).toContainText('Twice');
+  const [continued,other]=await Promise.all([
+    page.waitForResponse(r=>r.url().endsWith(`/${preview.id}/full`) && r.request().method()==='POST'),
+    page.waitForResponse(r=>r.url().endsWith('/api/jobs') && r.request().method()==='POST'),
+    run.click(),
+  ]);
+  expect(continued.ok()).toBeTruthy();expect(other.ok()).toBeTruthy();
+  for(const response of [continued,other]) {
+    const job=await response.json();
+    expect(job.recipe).toMatchObject({preview_seconds:0,preview_frame_time:null,scale:2,codec:'h264'});
+    const download=page.locator(`[data-job-id="${job.id}"]`).getByRole('link',{name:'Download copy',exact:true});
+    await expect(download).toBeVisible({timeout:30000});
+    const state=await (await page.request.get('/api/state')).json();
+    expect(state.jobs.find(j=>j.id===job.id).result.audio_streams).toBe(1);
+  }
+  // A saved comparison also reopens after its source is no longer selected.
+  await page.locator(`[data-job-id="${preview.id}"]`).getByRole('button',{name:'Compare frame',exact:true}).click();
+  await expect(comparison.getByRole('button',{name:'Run full video',exact:true})).toBeEnabled();
+  await expect(time).toHaveValue('2');
+  expect(errors).toEqual([]);
+});

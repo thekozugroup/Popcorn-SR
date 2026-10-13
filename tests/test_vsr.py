@@ -340,7 +340,7 @@ def test_frame_controller_keeps_measured_end_after_nut_loses_final_duration(tmp_
                 container.mux(packet)
     assert controller.source_timeline(source)["duration"] == Fraction(24, 100)
 
-    def native_fixture(command):
+    def native_fixture(command, **progress):
         if "--inspect-native" in command:
             return {"maximum_factor": 6}
         # Copy source frames: proves the controller contract, never generation.

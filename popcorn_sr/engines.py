@@ -169,7 +169,8 @@ def engine_result(engine: str, output: Path):
 
 def processing_command(source: Path, output: Path, recipe: dict, info: dict):
     if recipe["engine"] == "resize":
-        return ffmpeg_command(source, output, recipe, info, video_only=recipe.get("codec") == "ffv1")
+        return ffmpeg_command(source, output, recipe, info,
+                              video_only=recipe.get("codec") == "ffv1" or recipe.get("preview_frame_time") is not None)
     return adapter_command(recipe["engine"], source, output, recipe, info)
 
 

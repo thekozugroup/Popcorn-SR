@@ -7,9 +7,11 @@ import json
 import os
 import re
 import secrets
+import struct
 import subprocess
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
@@ -71,13 +73,51 @@ def check_4k_validation(client, root):
     assert (job["result"]["width"], job["result"]["height"], job["result"]["audio_streams"]) == (3840, 2160, 1)
     assert hashlib.sha256(clip.read_bytes()).hexdigest() == original
     assert hashlib.sha256(client.get(f"/api/jobs/{identity}/download").content).hexdigest() == original
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        frames = list(pool.map(lambda _: client.get("/api/library/frame", params={"path": clip.name, "seconds": 1}, timeout=90), range(2)))
+    for frame in frames:
+        frame.raise_for_status()
+        assert struct.unpack(">II", frame.content[16:24]) == (1920, 1080)
     memory = json.loads(docker("exec", manager, "/app/.venv/bin/python", "-c",
         "import json;from pathlib import Path;print(json.dumps({n:Path('/sys/fs/cgroup/'+n).read_text().strip() "
         "for n in ['memory.peak','memory.events','memory.max']}))"))
     events = dict(line.split() for line in memory["memory.events"].splitlines())
     assert events["oom_kill"] == "0" and int(memory["memory.max"]) == 512 * 1024**2
     return {"kind": "generated CPU validation fixture", "size": [3840, 2160],
-            "original_audio_and_download_hash_preserved": True, "cgroup": memory}
+            "original_audio_and_download_hash_preserved": True, "concurrent_frame_requests_passed": True,
+            "cgroup": memory}
+
+
+def check_frame_preview(client, root, original):
+    def finished(identity):
+        for _ in range(120):
+            job = next(j for j in client.get("/api/state").json()["jobs"] if j["id"] == identity)
+            if job["status"] in {"completed", "failed"}:
+                assert job["status"] == "completed", job
+                return job
+            time.sleep(1)
+        raise RuntimeError("Frame comparison did not finish.")
+
+    response = client.post("/api/jobs", json={"path": "sample.mkv", "recipe": {
+        "scale": 2, "preview_seconds": 5, "preview_frame_time": .5, "output_directory": "comparison",
+    }})
+    response.raise_for_status()
+    preview = finished(response.json()["id"])
+    assert preview["result"]["audio_streams"] == 0
+    for side, size in (("original", (160, 96)), ("enhanced", (320, 192))):
+        response = client.get(f"/api/jobs/{preview['id']}/frame", params={"side": side})
+        response.raise_for_status()
+        assert struct.unpack(">II", response.content[16:24]) == size
+    response = client.post(f"/api/jobs/{preview['id']}/full")
+    response.raise_for_status()
+    full = finished(response.json()["id"])
+    assert full["recipe"]["preview_frame_time"] is None and full["recipe"]["preview_seconds"] == 0
+    assert full["result"]["audio_streams"] == 1
+    assert hashlib.sha256(client.get(f"/api/jobs/{full['id']}/download").content).hexdigest() == full["result"]["sha256"]
+    assert hashlib.sha256((root / "library" / "sample.mkv").read_bytes()).hexdigest() == original
+    assert not list((root / "scratch").glob("job-*"))
+    return {"actual_cpu_worker": True, "selected_seconds": .5, "preview": preview["result"],
+            "full": full["result"], "frames_and_full_audio_verified": True}
 
 
 Path("evidence").mkdir(exist_ok=True)
@@ -235,6 +275,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 == job["result"]["sha256"]
             )
             assert not list((root / "scratch").glob("job-*"))
+            comparison = check_frame_preview(client, root, original)
             validation = check_4k_validation(client, root)
             report = {
                 "status": "passed",
@@ -248,6 +289,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 "original_unchanged": True,
                 "scratch_cleaned": True,
                 "manager_4k_validation": validation,
+                "frame_comparison": comparison,
             }
             args.report.parent.mkdir(parents=True, exist_ok=True)
             args.report.write_text(json.dumps(report, indent=2) + "\n")

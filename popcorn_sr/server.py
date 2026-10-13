@@ -4,13 +4,14 @@ import os
 import re
 import secrets
 import shutil
+import subprocess
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -19,7 +20,7 @@ from . import __version__
 from .config import Settings, beneath
 from .db import Store, digest
 from .dlss import compatible_recipe
-from .media import VIDEO_EXTENSIONS, dimensions, inspect_source, sha256, validate_output
+from .media import VIDEO_EXTENSIONS, dimensions, frame_image, inspect_source, probe, sha256, validate_output
 from .models import Failure, Heartbeat, JobCreate, PairRequest
 
 
@@ -32,6 +33,18 @@ def create_app(settings: Settings | None = None):
     ):
         raise RuntimeError("Library and output must be separate folders. Mount originals read-only.")
     attempts = {}
+    media_slots = asyncio.Semaphore(1)
+
+    async def media_call(function, *args):
+        # Frame requests and return validation share the lightweight manager's
+        # decoder budget; simultaneous browser requests cannot multiply it.
+        async with media_slots:
+            task = asyncio.create_task(asyncio.to_thread(function, *args))
+            try:
+                return await asyncio.shield(task)
+            except asyncio.CancelledError:
+                await task
+                raise
 
     @asynccontextmanager
     async def lifespan(app):
@@ -288,6 +301,12 @@ def create_app(settings: Settings | None = None):
                     "No worker has verified these settings. Connect a compatible worker or choose verified settings."
                 )
             source = await asyncio.to_thread(inspect_source, path)
+            if body.recipe.preview_frame_time is not None:
+                remaining = source["duration"] - body.recipe.preview_frame_time
+                if remaining <= 0 or (body.recipe.frame_generation and remaining < 0.5):
+                    raise ValueError("Choose an earlier frame. Motion previews need at least half a second remaining.")
+                if body.recipe.hdr:
+                    raise ValueError("Still comparison currently supports SDR. Use an HDR video preview on an HDR display.")
             if expected_source and source["sha256"] != expected_source["sha256"]:
                 raise ValueError(
                     "The source changed after this preview. Create and review a new preview first."
@@ -335,7 +354,7 @@ def create_app(settings: Settings | None = None):
         if not job or job["status"] != "completed" or not job["recipe"]["preview_seconds"]:
             raise HTTPException(409, "Complete a preview before continuing to the full video.")
         body = JobCreate(
-            path=job["path"], recipe=job["recipe"] | {"preview_seconds": 0}, worker_id=job["target"]
+            path=job["path"], recipe=job["recipe"] | {"preview_seconds": 0, "preview_frame_time": None}, worker_id=job["target"]
         )
         return await queue_job(body, expected_source=job["source"], require_compatible=True)
 
@@ -408,7 +427,7 @@ def create_app(settings: Settings | None = None):
                 os.fsync(out.fileno())
             if request.headers.get("x-output-sha256", "") != await asyncio.to_thread(sha256, scratch):
                 raise ValueError("Transfer checksum did not match. Retry on a stable connection.")
-            info = await asyncio.to_thread(validate_output, scratch, job["source"], job["recipe"])
+            info = await media_call(validate_output, scratch, job["source"], job["recipe"])
             result = info | {"path": str(final.relative_to(cfg.output)), "bytes": received}
             # Serialize publication against cancel/revoke. The completed name is never overwritten.
             with store.connect() as db:
@@ -445,6 +464,50 @@ def create_app(settings: Settings | None = None):
             return FileResponse(path, filename=path.name)
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
+
+    @app.get("/api/library/info", dependencies=[Depends(admin)])
+    async def library_info(path: str):
+        try:
+            original = beneath(cfg.library, path, file=True)
+            if original.suffix.lower() not in VIDEO_EXTENSIONS:
+                raise ValueError("Choose a supported video file.")
+            info = await media_call(probe, original)
+            if info["hdr"] or info["bit_depth"] != 8:
+                raise ValueError("Frame comparison currently supports 8-bit SDR video.")
+            return {key: info[key] for key in ("duration", "width", "height", "frame_rate")}
+        except (ValueError, OSError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/api/library/frame", dependencies=[Depends(admin)])
+    async def library_frame(path: str, seconds: Annotated[float, Query(ge=0, allow_inf_nan=False)] = 0):
+        try:
+            original = beneath(cfg.library, path, file=True)
+            if original.suffix.lower() not in VIDEO_EXTENSIONS:
+                raise ValueError("Choose a supported video file.")
+            info = await media_call(probe, original)
+            if info["hdr"] or info["bit_depth"] != 8 or seconds >= info["duration"]:
+                raise ValueError("Choose a frame within an 8-bit SDR video.")
+            return Response(await media_call(frame_image, original, seconds), media_type="image/png")
+        except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+            raise HTTPException(400, "Cannot preview this frame. Choose another time or video.") from exc
+
+    @app.get("/api/jobs/{identity}/frame", dependencies=[Depends(admin)])
+    async def comparison_frame(identity: str, side: Literal["original", "enhanced"]):
+        job = store.job(identity)
+        if not job or job["status"] != "completed" or not job["recipe"]["preview_seconds"]:
+            raise HTTPException(409, "Complete a preview before comparing frames.")
+        if job["recipe"].get("hdr"):
+            raise HTTPException(409, "Review this HDR preview on an HDR display.")
+        try:
+            original = beneath(cfg.library, job["path"], file=True)
+            stat = original.stat()
+            if stat.st_size != job["source"]["size"] or stat.st_mtime_ns != job["source"]["mtime_ns"]:
+                raise ValueError("Source changed. Create a new preview before comparing.")
+            path = original if side == "original" else beneath(cfg.output, job["result"]["path"], file=True)
+            seconds = (job["recipe"].get("preview_frame_time") or 0) if side == "original" else 0
+            return Response(await media_call(frame_image, path, seconds), media_type="image/png")
+        except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     static = Path(__file__).parent / "static"
     if static.is_dir():

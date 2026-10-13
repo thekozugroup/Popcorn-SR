@@ -184,7 +184,7 @@ def test_hdr_pipeline_delivery_keeps_media_and_saved_settings_with_cpu_diagnosti
     monkeypatch.setenv("POPCORN_NGX_DLSSG_LIBRARY", "/fixture/not-loaded")
     monkeypatch.setenv("POPCORN_NGX_RUNTIME", "/fixture/not-loaded")
 
-    async def diagnostic_process(command, folder, duration):
+    async def diagnostic_process(command, folder, duration, **progress):
         stages.append((worker.status["stage"], command))
         if "popcorn_sr.nvidia_vsr" in command:
             assert command[command.index("--codec") + 1] == "ffv1"
@@ -226,7 +226,7 @@ def test_hdr_pipeline_delivery_keeps_media_and_saved_settings_with_cpu_diagnosti
                         for packet in stream.encode(result):
                             output.mux(packet)
         else:
-            await actual_process(command, folder, duration)
+            await actual_process(command, folder, duration, **progress)
 
     monkeypatch.setattr(worker, "process", diagnostic_process)
 

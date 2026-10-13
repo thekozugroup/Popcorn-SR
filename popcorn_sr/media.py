@@ -146,13 +146,28 @@ def dimensions(source, recipe):
     return tuple(math.ceil(source[k] * scale / alignment) * alignment for k in ("width", "height"))
 
 
+def preview_duration(source, recipe):
+    remaining = source["duration"] - (recipe.get("preview_frame_time") or 0)
+    return min(remaining, recipe["preview_seconds"]) if recipe["preview_seconds"] else source["duration"]
+
+
+def frame_image(path: Path, seconds: float) -> bytes:
+    """Accurately seek and decode one display-sized frame without cached files."""
+    result = subprocess.run([
+        "ffmpeg", "-nostdin", "-v", "error", "-threads", "2", "-filter_threads", "1",
+        "-protocol_whitelist", "file,pipe", "-ss", str(seconds), "-i", str(path.resolve()),
+        "-map", "0:V:0", "-frames:v", "1", "-an", "-sn",
+        "-vf", "scale=w='min(1920,iw)':h='min(1920,ih)':force_original_aspect_ratio=decrease",
+        "-threads", "1", "-c:v", "png", "-f", "image2pipe", "pipe:1",
+    ], capture_output=True, timeout=60)
+    if result.returncode or not result.stdout.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("This frame could not be decoded. Choose an earlier time or another video.")
+    return result.stdout
+
+
 def validate_output(path: Path, source: dict, recipe: dict):
     info = probe(path)
-    expected = (
-        min(source["duration"], recipe["preview_seconds"])
-        if recipe["preview_seconds"]
-        else source["duration"]
-    )
+    expected = preview_duration(source, recipe)
     if abs(info["duration"] - expected) > max(0.5, expected * 0.01):
         raise ValueError("Output duration differs from the source. Original preserved; result rejected.")
     if recipe["engine"] != "dlss5" and (info["width"], info["height"]) != dimensions(source, recipe):
@@ -182,10 +197,14 @@ def validate_output(path: Path, source: dict, recipe: dict):
         if abs(actual_rate - target_rate) > target_rate / 100_000:
             raise ValueError("Generated output frame rate differs from the requested cadence.")
         verify_packet_cadence(path, info, target_rate)
+    frame_preview = recipe.get("preview_frame_time") is not None
     for key in ("audio_streams", "subtitle_streams", "attachment_streams"):
-        if info[key] != source[key]:
+        if info[key] != (0 if frame_preview else source[key]):
             raise ValueError(f"Output lost {key.replace('_', ' ')}. Original preserved; result rejected.")
-    verify_preservation(source, info, recipe)
+    # A frame comparison is explicitly video-only. Full exports and existing
+    # audiovisual previews keep the complete preservation contract.
+    if not frame_preview:
+        verify_preservation(source, info, recipe)
     result = subprocess.run(
         [
             "ffmpeg",

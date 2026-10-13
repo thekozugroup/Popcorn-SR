@@ -258,7 +258,7 @@ class Worker:
             if self.storage()["free_bytes"] < self.reserve:
                 raise ValueError("Scratch drive is full. Processing stopped to preserve the drive reserve.")
 
-    async def process(self, command, folder, duration):
+    async def process(self, command, folder, duration, *, progress_start=10, progress_end=85):
         env = os.environ.copy()
         for key in list(env):
             if key.startswith("POPCORN_ADMIN") or key == "POPCORN_PAIR_CODE":
@@ -300,10 +300,11 @@ class Worker:
 
         async def progress():
             while line := await process.stdout.readline():
-                if line.startswith(b"out_time_us="):
+                if line.startswith((b"out_time_us=", b"pipeline_progress=")):
                     try:
-                        seconds = int(line.split(b"=", 1)[1]) / 1_000_000
-                        self.status["progress"] = min(85, 10 + seconds / duration * 75)
+                        value = float(line.split(b"=", 1)[1])
+                        fraction = value if line.startswith(b"pipeline_progress=") else value / 1_000_000 / duration
+                        self.status["progress"] = max(self.status["progress"], progress_start + min(1, max(0, fraction)) * (progress_end - progress_start))
                     except ValueError:
                         pass
 
@@ -363,8 +364,9 @@ class Worker:
             raise ValueError("Source checksum changed or transfer was incomplete. Original preserved.")
         info = await asyncio.to_thread(probe, source)
         recipe = job["recipe"]
+        frame_preview = recipe.get("preview_frame_time") is not None
         engine_source = source
-        if recipe["engine"] != "resize" and recipe["preview_seconds"]:
+        if frame_preview or (recipe["engine"] != "resize" and recipe["preview_seconds"]):
             # Clip before invoking external engines; the heavy engine never reads the full preview source.
             engine_source = folder / "preview-source.mkv"
             await self.process(
@@ -372,6 +374,9 @@ class Worker:
                     "ffmpeg",
                     "-v",
                     "error",
+                    "-nostdin", "-threads", "2", "-filter_threads", "1",
+                    "-protocol_whitelist", "file,pipe",
+                    *(["-ss", str(recipe["preview_frame_time"])] if frame_preview else []),
                     "-i",
                     str(source),
                     "-t",
@@ -380,17 +385,21 @@ class Worker:
                     "0:V:0",
                     "-an",
                     "-sn",
+                    "-map_metadata", "-1", "-map_chapters", "-1",
+                    "-vf", "setpts=PTS-STARTPTS",
                     "-c:v",
                     "ffv1",
+                    "-threads", "2", "-fps_mode", "passthrough",
                     "-n",
                     str(engine_source),
                 ],
                 folder,
                 recipe["preview_seconds"],
+                progress_start=10, progress_end=15,
             )
         self.status["stage"] = "Enhancing video" if recipe["engine"] != "resize" else "Encoding video"
         duration = (
-            min(info["duration"], recipe["preview_seconds"])
+            min(info["duration"] - (recipe.get("preview_frame_time") or 0), recipe["preview_seconds"])
             if recipe["preview_seconds"]
             else info["duration"]
         )
@@ -405,14 +414,16 @@ class Worker:
             timing_report = folder / "source-timing.json"
             interpreter = os.environ.get("POPCORN_AI_PYTHON" if hdr or recipe["engine"] == "rtx-vsr" else "POPCORN_NGX_PYTHON", sys.executable)
             await self.process([interpreter, "-m", "popcorn_sr.timeline", "--input", str(engine_source),
-                                "--report", str(timing_report)], folder, duration)
+                                "--report", str(timing_report)], folder, duration, progress_start=15, progress_end=18)
             source_end = Fraction(json.loads(timing_report.read_text())["duration"])
             self.status["stage"] = stage
             if recipe["preview_seconds"]:
                 source_end = min(source_end, recipe["preview_seconds"])
         initial_output = folder / "upscaled.nut" if generation or hdr else output
         initial_recipe = recipe | {"codec": "ffv1"} if generation or hdr else recipe
-        await self.process(processing_command(engine_source, initial_output, initial_recipe, info), folder, duration)
+        await self.process(processing_command(engine_source, initial_output, initial_recipe, info), folder, duration,
+                           progress_start=18 if generation or hdr else 15,
+                           progress_end=55 if generation or hdr else 83)
         rendered = engine_result(recipe["engine"], initial_output) if recipe["engine"] != "resize" else initial_output
         timing = None
         if generation:
@@ -421,21 +432,23 @@ class Worker:
             generated = folder / "generated.nut" if hdr else output
             generation_recipe = recipe | {"codec": "ffv1"} if hdr else recipe
             await self.process(frame_generation_command(rendered, generated, generation_recipe, report,
-                                                       end_time=source_end), folder, duration)
+                                                       end_time=source_end), folder, duration,
+                               progress_start=55, progress_end=80 if hdr else 83)
             timing = json.loads(report.read_text())
             rendered.unlink()
             rendered = generated
         if hdr:
             self.status["stage"] = "Converting to HDR"
             end = timing["source_video_duration"] if timing else source_end
-            await self.process(hdr_command(rendered, output, recipe, end_time=end), folder, duration)
+            await self.process(hdr_command(rendered, output, recipe, end_time=end), folder, duration,
+                               progress_start=80 if generation else 55, progress_end=83)
             rendered.unlink()
             rendered = output
-        if recipe["engine"] != "resize" or generation or hdr:
+        if not frame_preview and (recipe["engine"] != "resize" or generation or hdr):
             # Remux original streams ourselves: third-party exporters may discard subtitles or re-encode audio.
             remuxed = folder / "preserved.mkv"
             command = await asyncio.to_thread(preserved_command, rendered, source, remuxed, recipe, info, timing)
-            await self.process(command, folder, duration)
+            await self.process(command, folder, duration, progress_start=83, progress_end=85)
             rendered = remuxed
         self.status.update(progress=86, stage="Checking result")
         result = await asyncio.to_thread(validate_output, rendered, job["source"], recipe)
