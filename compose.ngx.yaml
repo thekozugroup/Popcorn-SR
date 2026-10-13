@@ -1,5 +1,5 @@
 # Layer over compose.worker.yaml or compose.single.yaml. Build locally.
-# SDK/driver paths are mandatory; never download proprietary components silently.
+# Requires Docker Compose 2.30+. SDK/driver paths are operator-provisioned.
 services:
   worker:
     image: popcorn-sr-ngx:dev
@@ -7,6 +7,9 @@ services:
       context: .
       dockerfile: Dockerfile.ngx
     gpus: all
+    # NGX loads signed feature code through temporary files. Replace the base
+    # noexec/64-MiB mount, rather than merging two mounts at the same target.
+    tmpfs: !override ["/tmp:rw,exec,nosuid,nodev,size=384m"]
     environment:
       POPCORN_NGX_LIBRARY: /opt/ngx/libpopcorn-dlss.so
       POPCORN_NGX_DLSSG_LIBRARY: /opt/ngx/libpopcorn-dlssg.so

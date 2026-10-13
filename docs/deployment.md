@@ -65,6 +65,8 @@ The AI worker image is approximately 3.4 GB in the current local ARM64 build. Do
 
 RTX Video uses a separate VFX runtime on Linux x86. See [engines](engines.md); no current public Linux ARM64 VFX Python wheel was found.
 
+For the experimental native DLSS worker on development `main`, use Docker Compose 2.30+ and follow [native setup](../native/README.md). Its NGX overlay includes a 384-MiB executable RAM temporary mount required for NVIDIA feature loading, with read-only SDK/driver mounts. Video intermediates still go to the selected temporary drive.
+
 ## One Linux desktop
 
 Use `compose.yaml` with `compose.single.yaml`. Set manager paths and worker scratch/state paths in one `.env`.
