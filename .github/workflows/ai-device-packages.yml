@@ -1,0 +1,33 @@
+name: Build AI device packages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p evidence/ai-device-package/ai
+      # The Dockerfile checks the locked torch/CUDA/PyAV/NumPy imports. This
+      # runner has no GPU; CUDA execution is a separate physical acceptance.
+      - run: docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" -f Dockerfile.ai -t popcorn-sr-ai:device .
+      - run: python3 scripts/export-device-package.py --image popcorn-sr-ai:device --architecture ${{ matrix.architecture }} --output evidence/ai-device-package/ai
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-device-package-linux-${{ matrix.architecture }}
+          path: evidence/ai-device-package/
+          compression-level: 0
+          retention-days: 7
