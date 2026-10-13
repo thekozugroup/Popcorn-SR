@@ -65,11 +65,16 @@ test('DLSS controls obey verified combinations (UI fixture; no GPU execution)', 
 
 async function navigate(page, name) {
   const toggle = page.getByTestId('mobile-nav-toggle');
-  if (await toggle.isVisible()) {
+  // Astryx's inherited md breakpoint is 768px. Viewport updates resolve
+  // before its React media-query render; wait for the intended nav surface.
+  const mobile = page.viewportSize().width < 768;
+  if (mobile) {
+    await expect(toggle).toBeVisible();
     await toggle.click();
     await page.getByRole('dialog',{name:'Navigation',exact:true}).getByRole('button',{name,exact:true}).click();
     await expect(page.getByRole('dialog',{name:'Navigation',exact:true})).not.toBeVisible();
   } else {
+    await expect(toggle).not.toBeVisible();
     await page.getByRole('navigation').getByRole('button', {name, exact:true}).click();
   }
 }
