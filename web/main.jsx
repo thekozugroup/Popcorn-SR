@@ -26,6 +26,8 @@ const frameModes = {auto:'Auto · recommended',native:'Native · one NVIDIA pass
 const motionNames = {high:'High',medium:'Balanced',low:'Fast'};
 const bytes = n => n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${(n / 1024 ** 2).toFixed(1)} MB`;
 const navigation = [['overview','Overview'], ['library','Library'], ['processing','Processing'], ['queue','Queue'], ['settings','Settings']];
+const workerReady = w => w.capabilities.initialization===undefined || w.capabilities.initialization==='ready';
+const workerStatus = w => !w.online?'Offline':w.capabilities.initialization==='checking'?'Checking support':workerReady(w)?'Connected':'Checks failed';
 async function api(path, options = {}) {
   const response = await fetch(path, {credentials: 'same-origin', ...options, headers: {'Content-Type':'application/json', ...options.headers}});
   const data = await response.json().catch(() => ({detail:'The manager returned an unexpected response.'}));
@@ -107,7 +109,10 @@ function Recipe({path,state,onClose,onCreated}) {
   useEffect(()=>{ panel.current?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}); panel.current?.querySelector('[role=combobox]')?.focus({preventScroll:true}); },[]);
   const active=state.workers.filter(w=>!w.revoked);
   const worker=active.some(w=>w.id===desired.worker)?desired.worker:'';
-  const candidates=active.filter(w=>!worker || w.id===worker);
+  const selected=active.filter(w=>!worker || w.id===worker);
+  const candidates=selected.filter(workerReady);
+  const checking=selected.some(w=>w.capabilities.initialization==='checking');
+  const failed=selected.some(w=>w.capabilities.initialization==='failed');
   const supported=[...new Set(candidates.flatMap(w=>w.capabilities.engines || []))];
   const engine=supported.includes(desired.engine)?desired.engine:supported[0] || 'resize';
   const capable=candidates.filter(w=>(w.capabilities.engines || []).includes(engine));
@@ -153,7 +158,7 @@ function Recipe({path,state,onClose,onCreated}) {
     <HStack hAlign="between" vAlign="start" gap={4}><VStack gap={2} className="min-w-0"><Heading level={2}>Make an enhanced copy</Heading><Copy type="supporting">{path}</Copy></VStack><Button label="Close" variant="ghost" onClick={onClose}/></HStack>
     <form onSubmit={e=>{e.preventDefault();submit(5);}}><VStack gap={6}>
       <div className="form-grid">
-        <Selector label="Processing device" value={worker} onChange={v=>change('worker',v)} width="100%" options={[{value:'',label:'Any compatible worker'},...active.map(w=>({value:w.id,label:w.name+(w.online?'':' (offline)')}))]} description={candidates.length?'Jobs start when a compatible device is connected.':'Connect a worker in Processing to start jobs.'}/>
+        <Selector label="Processing device" value={worker} onChange={v=>change('worker',v)} width="100%" options={[{value:'',label:'Any compatible worker'},...active.map(w=>({value:w.id,label:w.name+(workerStatus(w)==='Connected'?'':` (${workerStatus(w).toLowerCase()})`)}))]} description={candidates.length?'Jobs start when a compatible device is connected.':checking?'Support checks are running. Options become available when they finish.':failed?'Support checks failed. Open Processing for the reason and next step.':'Connect a worker in Processing to start jobs.'}/>
         <Selector label="Enhancement" value={engine} onChange={v=>change('engine',v)} width="100%" options={(supported.length?supported:['resize']).map(e=>({value:e,label:engines[e] || e}))} description={state.engine_notes[engine]}/>
         {advancedDLSS?<Selector label="DLSS mode" value={dlssMode} onChange={v=>change('dlss_mode',v)} width="100%" options={modes.map(value=>({value,label:dlssModes[value]}))} description="Higher multipliers make a larger copy. Aspect ratio stays the same, with even dimensions for encoding."/>:<Selector label="Output size" value={scale} onChange={v=>change('scale',v)} width="100%" options={scales.map(v=>({value:v,label:({'1':'Keep source size (1×)','2':'Twice the size (2×)','3':'Three times the size (3×)','4':'Four times the size (4×)'})[v]}))} description="Aspect ratio stays the same."/>}
         <Selector label="Video format" value={codec} onChange={v=>change('codec',v)} width="100%" options={['h264','hevc','av1'].map(v=>({value:v,label:({h264:'H.264 · broad compatibility',hevc:'H.265 / HEVC · smaller files',av1:'AV1 · newer players'})[v],disabled:!codecs.includes(v)}))} description="Finished copies use a Matroska (.mkv) container."/>
@@ -201,14 +206,16 @@ function Processing({state,onAction,onNotice}) {
   const workers=state.workers.filter(w=>!w.revoked);
   return <VStack gap={8}>
     <div><PageHead title="Your processing power" copy="Connect a computer on your network. It receives a copy, processes it locally, and returns the result." action={<Button label="Connect a worker" variant="primary" clickAction={connect}/>}/>
-    {!workers.length?<section className="panel"><Empty title="Bring your processing power" copy="Connect your Spark, desktop or another computer. You can also run a worker beside this manager."/></section>:<div className="worker-layout">{workers.map(w=><article key={w.id} className="panel"><VStack gap={5} padding={6}>
-      <HStack gap={4} hAlign="between" wrap="wrap"><Heading level={2}>{w.name}</Heading><Status online={w.online}>{w.online?'Connected':'Offline'}</Status></HStack>
-      <VStack gap={1}><Copy>{w.capabilities.device}</Copy><Copy type="supporting">{w.capabilities.platform} / {w.capabilities.architecture}</Copy></VStack>
-      <VStack gap={2}><Text weight="medium">Verified encoding</Text><Copy type="supporting">{(w.capabilities.encoders || []).map(c=>c.replace('_nvidia',' · NVIDIA').replace('_cpu',' · CPU').toUpperCase()).join(', ') || 'No verified encoder'}</Copy></VStack>
-      <VStack gap={2}><HStack gap={4} hAlign="between" wrap="wrap"><Text weight="medium">Temporary drive</Text><Text type="supporting">{bytes(w.scratch.free_bytes || 0)} free</Text></HStack><Copy type="supporting" className="path">{w.scratch.path}</Copy></VStack>
-      <VStack gap={2}><Text weight="medium">Enhancement</Text><Copy type="supporting">{(w.capabilities.engines || []).map(e=>engines[e] || e).join(', ') || 'No verified engine'}</Copy></VStack>
-      {!!w.capabilities.dlss_frame_generation?.settings?.length && <VStack gap={2}><Text weight="medium">DLSS frame generation · experimental</Text><Copy type="supporting">Verified with {(w.capabilities.dlss_frame_generation.upscalers || []).map(e=>engines[e] || e).join(', ')}. Up to {w.capabilities.dlss_frame_generation.maximum_factor}× per NVIDIA pass.</Copy></VStack>}
-      {!!Object.keys(w.capabilities.notes || {}).length && <Collapsible trigger="Unavailable engine details" defaultIsOpen={false}><VStack gap={3} paddingBlockStart={3}>{Object.entries(w.capabilities.notes).map(([engine,text])=><Copy key={engine} type="supporting">{engines[engine] || engine}: {text}</Copy>)}</VStack></Collapsible>}
+    {!workers.length?<section className="panel"><Empty title="Bring your processing power" copy="Connect your Spark, desktop or another computer. You can also run a worker beside this manager."/></section>:<div className="worker-layout">{workers.map(w=><article key={w.id} className="panel" aria-label={w.name}><VStack gap={5} padding={6}>
+      <HStack gap={4} hAlign="between" wrap="wrap"><Heading level={2}>{w.name}</Heading><Status online={w.online && workerReady(w)?true:w.online && w.capabilities.initialization==='checking'?undefined:false}>{workerStatus(w)}</Status></HStack>
+      <VStack gap={1}>{w.capabilities.device && <Copy>{w.capabilities.device}</Copy>}<Copy type="supporting">{w.capabilities.platform} / {w.capabilities.architecture}</Copy></VStack>
+      {w.capabilities.initialization==='checking' && <Copy>Testing encoding and enhancements. This can take several minutes. Jobs wait until checks finish.</Copy>}
+      {w.capabilities.initialization==='failed' && <Banner status="error" title="Support checks failed" description={w.capabilities.initialization_error || 'Restart the worker to run its support checks again.'} collapsible={false}/>}
+      {workerReady(w) && <VStack gap={2}><Text weight="medium">Verified encoding</Text><Copy type="supporting">{(w.capabilities.encoders || []).map(c=>c.replace('_nvidia',' · NVIDIA').replace('_cpu',' · CPU').toUpperCase()).join(', ') || 'No verified encoder'}</Copy></VStack>}
+      <VStack gap={2}><HStack gap={4} hAlign="between" wrap="wrap"><Text weight="medium">Temporary drive</Text><Text type="supporting">{w.scratch.available===false?'Unavailable':`${bytes(w.scratch.free_bytes || 0)} free`}</Text></HStack><Copy type="supporting" className="path">{w.scratch.path}</Copy></VStack>
+      {workerReady(w) && <VStack gap={2}><Text weight="medium">Enhancement</Text><Copy type="supporting">{(w.capabilities.engines || []).map(e=>engines[e] || e).join(', ') || 'No verified engine'}</Copy></VStack>}
+      {workerReady(w) && !!w.capabilities.dlss_frame_generation?.settings?.length && <VStack gap={2}><Text weight="medium">DLSS frame generation · experimental</Text><Copy type="supporting">Verified with {(w.capabilities.dlss_frame_generation.upscalers || []).map(e=>engines[e] || e).join(', ')}. Up to {w.capabilities.dlss_frame_generation.maximum_factor}× per NVIDIA pass.</Copy></VStack>}
+      {workerReady(w) && !!Object.keys(w.capabilities.notes || {}).length && <Collapsible trigger="Unavailable engine details" defaultIsOpen={false}><VStack gap={3} paddingBlockStart={3}>{Object.entries(w.capabilities.notes).map(([engine,text])=><Copy key={engine} type="supporting">{engines[engine] || engine}: {text}</Copy>)}</VStack></Collapsible>}
       <Button variant="ghost" label="Disconnect worker" clickAction={()=>onAction(w.id,'revoke')}/>
     </VStack></article>)}</div>}</div>
     {pair && <section className="panel" aria-label="Pairing instructions"><VStack gap={5} padding={6}>
@@ -218,7 +225,7 @@ function Processing({state,onAction,onNotice}) {
       <VStack gap={5}>
         <VStack gap={2}><Heading level={3}>1. On the processing computer</Heading><Copy>Install the worker using the Docker worker example. Set the manager address to <strong>{location.origin}</strong> and enter this pairing code.</Copy></VStack>
         <VStack gap={2}><Heading level={3}>2. Choose its temporary drive</Heading><Copy>Mount your Optane or another drive as the scratch folder. Mark the mounted folder with <code>init-scratch</code>. The worker will stop if that folder is unavailable.</Copy></VStack>
-        <VStack gap={2}><Heading level={3}>3. Check the connection</Heading><Copy>The device appears here after its hardware tests finish. Use Ethernet for large libraries; Wi-Fi works when both devices can reach each other.</Copy></VStack>
+        <VStack gap={2}><Heading level={3}>3. Check the connection</Heading><Copy>The device appears as soon as it pairs. Support checks can take several minutes; verified options appear when complete. Use Ethernet for large libraries; Wi-Fi works when both devices can reach each other.</Copy></VStack>
       </VStack>
       <Button variant="ghost" label="Open installation guide" href="https://github.com/thekozugroup/Popcorn-SR/blob/main/docs/deployment.md" target="_blank" rel="noreferrer"/>
     </VStack></section>}

@@ -48,6 +48,8 @@ The marker identifies the scratch folder and filesystem; worker state retains th
 
 The worker tests each codec with a real encode before appearing ready. Spark and desktop driver/library differences may disable individual codecs; no NVIDIA fallback to CPU occurs when a GPU job is requested.
 
+On development `main`, pairing is saved before these tests start. The device immediately shows **Checking support**, stays connected while checks run, and accepts jobs only after verified options appear. Long GPU checks do not consume the code's remaining lifetime. **Checks failed** explains when to reconnect the temporary drive or restart the worker. Revoked pairing requires a new code and worker state folder. This startup behavior is not yet in the public 0.2.0 image.
+
 In **Library**, choose a video and select **Preview 5 seconds**. Download and review the completed preview in **Queue**, then select **Enhance full video** on that preview. The full job reuses the source, destination, enhancement and processing-device choice. The manager rechecks source integrity and worker compatibility before queueing it; a changed source requires a new preview.
 
 ## Add open-source AI on Spark or desktop
@@ -61,7 +63,7 @@ python3 scripts/fetch-model.py /mnt/optane/popcorn-scratch
 docker compose -f compose.worker.yaml -f compose.ai.yaml up -d --build
 ```
 
-The AI worker image is approximately 3.4 GB in the current local ARM64 build. Docker image layers live in the host's Docker data directory, so move that directory to the external drive too if you want to avoid built-in disk writes. AI model/inference smoke tests happen during startup; pairing can take several minutes. Choose **Real-ESRGAN AI upscaling** only after it appears on the worker. Preview for flicker or changed detail. This is frame-based AI restoration, not temporal NVIDIA RTX VSR.
+The AI worker image is substantially larger than the base worker; check the built image size when planning storage. Docker image layers live in the host's Docker data directory, so move that directory to the external drive too if you want to avoid built-in disk writes. AI model/inference smoke tests happen during startup and can take several minutes. Choose **Real-ESRGAN AI upscaling** only after it appears on the worker. Preview for flicker or changed detail. This is frame-based AI restoration, not temporal NVIDIA RTX VSR.
 
 RTX Video uses a separate VFX runtime on Linux x86. See [engines](engines.md); no current public Linux ARM64 VFX Python wheel was found.
 

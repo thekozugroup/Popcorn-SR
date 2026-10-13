@@ -149,11 +149,11 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
             )
             for _ in range(120):
                 state = client.get("/api/state").json()
-                if state["workers"]:
+                if state["workers"] and state["workers"][0]["capabilities"].get("initialization", "ready") == "ready":
                     break
                 time.sleep(1)
             else:
-                raise RuntimeError("Worker did not pair: " + docker("logs", worker)[-500:])
+                raise RuntimeError("Worker did not finish support checks: " + docker("logs", worker)[-500:])
             response = client.post(
                 "/api/jobs",
                 json={

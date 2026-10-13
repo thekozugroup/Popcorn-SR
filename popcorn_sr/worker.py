@@ -2,10 +2,12 @@ import asyncio
 import hashlib
 import json
 import os
+import platform
 import shutil
 import signal
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 from contextlib import contextmanager
@@ -89,25 +91,49 @@ class Worker:
         }
 
     async def connect(self, pair_code=None):
-        self.storage()
-        import tempfile
-
-        check = Path(tempfile.mkdtemp(prefix="capability-check-", dir=self.scratch))
-        stopped = threading.Event()
-        detection = asyncio.create_task(asyncio.to_thread(detect_capabilities, check, stopped))
-        try:
-            self.capabilities = await asyncio.shield(detection)
-        except asyncio.CancelledError:
-            stopped.set()
+        storage = self.storage()
+        if storage["free_bytes"] < self.reserve:
+            raise ValueError("Temporary drive has less than the reserved space. Free space before starting the worker.")
+        checking = {
+            "initialization": "checking", "engines": [], "encoders": [], "device": "",
+            "platform": platform.system(), "architecture": platform.machine(), "notes": {},
+            "dlss_sr": {}, "dlss_frame_generation": {},
+        }
+        self.capabilities = checking
+        # Consume the short-lived code and save credentials before GPU checks.
+        await self.authenticate(pair_code)
+        async with self.client() as client:
             try:
-                await detection
-            except ValueError:
-                pass
-            raise
-        finally:
-            shutil.rmtree(check, ignore_errors=True)
-        if not self.capabilities["encoders"]:
-            raise ValueError("No encoder passed its processing test. Install FFmpeg with supported codecs.")
+                # Saved credentials must also be validated before using the GPU.
+                await self.publish_status(client)
+                detected = await self.check_support(client)
+                if not detected["encoders"]:
+                    raise ValueError("No encoder passed its processing test. Install FFmpeg with supported codecs.")
+                self.capabilities = detected | {"initialization": "ready"}
+                await self.publish_status(client)
+            except BaseException as exc:
+                if isinstance(exc, asyncio.CancelledError):
+                    message = "Support checks stopped. Restart the worker to continue."
+                elif isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 401:
+                    message = "Worker pairing was revoked. Pair again using a new state folder."
+                elif isinstance(exc, httpx.HTTPError):
+                    message = "Manager connection interrupted during support checks. Restart the worker when connected."
+                else:
+                    message = str(exc)
+                self.capabilities = checking | {"initialization": "failed", "initialization_error": message}
+                try:
+                    storage = self.storage()
+                except (ValueError, OSError):
+                    storage = {"path": str(self.scratch), "available": False}
+                try:
+                    await self.publish_status(client, storage, timeout=2)
+                except httpx.HTTPError:
+                    pass
+                if isinstance(exc, httpx.HTTPError):
+                    raise ValueError(message) from None
+                raise
+
+    async def authenticate(self, pair_code=None):
         if self.credential_file.exists():
             saved = json.loads(self.credential_file.read_text())
             if saved["manager"] != self.manager:
@@ -121,26 +147,78 @@ class Worker:
             raise ValueError(
                 "This worker is not paired. Create a pairing code in the manager and set POPCORN_PAIR_CODE."
             )
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with self.client() as client:
             response = await client.post(
-                f"{self.manager}/api/workers/pair",
+                "/api/workers/pair",
                 json={
                     "code": pair_code,
                     "name": self.name,
                     "capabilities": self.capabilities,
                     "scratch": self.storage(),
                 },
+                timeout=30,
             )
+            if response.status_code in {400, 422}:
+                raise ValueError("Pairing code is invalid, expired or already used. Create a new code.")
             response.raise_for_status()
             data = response.json()
         self.token = data["token"]
         self.worker_id = data["worker_id"]
         atomic_private_json(self.credential_file, data | {"manager": self.manager})
 
+    async def publish_status(self, client, storage=None, *, timeout=10):
+        response = await client.post(
+            "/api/worker/status",
+            json={"capabilities": self.capabilities, "scratch": self.storage() if storage is None else storage},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+
+    async def initialization_heartbeat(self, client, finished, interval=10):
+        failed_since = None
+        while not finished.is_set():
+            try:
+                await asyncio.wait_for(finished.wait(), timeout=interval)
+                return
+            except TimeoutError:
+                pass
+            try:
+                await self.publish_status(client)
+                failed_since = None
+            except (httpx.TimeoutException, httpx.NetworkError):
+                failed_since = failed_since or time.monotonic()
+                if time.monotonic() - failed_since > 30:
+                    raise ValueError("Manager connection interrupted during support checks. Restart when connected.") from None
+
+    async def check_support(self, client):
+        check = Path(tempfile.mkdtemp(prefix="capability-check-", dir=self.scratch))
+        stopped, finished = threading.Event(), asyncio.Event()
+        detection = asyncio.create_task(asyncio.to_thread(detect_capabilities, check, stopped))
+        keepalive = asyncio.create_task(self.initialization_heartbeat(client, finished))
+        monitor = asyncio.create_task(self.monitor_storage())
+        try:
+            done, _ = await asyncio.wait((detection, keepalive, monitor), return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
+            return detection.result()
+        finally:
+            # Stop native child groups before reporting failure. Let any in-flight
+            # checking heartbeat finish before publishing the final ready state.
+            stopped.set()
+            finished.set()
+            monitor.cancel()
+            await asyncio.gather(detection, keepalive, monitor, return_exceptions=True)
+            try:
+                self.storage()
+            except (ValueError, OSError):
+                pass  # Never remove files through a replaced or unavailable drive.
+            else:
+                shutil.rmtree(check, ignore_errors=True)
+
     def client(self):
         return httpx.AsyncClient(
             base_url=self.manager,
-            headers={"Authorization": f"Bearer {self.token}"},
+            headers={"Authorization": f"Bearer {self.token}"} if self.token else {},
             timeout=httpx.Timeout(60, read=60, write=60),
             follow_redirects=False,
         )

@@ -24,6 +24,8 @@ def scale_for_recipe(recipe):
 
 
 def compatible_recipe(recipe, capabilities, source=None):
+    if capabilities.get("initialization", "ready") != "ready":
+        return False
     if recipe["engine"] not in capabilities.get("engines", []):
         return False
     if f"{recipe['codec']}_{recipe['encoder']}" not in capabilities.get("encoders", []):

@@ -173,6 +173,79 @@ async function signIn(page) {
   await expect(page.getByRole('heading',{name:'A better home for your videos.'})).toBeVisible();
 }
 
+test('paired device shows checking, ready and failure without exposing stale support (UI fixture)', async ({page}) => {
+  let phase='checking';
+  const errors=[];
+  page.on('pageerror', error=>errors.push(error.message));
+  await page.route('**/api/state', async route=>{
+    const response=await route.fetch();
+    if(!response.ok()){await route.fulfill({response});return;}
+    const state=await response.json();
+    // Stale encoder data intentionally tests the initialization gate. This is
+    // display evidence; real pairing and CPU/GPU acceptance run separately.
+    state.workers=[{id:'pairing-ui-fixture',name:'Processing computer',online:true,revoked:false,
+      scratch:{path:'/scratch/external/temporary-video-files',free_bytes:1e9,available:phase!=='failed'},
+      capabilities:{initialization:phase,initialization_error:'Temporary drive is unavailable. Reconnect it and restart the worker.',
+        engines:['resize'],encoders:['h264_cpu','hevc_cpu','av1_cpu'],device:phase==='ready'?'CPU worker':'',
+        platform:'Linux',architecture:'aarch64',notes:{}}}];
+    await route.fulfill({response,json:state});
+  });
+  await signIn(page);
+  await navigate(page,'Processing');
+  const card=page.getByRole('article',{name:'Processing computer',exact:true});
+  await expect(card.getByText('Checking support',{exact:true})).toBeVisible();
+  await expect(card).toContainText('This can take several minutes. Jobs wait until checks finish.');
+  await expect(card.getByText('Verified encoding',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Connect a worker',exact:true}).click();
+  await expect(page.getByText(/The device appears as soon as it pairs/)).toBeVisible();
+  for(const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]){
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/pairing-checking-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  }
+  await navigate(page,'Library');
+  await page.getByRole('button',{name:'A clearer picture.mkv'}).click();
+  const selector=page.getByRole('combobox',{name:'Processing device',exact:true});
+  await selector.click();
+  await page.getByRole('option',{name:'Processing computer (checking support)',exact:true}).click();
+  await expect(page.getByText('Support checks are running. Options become available when they finish.',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Enhance full video',exact:true})).toBeDisabled();
+  await page.getByLabel('Save copies to').fill('previews/pairing');
+  phase='ready';
+  await expect(selector).toContainText('Processing computer');
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeEnabled();
+  await expect(selector).not.toContainText('checking support');
+  await expect(page.getByLabel('Save copies to')).toHaveValue('previews/pairing');
+  await page.getByRole('combobox',{name:'Video format',exact:true}).click();
+  await page.getByRole('option',{name:'H.265 / HEVC · smaller files',exact:true}).click();
+  phase='failed';
+  await expect(selector).toContainText('checks failed');
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
+  await expect(page.getByLabel('Save copies to')).toHaveValue('previews/pairing');
+  phase='ready';
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeEnabled();
+  await expect(page.getByRole('combobox',{name:'Video format',exact:true})).toContainText('H.265 / HEVC');
+  phase='failed';
+  await navigate(page,'Processing');
+  await expect(card.getByText('Checks failed',{exact:true})).toBeVisible();
+  await expect(card).toContainText('Reconnect it and restart the worker.');
+  await expect(card.getByText('Unavailable',{exact:true})).toBeVisible();
+  await expect(card.getByText('Verified encoding',{exact:true})).toHaveCount(0);
+  for(const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]){
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/screenshots/pairing-failed-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  }
+  expect(errors).toEqual([]);
+});
+
 test('desktop preview completes on a real worker; responsive light/dark views pass accessibility', async ({page}) => {
   const errors = [];
   await page.addInitScript(() => {
