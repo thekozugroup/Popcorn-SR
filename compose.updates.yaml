@@ -1,0 +1,12 @@
+# Optional host-controlled replacement. Never mount the Docker socket in the app.
+services:
+  worker:
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    environment:
+      POPCORN_UPDATE_DIRECTORY: /updates
+    volumes:
+      - type: bind
+        source: "${UPDATE_CONTROL_PATH:?Set the existing host update control folder}"
+        target: /updates
+        bind: {create_host_path: false}

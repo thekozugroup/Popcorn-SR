@@ -22,6 +22,7 @@ def main():
     initialize = subs.add_parser("init-scratch", help="Mark an existing mounted scratch directory as ready.")
     initialize.add_argument("path", type=Path)
     subs.add_parser("access-key", help="Generate a random manager access key.")
+    subs.add_parser("request-update", help="Ask the configured host service to update this worker when idle.")
     args = parser.parse_args()
     if args.mode == "serve":
         from .server import create_app
@@ -53,6 +54,14 @@ def main():
         except (ValueError, OSError) as exc:
             parser.error(str(exc))
         print(f"Scratch ready: {args.path.resolve()}")
+    elif args.mode == "request-update":
+        from .updates import WorkerUpdates
+
+        try:
+            WorkerUpdates().request()
+        except (ValueError, OSError) as exc:
+            parser.exit(1, f"Update not requested: {exc}\n")
+        print("Update requested. The host service waits for the current job before replacing the container.")
     else:
         print(secrets.token_urlsafe(32))
 

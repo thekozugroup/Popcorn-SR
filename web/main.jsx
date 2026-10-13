@@ -24,8 +24,9 @@ const frameRates = ['23.976','25','29.97','30','50','59.94','60','90','119.88','
 const frameModes = {auto:'Auto · recommended',native:'Native · one NVIDIA pass',cascade:'Cascade · multiple NVIDIA passes'};
 const motionNames = {high:'High',medium:'Balanced',low:'Fast'};
 const bytes = n => n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${(n / 1024 ** 2).toFixed(1)} MB`;
-const workerReady = w => w.capabilities.initialization===undefined || w.capabilities.initialization==='ready';
-const workerStatus = w => !w.online?'Offline':w.capabilities.initialization==='checking'?'Checking support':workerReady(w)?'Connected':'Checks failed';
+const workerReady = w => !w.capabilities.updates?.draining && (w.capabilities.initialization===undefined || w.capabilities.initialization==='ready');
+const workerStatus = w => !w.online?'Offline':w.capabilities.updates?.draining?'Updating':w.capabilities.initialization==='checking'?'Checking support':workerReady(w)?'Connected':'Checks failed';
+const updateCopy = {checking:'Checking for a release.',current:'Up to date.',waiting:'The current job finishes before updating.',installing:'Installing the update.',validating:'Checking encoding and enhancements.',updated:'Update installed.',rolled_back:'The update failed its checks. The previous version was restored.',failed:'Update check failed. Check the host update service and try again.'};
 async function api(path, options = {}) {
   const response = await fetch(path, {credentials: 'same-origin', ...options, headers: {'Content-Type':'application/json', ...options.headers}});
   const data = await response.json().catch(() => ({detail:'The manager returned an unexpected response.'}));
@@ -286,7 +287,7 @@ function Processing({state,onAction,onNotice}) {
   return <VStack gap={8}>
     <div><PageHead title="Your processing power" copy="Connect a computer on your network. It receives a copy, processes it locally, and returns the result." action={<Button label="Connect a worker" variant="primary" clickAction={connect}/>}/>
     {!workers.length?<section className="panel"><Empty title="Bring your processing power" copy="Connect your Spark, desktop or another computer. You can also run a worker beside this manager."/></section>:<div className="worker-layout">{workers.map(w=><article key={w.id} className="panel" aria-label={w.name}><VStack gap={5} padding={6}>
-      <HStack gap={4} hAlign="between" wrap="wrap"><Heading level={2}>{w.name}</Heading><Status online={w.online && workerReady(w)?true:w.online && w.capabilities.initialization==='checking'?undefined:false}>{workerStatus(w)}</Status></HStack>
+      <HStack gap={4} hAlign="between" wrap="wrap"><Heading level={2}>{w.name}</Heading><Status online={w.online && workerReady(w)?true:w.online && (w.capabilities.initialization==='checking' || w.capabilities.updates?.draining)?undefined:false}>{workerStatus(w)}</Status></HStack>
       <VStack gap={1}>{w.capabilities.device && <Copy>{w.capabilities.device}</Copy>}<Copy type="supporting">{w.capabilities.platform} / {w.capabilities.architecture}</Copy></VStack>
       {w.capabilities.initialization==='checking' && <Copy>Testing encoding and enhancements. This can take several minutes. Jobs wait until checks finish.</Copy>}
       {w.capabilities.initialization==='failed' && <Banner status="error" title="Support checks failed" description={w.capabilities.initialization_error || 'Restart the worker to run its support checks again.'} collapsible={false}/>}
@@ -296,6 +297,7 @@ function Processing({state,onAction,onNotice}) {
       {workerReady(w) && !!w.capabilities.dlss_frame_generation?.settings?.length && <VStack gap={2}><Text weight="medium">DLSS frame generation · experimental</Text><Copy type="supporting">Verified with {(w.capabilities.dlss_frame_generation.upscalers || []).map(e=>engines[e] || e).join(', ')}. Up to {w.capabilities.dlss_frame_generation.maximum_factor}× per NVIDIA pass.</Copy></VStack>}
       {workerReady(w) && !!w.capabilities.rtx_hdr?.pipelines?.length && <VStack gap={2}><Text weight="medium">RTX Video HDR · experimental</Text><Copy type="supporting">Verified 10-bit exports: {[...new Set(w.capabilities.rtx_hdr.pipelines.map(([, ,codec])=>codecNames[codec]))].join(', ')}. Available combinations appear in enhancement settings.</Copy></VStack>}
       {workerReady(w) && !!Object.keys(w.capabilities.notes || {}).length && <Collapsible trigger="Unavailable engine details" defaultIsOpen={false}><VStack gap={3} paddingBlockStart={3}>{Object.entries(w.capabilities.notes).map(([engine,text])=><Copy key={engine} type="supporting">{engines[engine] || engine}: {text}</Copy>)}</VStack></Collapsible>}
+      {w.capabilities.updates?.version && <VStack gap={2}><Text weight="medium">Worker {w.capabilities.updates.version}</Text>{w.capabilities.updates.enabled || w.capabilities.updates.state?<><Copy type="supporting" role="status" aria-label="Worker update">{w.update_pending?'Update requested. Your current job can finish.':updateCopy[w.capabilities.updates.state] || 'Ready to check for an update.'} {w.capabilities.updates.automatic?'New releases are checked automatically.':''}</Copy><Button variant="secondary" label="Check for updates" disabled={!w.online || !w.capabilities.updates.enabled || !!w.update_pending || ['checking','waiting','installing','validating'].includes(w.capabilities.updates.state)} clickAction={()=>onAction(w.id,'update')}/></>:<Copy type="supporting">Updates are managed on the processing computer.</Copy>}</VStack>}
       <Button variant="ghost" label="Disconnect worker" clickAction={()=>onAction(w.id,'revoke')}/>
     </VStack></article>)}</div>}</div>
     {pair && <section className="panel" aria-label="Pairing instructions"><VStack gap={5} padding={6}>
@@ -339,7 +341,7 @@ function App() {
   function navigate(next){setView(next);setNotice(null);}
   useEffect(()=>{surface.current?.focus({preventScroll:true});},[view]);
   async function onAction(id,action){
-    try{await api(action==='revoke'?`/api/workers/${id}/revoke`:`/api/jobs/${id}/${action}`,{method:'POST'});await refresh();if(action==='full')setNotice({text:'Full video queued using your preview settings. Your original is preserved.'});}
+    try{await api(['revoke','update'].includes(action)?`/api/workers/${id}/${action}`:`/api/jobs/${id}/${action}`,{method:'POST'});await refresh();if(action==='full')setNotice({text:'Full video queued using your preview settings. Your original is preserved.'});if(action==='update')setNotice({text:'Update check requested. The current job finishes before this device restarts.'});}
     catch(e){setNotice({error:true,text:e.message});}
   }
   async function logout(){try{await api('/api/logout',{method:'POST'});expired();}catch(e){setNotice({error:true,text:e.message});}}
@@ -348,7 +350,8 @@ function App() {
   const workers=state.workers.filter(w=>!w.revoked);
   const ready=workers.filter(w=>w.online && workerReady(w));
   const checking=workers.some(w=>w.online && w.capabilities.initialization==='checking');
-  const connection=interrupted?'Connection interrupted':ready.length===1?`${ready[0].name} · Connected`:ready.length?`${ready.length} devices connected`:checking?'Checking support':workers.length?'Device offline':'No processing device';
+  const updating=workers.some(w=>w.online && w.capabilities.updates?.draining);
+  const connection=interrupted?'Connection interrupted':ready.length===1?`${ready[0].name} · Connected`:ready.length?`${ready.length} devices connected`:updating?'Updating worker':checking?'Checking support':workers.length?'Device offline':'No processing device';
   return <><a className="skip-link" href="#workspace">Skip to workspace</a><header className="app-header"><div className="header-inner"><Brand/><HStack gap={4} wrap="wrap" hAlign="end"><Status id="connection" online={interrupted?false:ready.length?true:undefined}>{connection}</Status><Button label={view==='workspace'?'Devices & storage':'Back to videos'} variant="ghost" onClick={()=>navigate(view==='workspace'?'setup':'workspace')}/></HStack></div></header>
     <main className="workspace" id="workspace" ref={surface} tabIndex={-1}><VStack gap={6}>
       <Feedback message={notice}/>

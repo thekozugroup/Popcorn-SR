@@ -248,7 +248,18 @@ def create_app(settings: Settings | None = None):
         if len(json.dumps(data)) > 32768:
             raise HTTPException(400, "Worker description is too large.")
         store.touch(item["id"], data.get("capabilities", {}), data.get("scratch", {}))
-        return {"ok": True}
+        updates = data.get("capabilities", {}).get("updates", {})
+        acknowledged = updates.get("request_id") if isinstance(updates, dict) else None
+        if isinstance(acknowledged, str):
+            store.acknowledge_update(item["id"], acknowledged)
+        return {"ok": True, "update_request": store.update_request(item["id"])}
+
+    @app.post("/api/workers/{identity}/update", dependencies=[Depends(admin)])
+    def update_worker(identity: str):
+        item = next((w for w in store.workers() if w["id"] == identity and not w["revoked"]), None)
+        if not item or not item["online"] or not item["capabilities"].get("updates", {}).get("enabled"):
+            raise HTTPException(409, "Connect a worker with its host update service running.")
+        return {"request_id": store.request_update(identity)}
 
     async def queue_job(body: JobCreate, expected_source=None, require_compatible=False):
         try:

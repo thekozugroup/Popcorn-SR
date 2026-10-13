@@ -21,6 +21,7 @@ def main():
         "SCRATCH_PATH": str(fixtures / "scratch"),
         "POPCORN_NGX_BUNDLE": str(fixtures / "sdk"),
         "POPCORN_NGX_DRIVER": str(fixtures / "driver.so"),
+        "UPDATE_CONTROL_PATH": str(fixtures / "updates"),
     })
     layouts = [("manager", ["compose.yaml"])]
     for topology, base in (
@@ -30,6 +31,7 @@ def main():
         for variant in ("cpu", "nvidia", "ai", "ngx"):
             files = base + ([] if variant == "cpu" else [f"compose.{variant}.yaml"])
             layouts.append((f"{topology}/{variant}", files))
+            layouts.append((f"{topology}/{variant}/updates", files + ["compose.updates.yaml"]))
     for name, files in layouts:
         command = ["docker", "compose", "--env-file", os.devnull, "--project-directory", str(root)]
         for file in files:
@@ -50,10 +52,15 @@ def main():
                 assert not mount.get("bind", {}).get("create_host_path", False), f"{name}: automatic host folders"
                 if mount["target"] in {"/library", "/opt/ngx", "/opt/ngx-driver/libnvidia-ngx.so.1"}:
                     assert mount["read_only"], f"{name}: writable source/runtime"
-        if name.endswith("/ngx"):
+        if "/ngx" in name:
             worker = services["worker"]
             assert worker["tmpfs"] == ["/tmp:rw,exec,nosuid,nodev,size=384m"], f"{name}: NGX loading mount"
             assert "graphics" in worker["environment"]["NVIDIA_DRIVER_CAPABILITIES"], f"{name}: graphics driver"
+        if name.endswith("/updates"):
+            worker = services["worker"]
+            assert worker["environment"]["POPCORN_UPDATE_DIRECTORY"] == "/updates"
+            assert worker["labels"]["com.centurylinklabs.watchtower.enable"] == "false"
+            assert all(mount["source"] != "/var/run/docker.sock" for mount in worker["volumes"])
         print(f"Compose configuration passed: {name}")
 
 

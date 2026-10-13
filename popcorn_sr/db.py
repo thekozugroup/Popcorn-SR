@@ -35,6 +35,9 @@ class Store:
                     result TEXT, error TEXT
                 );
                 CREATE INDEX IF NOT EXISTS jobs_queue ON jobs(status, created);
+                CREATE TABLE IF NOT EXISTS worker_updates (
+                    worker_id TEXT PRIMARY KEY, request_id TEXT NOT NULL
+                );
             """)
 
     @contextlib.contextmanager
@@ -88,9 +91,26 @@ class Store:
                 "capabilities": json.loads(r["capabilities"]),
                 "scratch": json.loads(r["scratch"]),
                 "last_seen": r["seen"],
+                "update_pending": self.update_request(r["id"]),
             }
             for r in rows
         ]
+
+    def update_request(self, worker_id):
+        with self.connect() as db:
+            row = db.execute("SELECT request_id FROM worker_updates WHERE worker_id=?", (worker_id,)).fetchone()
+        return row[0] if row else None
+
+    def request_update(self, worker_id):
+        identity = str(uuid.uuid4())
+        with self.connect() as db:
+            db.execute("INSERT INTO worker_updates VALUES (?, ?) ON CONFLICT(worker_id) DO NOTHING",
+                       (worker_id, identity))
+        return self.update_request(worker_id)
+
+    def acknowledge_update(self, worker_id, request_id):
+        with self.connect() as db:
+            db.execute("DELETE FROM worker_updates WHERE worker_id=? AND request_id=?", (worker_id, request_id))
 
     def touch(self, worker_id, capabilities=None, scratch=None):
         with self.connect() as db:
@@ -138,9 +158,13 @@ class Store:
 
     def claim(self, worker, lease_seconds):
         caps = json.loads(worker["capabilities"])
+        if caps.get("updates", {}).get("draining"):
+            return None
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             self.expire(db)
+            if db.execute("SELECT 1 FROM worker_updates WHERE worker_id=?", (worker["id"],)).fetchone():
+                return None
             if db.execute(
                 "SELECT 1 FROM jobs WHERE worker_id=? AND status='running'", (worker["id"],)
             ).fetchone():

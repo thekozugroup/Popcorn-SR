@@ -1,13 +1,13 @@
 # Verified Docker release kits
 
-The [0.3.0 preview](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.3.0) contains the simple input/queue workspace, large frame comparison and experimental native DLSS SR/frame generation worker. The older public GHCR image is still 0.2.0. A kit provides prebuilt manager and NGX worker images without requiring registry credentials or a build on your NAS. NVIDIA SDK libraries and AI weights are not included.
+The [0.3.1 preview](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.3.1) contains the simple input/queue workspace, large frame comparison and experimental native DLSS SR/frame generation worker. The public multi-architecture registry now supplies 0.3.1 as `ghcr.io/thekozugroup/popcorn-sr:0.3.1` and its native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.3.1`. Both tags passed an anonymous pull. A kit provides prebuilt manager and NGX worker images without requiring registry credentials or a build on your NAS. NVIDIA SDK libraries and AI weights are not included.
 
 Download the kit matching the host and its `.sha256` file from the [GitHub releases](https://github.com/thekozugroup/Popcorn-SR/releases). Use AMD64 for an ordinary Unraid/x86 desktop and ARM64 for DGX Spark. Verify that one archive before extracting it. The release also supplies a combined SHA256SUMS, exact source commit and build/delivery evidence.
 
 ```sh
-sha256sum --check popcorn-sr-0.3.0-linux-amd64.tar.gz.sha256
-tar -xzf popcorn-sr-0.3.0-linux-amd64.tar.gz
-cd popcorn-sr-0.3.0-linux-amd64
+sha256sum --check popcorn-sr-0.3.1-linux-amd64.tar.gz.sha256
+tar -xzf popcorn-sr-0.3.1-linux-amd64.tar.gz
+cd popcorn-sr-0.3.1-linux-amd64
 ./load.sh manager
 ```
 
@@ -26,7 +26,7 @@ For a paired NVIDIA worker use `compose.worker.yaml` + `compose.ngx.yaml`; for a
 
 On Unraid without Compose, load the AMD64 manager image first and use its exact image name in a local Docker template or `docker run` configuration following [deployment](deployment.md). The existing registry template remains pinned to the older published image. This kit does not install or modify NAS templates automatically. Current kit acceptance does not establish Unraid Docker Manager's own update/pull behavior for local images.
 
-The optional Real-ESRGAN AI worker remains a separate source build (`Dockerfile.ai`, `compose.ai.yaml`). Its CUDA dependencies are much larger; download the verified official model to the selected scratch drive. The exact 0.3.0 ARM64 AI image passed short Spark CUDA/NVENC film trials; both architectures passed locked builds/import checks. Current DLSS/AI exports can lose SDR color signaling, and video adaptation can change detail. Film quality, external-drive mount dependencies, player compatibility and your hardware still need a short preview before a library batch. See the release's acceptance receipt for exact source/artifacts and limits.
+The optional Real-ESRGAN AI worker remains a separate source build (`Dockerfile.ai`, `compose.ai.yaml`). Its CUDA dependencies are much larger; download the verified official model to the selected scratch drive. The exact 0.3.1 ARM64 AI image passed short Spark CUDA/NVENC film trials; both architectures passed locked builds/import checks. Current 0.3.1 DLSS/AI color trials retain known BT.709/BT.601 range and signaling across all three codecs. Unknown labels are not guessed; unsupported/conflicting profiles fail. Video adaptation can change detail. Film quality, external-drive mount dependencies, player compatibility and your hardware still need a short preview before a library batch. See the release's acceptance receipt for exact source/artifacts and limits.
 
 ## Local packaging
 

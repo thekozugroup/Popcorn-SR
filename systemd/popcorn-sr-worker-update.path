@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for Popcorn SR worker update requests
+
+[Path]
+PathChanged=/var/lib/popcorn-sr/updates/request.json
+Unit=popcorn-sr-worker-update.service
+
+[Install]
+WantedBy=multi-user.target

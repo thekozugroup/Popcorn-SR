@@ -10,9 +10,9 @@ The workspace puts input on the left, the output queue on the right and settings
 
 Still comparisons process a video-only sample of up to five seconds, then display its first picture. Review the downloadable video sample for motion. Full runs restore the normal audio/subtitle/attachment/chapter checks and verify the saved source again.
 
-## Install the 0.3.0 Docker preview
+## Install the 0.3.1 Docker preview
 
-Download the kit matching each computer from [Releases](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.3.0): **AMD64** for Unraid/x86 Linux, **ARM64** for DGX Spark. Each kit includes prebuilt manager/base-worker and native-worker images. No build on the NAS is required.
+Download the kit matching each computer from [Releases](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.3.1): **AMD64** for Unraid/x86 Linux, **ARM64** for DGX Spark. Each kit includes prebuilt manager/base-worker and native-worker images. No build on the NAS is required.
 
 1. Verify the archive and load the selected image using [release-kit instructions](docs/releases.md).
 2. Set your existing library, output and state folders, ownership IDs and private access key.
@@ -20,7 +20,7 @@ Download the kit matching each computer from [Releases](https://github.com/theko
 4. On the processing computer, configure and initialize its mounted scratch folder, then pair with the one-use code.
 5. Preview one frame or a short sample before running a batch.
 
-Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The ordinary GHCR image and registry template still point to **0.2.0**, which lacks the new comparison/native pipeline. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
+Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The public registry supplies **0.3.1** as `ghcr.io/thekozugroup/popcorn-sr:0.3.1` and the native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.3.1`; both passed anonymous pulls. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
 
 ## Processing options
 
@@ -37,7 +37,7 @@ Choose **H.264**, **H.265 / HEVC** or **AV1** independently of the enhancement. 
 
 No proprietary NVIDIA runtime or AI model is bundled. Follow [native setup](native/README.md), [AI setup](docs/deployment.md#add-open-source-ai-on-spark-or-desktop), and [engine integration](docs/engines.md). Windows and physical RTX 5080 testing are deferred.
 
-Video DLSS uses estimated motion, flat depth and zero jitter because films lack game-engine inputs. It can soften or alter detail; a successful processing check does not mean it improves every title. Short animation, effects and live-action trials provide bounded review evidence, not a library-wide quality guarantee. Current DLSS/AI exports can lose SDR color signaling; color accuracy and generated motion need further work. Review on the intended player before a library batch. HDR/high-bit-depth input safety gates remain; selecting a codec does not create HDR or enable an unavailable enhancement. [Roadmap and evidence](docs/nvidia-parity.md).
+Video DLSS uses estimated motion, flat depth and zero jitter because films lack game-engine inputs. It can soften or alter detail; a successful processing check does not mean it improves every title. Short animation, effects and live-action trials provide bounded review evidence, not a library-wide quality guarantee. Version 0.3.1 preserves known BT.709/BT.601 SDR range and signaling through the tested paths. Unknown labels stay unknown; unsupported or conflicting profiles fail. Generated motion and appearance still need review. Review on the intended player before a library batch. HDR/high-bit-depth input safety gates remain; selecting a codec does not create HDR or enable an unavailable enhancement. [Roadmap and evidence](docs/nvidia-parity.md).
 
 ## Storage and connections
 
@@ -47,7 +47,7 @@ Ethernet through a router/switch or reachable direct Ethernet works. 1 GbE is us
 
 ## Verification and development
 
-The 0.3.0 release kits are built locally from their recorded commit, checksum-verified, reloaded and exercised through paired CPU delivery on native ARM64 and emulated AMD64. Verification includes selected-frame/full continuation, copied audio, intact originals and concurrent 4K frames within a 512-MiB manager limit. All 111 Python tests, ten browser workflows, nine Compose configurations, native syntax, UI build and dependency audit pass. GPU device receipts distinguish current short film checks from earlier full paired/lifecycle acceptance. These are preview acceptance results, not unrestricted speed or whole-library benchmarks. [Current work and exact evidence](working.md).
+The 0.3.1 release kits are built locally from their recorded commit, checksum-verified, reloaded and exercised through paired CPU delivery on native ARM64 and emulated AMD64. Verification includes selected-frame/full continuation, copied audio, intact originals and concurrent 4K frames within a 512-MiB manager limit. All 127 Python tests, ten browser workflows, nine Compose configurations, native syntax, UI build and dependency audit pass. Genuine Spark acceptance covers 12 SR color/codec cases, four AI exports, fresh SR/FG startup checks, three paired SR+FG frame previews and full AV1 continuation. These generated trials establish processing, timing and color preservation, not film improvement. These are preview acceptance results, not unrestricted speed or whole-library benchmarks. [Current work and exact evidence](working.md).
 
 ```sh
 uv run python scripts/verify-local.py
@@ -64,3 +64,5 @@ The UI uses official [Astryx](https://astryx.atmeta.com/) React components, zinc
 Popcorn SR is AGPL-3.0-or-later. NVIDIA SDKs and third-party engines retain their own terms. [Third-party notices](THIRD-PARTY-NOTICES.md) record BasicSR, Real-ESRGAN, Astryx and brand attribution. [fast-rtxvsr](https://github.com/glarsson/fast-rtxvsr) and [Visual Enhancer](https://github.com/Merserk/dlss5-visual-enhancer) informed the engine interface; their separately licensed runtimes are not redistributed. Design uses [Taste](https://tasteskill.dev) and [Impeccable](https://impeccable.style).
 
 SR uses [Popcorn Batch's three-circle mark](https://github.com/thekozugroup/Popcorn-Batch/blob/54170f2684f734712b6159ccc7592f3237fa6b71/web/src/app/icon.svg), highlighting the lower-right circle in Tailwind teal-500. Action colors stay blue. Rust remains a candidate for measured worker/frame-handling improvements; no rewrite or unmeasured speedup is claimed.
+
+Development main adds optional worker update requests and a host controller. Atlas will use its existing Unraid update schedule; Spark can request an idle replacement from Devices & storage or its container CLI. Actual replacement/rollback and final installation are still pending. [Update setup and boundaries](docs/updates.md).

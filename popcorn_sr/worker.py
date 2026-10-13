@@ -28,6 +28,7 @@ from .engines import (
 from .media import preserved_command, probe, validate_output
 from .scratch import atomic_private_json, read_marker
 from .storage_plan import estimate_scratch_bytes
+from .updates import WorkerUpdates
 
 
 @contextmanager
@@ -62,6 +63,7 @@ class Worker:
         self.token = ""
         self.reserve = int(os.environ.get("POPCORN_SCRATCH_RESERVE_MIB", "1024")) * 1024**2
         self.capabilities = {}
+        self.updates = WorkerUpdates()
         state.mkdir(parents=True, exist_ok=True)
         self.credential_file = state / "worker.json"
         self.status = {"progress": 0, "stage": "Receiving source"}
@@ -175,12 +177,16 @@ class Worker:
         atomic_private_json(self.credential_file, data | {"manager": self.manager})
 
     async def publish_status(self, client, storage=None, *, timeout=10):
+        self.capabilities["updates"] = self.updates.status()
+        self.updates.runtime(self.capabilities)
         response = await client.post(
             "/api/worker/status",
             json={"capabilities": self.capabilities, "scratch": self.storage() if storage is None else storage},
             timeout=timeout,
         )
         response.raise_for_status()
+        if identity := response.json().get("update_request"):
+            self.updates.request(identity)
 
     async def initialization_heartbeat(self, client, finished, interval=10):
         failed_since = None
@@ -589,11 +595,11 @@ class Worker:
             recover_at = 0
             while True:
                 try:
-                    response = await client.post(
-                        "/api/worker/status",
-                        json={"capabilities": self.capabilities, "scratch": self.storage()},
-                    )
-                    response.raise_for_status()
+                    await self.publish_status(client)
+                    if self.updates.draining():
+                        self.updates.runtime(self.capabilities, idle=True)
+                        await asyncio.sleep(3)
+                        continue
                     if time.monotonic() >= recover_at:
                         await self.recover_scratch(client)
                         recover_at = time.monotonic() + 60

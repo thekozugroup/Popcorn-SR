@@ -3,6 +3,42 @@ import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 fs.mkdirSync('evidence/screenshots',{recursive:true});
 
+test('worker updates have a simple idle-safe action and recovery state (UI fixture; no container replacement)', async ({page}) => {
+  let pending=false, phase='current', draining=false, enabled=true, requested=false;
+  await page.route('**/api/state',async route=>{
+    const response=await route.fetch();
+    if(!response.ok()) {await route.fulfill({response});return;}
+    const state=await response.json();
+    state.workers.push({id:'updates-ui-fixture',name:'Update controls fixture',online:true,revoked:false,update_pending:pending,scratch:{path:'/external/popcorn-scratch',free_bytes:1e9},capabilities:{initialization:'ready',engines:['resize'],encoders:['h264_cpu'],platform:'UI fixture · no container replacement',architecture:'local',updates:{version:'0.4.0',enabled,automatic:true,state:phase,draining}}});
+    await route.fulfill({response,json:state});
+  });
+  await page.route('**/api/workers/updates-ui-fixture/update',async route=>{
+    expect(route.request().method()).toBe('POST');requested=true;pending=true;
+    await route.fulfill({json:{request_id:'ui-fixture'}});
+  });
+  await signIn(page);await navigate(page,'Processing');
+  const device=page.getByRole('article',{name:'Update controls fixture'});
+  await expect(device.getByText('Worker 0.4.0',{exact:true})).toBeVisible();
+  await device.getByRole('button',{name:'Check for updates',exact:true}).click();
+  expect(requested).toBeTruthy();
+  await expect(device.getByRole('button',{name:'Check for updates',exact:true})).toBeDisabled();
+  pending=false;phase='waiting';draining=true;
+  await expect(device.getByText('Updating',{exact:true})).toBeVisible({timeout:6000});
+  await expect(device.getByRole('status',{name:'Worker update'})).toContainText('current job finishes');
+  phase='rolled_back';draining=false;
+  await expect(device.getByRole('status',{name:'Worker update'})).toContainText('previous version was restored',{timeout:6000});
+  await expect(device.getByRole('button',{name:'Check for updates',exact:true})).toBeEnabled();
+  fs.mkdirSync('evidence/worker-updates-20261013',{recursive:true});
+  for(const [width,height,mode] of [[1440,1000,'light'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    expect((await accessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    await page.screenshot({path:`evidence/worker-updates-20261013/controls-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+  }
+  enabled=false;
+  await expect(device.getByRole('button',{name:'Check for updates',exact:true})).toBeDisabled({timeout:6000});
+});
+
 test.afterEach(async ({page}) => {
   // Polling can still be inside route.fetch/json when assertions finish.
   // Drain those handlers before Playwright disposes the request context.
