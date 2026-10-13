@@ -46,7 +46,8 @@ def main():
             targets = [item.split(":", 1)[0] for item in temporary]
             assert len(set(targets)) == len(targets), f"{name}: duplicate temporary mounts"
             for mount in service["volumes"]:
-                assert mount["bind"]["create_host_path"] is False, f"{name}: automatic host folders"
+                # Compose 2 omits false fields; Compose 5 emits them explicitly.
+                assert not mount.get("bind", {}).get("create_host_path", False), f"{name}: automatic host folders"
                 if mount["target"] in {"/library", "/opt/ngx", "/opt/ngx-driver/libnvidia-ngx.so.1"}:
                     assert mount["read_only"], f"{name}: writable source/runtime"
         if name.endswith("/ngx"):
