@@ -56,6 +56,8 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
             "2",
             "-c:v",
             "libx264",
+            "-bf",
+            "0",
             "-c:a",
             "aac",
             str(clip),

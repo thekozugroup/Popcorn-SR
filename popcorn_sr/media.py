@@ -34,6 +34,19 @@ def pixel_bit_depths():
     }
 
 
+def first_packet_time(path: Path, selector: str):
+    """Inspect the copied packet clock, independent of codec priming metadata."""
+    result = subprocess.run([
+        "ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe",
+        "-select_streams", selector, "-read_intervals", "%+#1",
+        "-show_entries", "packet=pts_time", "-of", "json", str(path.resolve()),
+    ], capture_output=True, text=True, timeout=60, check=True)
+    packets = json.loads(result.stdout).get("packets", [])
+    if not packets or packets[0].get("pts_time") is None:
+        raise ValueError("Copied audio packet timing is unavailable; refusing to guess synchronization.")
+    return packets[0]["pts_time"]
+
+
 def probe(path: Path) -> dict:
     result = subprocess.run(
         [
@@ -96,8 +109,9 @@ def probe(path: Path) -> dict:
         "attachment_streams": sum(s.get("codec_type") == "attachment" for s in streams),
         "preservation": {
             "audio": [
-                {"codec": s.get("codec_name"), "start_time": s.get("start_time")}
-                for s in streams if s.get("codec_type") == "audio"
+                {"codec": s.get("codec_name"), "start_time": s.get("start_time"),
+                 "first_packet_time": first_packet_time(path, f"a:{index}")}
+                for index, s in enumerate(s for s in streams if s.get("codec_type") == "audio")
             ],
             "chapters": [
                 {k: c.get(k) for k in ("start_time", "end_time", "tags")}
@@ -215,8 +229,12 @@ def verify_preservation(source, result, recipe):
         for original, returned in zip(before["audio"], after["audio"], strict=True):
             if original["codec"] != returned["codec"]:
                 raise ValueError("Copied audio codec changed")
-            if original["start_time"] is not None and abs(
-                Fraction(returned["start_time"]) - Fraction(original["start_time"]) - shift
+            # FFmpeg versions disagree whether stream start includes AAC
+            # priming. Copied packet PTS gives both devices the same clock.
+            # Persisted signatures without it retain their earlier contract.
+            clock = "first_packet_time" if "first_packet_time" in original else "start_time"
+            if original[clock] is not None and abs(
+                Fraction(returned[clock]) - Fraction(original[clock]) - shift
             ) > tolerance:
                 raise ValueError("Audio synchronization changed")
         preview = recipe["preview_seconds"]
