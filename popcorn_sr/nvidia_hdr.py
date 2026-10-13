@@ -12,6 +12,7 @@ from pathlib import Path
 from .frame_generation import source_timeline
 from .hdr import RGB10_COLOR, hdr_encoding_options, packed_hdr_frame, validate_hdr
 from .media import probe
+from .sdr import SDRColor
 from .video_pipe import encoded_video
 
 
@@ -66,6 +67,7 @@ def main():
         if not effect.is_loaded:
             raise RuntimeError("NVIDIA TrueHDR did not load; verify the separately installed model/runtime.")
         with av.open(args.input, options={"protocol_whitelist": "file,pipe"}) as source:
+            color = SDRColor.read(args.input)
             video = next(s for s in source.streams.video if not (s.disposition.value & 1024))
             if not video.average_rate or not video.time_base or video.sample_aspect_ratio not in (None, 1):
                 raise ValueError("TrueHDR needs known video timing and square pixels.")
@@ -83,7 +85,7 @@ def main():
                         raise ValueError("TrueHDR input timestamps are not increasing.")
                     first = timestamp if first is None else first
                     last = timestamp
-                    rgb = torch.from_numpy(frame.to_ndarray(format="rgb24")).to("cuda:0")
+                    rgb = torch.from_numpy(color.rgb(frame)).to("cuda:0")
                     rgb = rgb.permute(2, 0, 1).float().div_(255).contiguous()
                     pixels = torch.from_dlpack(effect.run(rgb, stream_ptr=torch.cuda.current_stream().cuda_stream).image).clone()
                     if pixels.dtype != torch.uint32 or tuple(pixels.shape) != (info["height"], info["width"]):

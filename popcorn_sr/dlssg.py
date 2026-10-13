@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .dlss_sr import MotionEstimator
 from .media import probe
+from .sdr import SDRColor
 from .video_pipe import encoded_video, encoding_options
 
 
@@ -133,6 +134,7 @@ def render(args):
     if not 0 <= args.quality <= 51:
         raise ValueError("Encoder quality must be between 0 and 51.")
     with graphics_scratch(args.output) as scratch, av.open(args.input, options={"protocol_whitelist": "file,pipe"}) as source:
+        color = SDRColor.read(args.input)
         video = next(stream for stream in source.streams.video if not (stream.disposition.value & 1024))
         if not video.average_rate or not video.time_base:
             raise ValueError("Frame rate/time base unavailable; refusing to guess timing.")
@@ -151,7 +153,8 @@ def render(args):
         count, output_count, disabled_count, resets = 0, 0, 0, 0
         first, previous, last_rgb, last_duration = None, None, None, None
         with NativeDLSSG(args.library, args.runtime, scratch, info["width"], info["height"], args.factor) as engine:
-            with encoded_video(args.output, info["width"], info["height"], rate, time_base, encoding_options(args.codec, args.quality)) as (output, encoded):
+            with encoded_video(args.output, info["width"], info["height"], rate, time_base, encoding_options(args.codec, args.quality),
+                               sdr_color=color) as (output, encoded):
                 def write(rgb, timestamp):
                     nonlocal output_count
                     frame = av.VideoFrame.from_ndarray(rgb, format="rgb24")
@@ -167,7 +170,7 @@ def render(args):
                     if frame.pts is None or frame.time_base is None:
                         raise ValueError("Missing frame timestamps; refusing to change timing.")
                     timestamp = Fraction(frame.pts) * frame.time_base
-                    rgb = frame.to_ndarray(format="rgb24")
+                    rgb = color.rgb(frame)
                     motion, reset = estimator.estimate(rgb, timestamp, 1 / nominal)
                     resets += reset
                     first = timestamp if first is None else first

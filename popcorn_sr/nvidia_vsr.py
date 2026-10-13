@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .frame_generation import source_timeline
 from .media import probe
+from .sdr import SDRColor
 from .video_pipe import encoded_video, encoding_options
 
 QUALITY_NAMES = {1: "LOW", 2: "MEDIUM", 3: "HIGH", 4: "ULTRA"}
@@ -81,11 +82,10 @@ def render(args):
             video = next(s for s in source.streams.video if not (s.disposition.value & 1024))
             if not video.average_rate or not video.time_base or video.sample_aspect_ratio not in (None, 1):
                 raise ValueError("VSR needs known video timing and square pixels.")
-            metadata = {field: getattr(video.codec_context, field) for field in
-                        ("colorspace", "color_primaries", "color_trc", "color_range")}
+            color = SDRColor.read(args.input)
             with encoded_video(args.output, args.width, args.height, timing["rate"], timing["time_base"],
                                encoding_options(args.codec, args.quality), end_time=timing["duration"],
-                               final_frame_time=timing["last_frame_time"], color_metadata=metadata) as (output, stream):
+                               final_frame_time=timing["last_frame_time"], sdr_color=color) as (output, stream):
                 first, previous, count = None, None, 0
                 for frame in source.decode(video):
                     if frame.pts is None or frame.time_base is None:
@@ -99,7 +99,7 @@ def render(args):
                     ticks = (timestamp - first) / timing["time_base"]
                     if ticks.denominator != 1:
                         raise ValueError("VSR source timestamp is outside its declared clock.")
-                    rgb = torch.from_numpy(frame.to_ndarray(format="rgb24")).to("cuda:0").permute(2, 0, 1).float().div_(255).contiguous()
+                    rgb = torch.from_numpy(color.rgb(frame)).to("cuda:0").permute(2, 0, 1).float().div_(255).contiguous()
                     enhanced = torch.from_dlpack(effect.run(rgb, stream_ptr=torch.cuda.current_stream().cuda_stream).image).clone()
                     if tuple(enhanced.shape) != (3, args.height, args.width) or enhanced.dtype != torch.float32:
                         raise RuntimeError("NVIDIA VSR returned unexpected frame dimensions or format.")
@@ -108,8 +108,6 @@ def render(args):
                     pixels = enhanced.clamp(0, 1).mul(255).round().byte().permute(1, 2, 0).contiguous().cpu().numpy()
                     result = av.VideoFrame.from_ndarray(pixels, format="rgb24")
                     result.pts, result.time_base = int(ticks), timing["time_base"]
-                    for field, value in metadata.items():
-                        setattr(result, field, value)
                     for packet in stream.encode(result):
                         output.mux(packet)
                     count += 1

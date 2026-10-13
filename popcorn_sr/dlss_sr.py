@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .dlss import MODES, PRESETS
 from .media import probe
+from .sdr import SDRColor
 from .video_pipe import encoded_video, encoding_options
 
 
@@ -152,6 +153,7 @@ def render(args):
     info = probe(Path(args.input))
     if info["hdr"] or info["bit_depth"] != 8:
         raise ValueError("Native DLSS video currently accepts 8-bit SDR only.")
+    color = SDRColor.read(args.input)
     if not Path(args.runtime).is_dir():
         raise ValueError("DLSS SDK runtime folder is missing.")
     # The entire NGX/driver cache lifetime belongs to this job, on its scratch drive.
@@ -173,13 +175,14 @@ def render(args):
                 with encoded_video(
                     args.output, args.width, args.height, video.average_rate, video.time_base,
                     encoding_options(args.codec, args.quality),
+                    sdr_color=color,
                 ) as (output, encoded):
                     for frame in source.decode(video):
                         if frame.pts is None or frame.time_base is None:
                             raise ValueError("Missing frame timestamps; refusing to change timing.")
                         timestamp = Fraction(frame.pts) * frame.time_base
                         first = timestamp if first is None else first
-                        rgb = frame.to_ndarray(format="rgb24")
+                        rgb = color.rgb(frame)
                         flow, reset = motion.estimate(rgb, timestamp, 1 / video.average_rate)
                         result = av.VideoFrame.from_ndarray(dlss.process(rgb, flow, reset), format="rgb24")
                         result.pts = frame.pts - int(first / frame.time_base)

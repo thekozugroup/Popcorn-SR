@@ -15,6 +15,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from .media import probe
+from .sdr import SDRColor
 from .video_pipe import encoded_video, encoding_options
 
 FPS = {
@@ -134,6 +135,7 @@ def cadence(input_path, output_path, rate, end, codec, quality, *, progress_rang
     import av
 
     rate, end = Fraction(rate), Fraction(end)
+    color = SDRColor.read(input_path)
     with av.open(str(input_path), options={"protocol_whitelist": "file,pipe"}) as source:
         video = source.streams.video[0]
         clock = Fraction(1, math.lcm(rate.numerator, end.denominator))
@@ -147,12 +149,12 @@ def cadence(input_path, output_path, rate, end, codec, quality, *, progress_rang
                     raise ValueError("Generated frame timestamp is missing.")
                 timestamp = Fraction(frame.pts) * frame.time_base
                 first = timestamp if first is None else first
-                yield timestamp - first, frame.to_ndarray(format="rgb24")
+                yield timestamp - first, color.rgb(frame)
 
         count = 0
         with encoded_video(
             output_path, video.width, video.height, rate, clock,
-            encoding_options(codec, quality), end_time=end,
+            encoding_options(codec, quality), end_time=end, sdr_color=color,
         ) as (output, encoded):
             for timestamp, duration, rgb in nearest_frames(decoded(), rate, end):
                 frame = av.VideoFrame.from_ndarray(rgb, format="rgb24")

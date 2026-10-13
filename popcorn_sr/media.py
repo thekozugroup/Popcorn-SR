@@ -183,6 +183,10 @@ def validate_output(path: Path, source: dict, recipe: dict):
         validate_hdr(info)
     elif info["hdr"]:
         raise ValueError("Output unexpectedly changed SDR to HDR. Original preserved; result rejected.")
+    elif not source.get("hdr"):
+        from .sdr import validate_sdr
+
+        validate_sdr(source, info)
     if recipe.get("frame_generation"):
         from .frame_generation import FPS
 
@@ -319,6 +323,17 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict, *, vide
         filters.append("unsharp=5:5:0.5:5:5:0")
     if recipe["interpolate"]:
         filters.append("minterpolate=fps=60:mi_mode=mci")
+    color_options = []
+    if not info.get("hdr"):
+        from .sdr import SDRColor
+
+        color = SDRColor.read(source)
+        # Lock the working pixels to RGB before the explicit final conversion.
+        # This also keeps preview RGB intermediates from being treated as YUV.
+        filters.append("format=rgb24")
+        color_options = color.options(intermediate=recipe["codec"] == "ffv1")
+        filters.append(color_options[1])
+        color_options = color_options[2:]
     codec = {"h264": "libx264", "hevc": "libx265", "av1": "libsvtav1", "ffv1": "ffv1"}[recipe["codec"]]
     encoding = [
         "-c:v",
@@ -363,6 +378,7 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict, *, vide
         "-vf",
         ",".join(filters),
         *encoding,
+        *color_options,
         "-pix_fmt", "bgr0" if recipe["codec"] == "ffv1" else "yuv420p",
         "-fps_mode", "passthrough",
         # Keep input timestamp precision instead of rounding a leading audio
@@ -393,6 +409,7 @@ def preserved_command(rendered, source, output, recipe, info, timing=None):
         "ffmpeg", "-v", "error", "-nostdin", *timing_options, "-i", str(rendered), "-i", str(source),
         "-map", "0:V:0", "-map", "1:a?", "-map", "1:s?", "-map", "1:t?",
         "-map_metadata", "1", "-map_chapters", "1", "-c", "copy", *duration_options,
+        "-metadata", "popcorn_sdr_color=",
     ]
     if recipe["preview_seconds"]:
         command += ["-t", str(recipe["preview_seconds"])]

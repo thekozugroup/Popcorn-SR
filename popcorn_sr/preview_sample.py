@@ -4,6 +4,7 @@ import argparse
 from fractions import Fraction
 from pathlib import Path
 
+from .sdr import SDRColor
 from .video_pipe import encoded_video, encoding_options
 
 
@@ -41,6 +42,7 @@ def sample(input_path, output_path, start, seconds):
     start, seconds = Fraction(start), Fraction(seconds)
     if start < 0 or not 0 < seconds <= 30:
         raise ValueError("Preview bounds are invalid.")
+    color = SDRColor.read(input_path)
     first, last, end, count = None, None, None, 0
     # Inspect only the selected window without retaining picture buffers.
     # The second seek emits frames; the measured final interval lets the
@@ -53,9 +55,9 @@ def sample(input_path, output_path, start, seconds):
     if not count:
         raise ValueError("No frame exists at this time. Choose an earlier time.")
     with encoded_video(output_path, width, height, rate, clock, [*encoding_options("ffv1", 23), "-threads", "2"],
-                       end_time=end - first, final_frame_time=last - first) as (output, stream):
+                       end_time=end - first, final_frame_time=last - first, sdr_color=color) as (output, stream):
         for frame, timestamp, _, _, _ in pictures(input_path, start, seconds):
-            picture = av.VideoFrame.from_ndarray(frame.to_ndarray(format="rgb24"), format="rgb24")
+            picture = av.VideoFrame.from_ndarray(color.rgb(frame), format="rgb24")
             picture.pts, picture.time_base = int((timestamp - first) / clock), clock
             for packet in stream.encode(picture):
                 output.mux(packet)

@@ -23,7 +23,7 @@ def encoding_options(codec, quality):
 
 @contextmanager
 def encoded_video(path, width, height, rate, time_base, options, *, end_time=None, final_frame_time=None,
-                  input_pix_fmt="rgb24", color_metadata=None):
+                  input_pix_fmt="rgb24", color_metadata=None, sdr_color=None):
     """NUT carries original PTS through a bounded OS pipe, including variable timing."""
     import av
 
@@ -31,6 +31,13 @@ def encoded_video(path, width, height, rate, time_base, options, *, end_time=Non
         raise ValueError("Frame pipe requires verified RGB8 or planar RGB10; packed HDR is unsupported.")
     if set(color_metadata or {}) - {"color_range", "colorspace", "color_trc", "color_primaries"}:
         raise ValueError("Unsupported video color metadata field.")
+    if sdr_color is not None:
+        if color_metadata is not None or input_pix_fmt != "rgb24":
+            raise ValueError("SDR and HDR frame-pipe color profiles cannot be combined.")
+        intermediate = "-c:v" in options and options[options.index("-c:v") + 1] == "ffv1"
+        options = [*options, *sdr_color.options(intermediate=intermediate)]
+        color_metadata = {"colorspace": 0, "color_range": 2, "color_trc": sdr_color.color_trc,
+                          "color_primaries": sdr_color.color_primaries}
     inherited = {}
     if os.name == "posix" and (active_fd := os.environ.get("POPCORN_ACTIVE_JOB_FD")):
         # Keep job ownership alive even if the AI process exits before FFmpeg.
@@ -61,8 +68,9 @@ def encoded_video(path, width, height, rate, time_base, options, *, end_time=Non
         raise ValueError("Final picture timing requires a measured video end time.")
     process = subprocess.Popen(
         [
-            "ffmpeg", "-v", "error", "-nostdin", "-f", "nut", "-i", "pipe:0",
-            "-map", "0:v:0", *options, *duration_options, "-fps_mode", "passthrough",
+            "ffmpeg", "-v", "error", "-nostdin", "-filter_threads", "1", "-threads", "2",
+            "-f", "nut", "-i", "pipe:0", "-map", "0:v:0", "-threads", "2",
+            *options, *duration_options, "-fps_mode", "passthrough",
             "-enc_time_base", "-1", "-n", str(path),
         ],
         stdin=subprocess.PIPE,

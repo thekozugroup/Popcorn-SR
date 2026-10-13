@@ -4,6 +4,7 @@ import argparse
 from fractions import Fraction
 
 from .media import sha256
+from .sdr import SDRColor
 from .video_pipe import encoded_video, nvidia_options
 
 MODEL_SHA256 = "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1"
@@ -52,6 +53,7 @@ def main():
     checkpoint = torch.load(args.model, map_location="cpu", weights_only=True)
     model.load_state_dict(checkpoint.get("params_ema", checkpoint.get("params")), strict=True)
     model = model.eval().to("cuda").half()
+    color = SDRColor.read(args.input)
     with av.open(args.input) as source:
         video = next(s for s in source.streams.video if not (s.disposition.value & 1024))
         if not video.average_rate:
@@ -59,6 +61,7 @@ def main():
         with encoded_video(
             args.output, args.width, args.height, video.average_rate, video.time_base,
             nvidia_options(args.codec, args.quality),
+            sdr_color=color,
         ) as (output, encoded):
             first = None
             for frame in source.decode(video):
@@ -66,7 +69,7 @@ def main():
                     raise RuntimeError("Missing frame timestamps; refusing to change timing.")
                 first = frame.pts if first is None else first
                 pixels = (
-                    torch.from_numpy(frame.to_ndarray(format="rgb24"))
+                    torch.from_numpy(color.rgb(frame))
                     .to("cuda")
                     .permute(2, 0, 1)
                     .unsqueeze(0)
