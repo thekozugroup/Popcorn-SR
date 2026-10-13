@@ -312,6 +312,12 @@ Custom `.panel` uses surface fill, a thin border, compiled panel radius and clip
 
 The recipe stores user intent in `desired` and derives effective worker, engine, codec, encoder and scale from current capability arrays on each render. `change` merges one field; polling does not reinitialize this state. Library renders `<Recipe key={selected}>`, so another file intentionally resets it. Compatible capabilities govern options/disabled encoders and conventional-filter checkboxes. The authenticated state poll runs every 3000ms while visible, resumes on visibility changes and guards overlapping refreshes. Connection errors retain workspace state and show reconnecting feedback; 401 clears the session. Submission uses effective values, queues the copy, refreshes and navigates to Queue.
 
+### NVIDIA recipe controls
+
+The current inline recipe separates enhancement from encoding. **VSR quality** offers only verified AI levels plus the adapter default; **Export quality** controls compression. **Output size → Custom dimensions** reveals paired official NumberInput fields with aligned 64–7680 px bounds and a stretching explanation. VSR strength remains under More options, beside the existing optional DLSS/HDR controls. Numeric fields use the 44px theme/style override. Queue summaries retain level, strength and exact dimensions. Missing capability checks keep the choices visible and disable submission rather than silently changing them.
+
+The 2026-10-13 local finish pass reviewed actual 1440 light/390 dark VSR captures in two bounded rounds, with explicitly simulated GPU capabilities. Seven browser workflows passed, including Axe, overflow, numeric target sizes, invalid dimensions, heartbeat retention, capability loss/restoration and submitted combined settings. The mechanical detector found only the pre-existing 28px pairing-code advisory. The review was performed in this thread, without an independent reviewer, honoring the user's preference for direct work. Verdict: ship these controls on development main; genuine NVIDIA execution, representative quality and physical VFX acceptance remain open. Existing palette, typography, theme and composition records were preserved.
+
 ### Navigation and Disclosure
 
 `SideNavItem isSelected` supplies neutral fill, medium selected text and `aria-current="page"`. AppShell owns the skip link and mobile dialog/focus/dismissal behavior. App state controls drawer openness; view changes focus the workspace with `preventScroll`.
