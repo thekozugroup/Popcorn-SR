@@ -34,6 +34,8 @@ DLSS Super Resolution supports source-size DLAA, 2× Performance, and 3× Ultra 
 
 Development `main` now includes an independent experimental native CUDA DLSS SDR video bridge. It requires operator-provisioned NVIDIA SDK/runtime files; they are not bundled. It exposes verified DLAA/Quality/Balanced/Performance/Ultra Performance modes, preset hints and motion-estimation quality. The source manager gates advanced settings and preserves older recipes. See [native setup and limitations](../native/README.md). This development backend is not present in the published 0.2.0 image. Five-stage parity remains unfinished.
 
+Development `main` also includes an independent native Vulkan DLSSG video CLI. Physical Spark and dedicated ARM64 Docker tests passed H.264/H.265/AV1 2× output, native multi-frame generation and variable-rate timing. The CLI currently produces video-only SDR intermediates; it has no worker/UI controls, arbitrary target FPS or cascade mode yet. It needs separately provisioned NVIDIA components and is not in the published 0.2.0 image. [Build, package evidence and remaining limits](../native/README.md).
+
 ## External command contract
 
 The worker operator, not a web request, configures a JSON array of arguments. It is executed directly, without a shell. Placeholder values are fixed by the validated job. Use `POPCORN_VSR_COMMAND`, `POPCORN_DLSS_COMMAND` or `POPCORN_DLSS5_COMMAND` for your separately installed engine:

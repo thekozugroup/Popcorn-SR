@@ -24,7 +24,7 @@ Development remains active. Full completion requires **DLSS neural rendering, DL
 
 Development `main` now has an experimental native Linux CUDA DLSS Super Resolution video backend. Physical Spark tests passed all five SR modes, preset hints, three motion settings and H.264/H.265/AV1 video encoding with preserved frame timestamps. The dedicated NGX Docker worker also returned paired previews in all three codecs with audio and intact originals. It needs separately provisioned NVIDIA components and is **not in the published 0.2.0 image**. [Setup and evidence](native/README.md). Representative quality, NAS delivery and the other NVIDIA stages remain unfinished.
 
-Development `main` also has an experimental native Vulkan DLSS frame-generation CLI. Spark passed 2× video in H.264/H.265/AV1, native 3×–6× and variable-rate timing within Matroska's timestamp precision. This currently creates video-only intermediates; worker/UI integration, arbitrary target FPS, cascade modes and complete media delivery remain unfinished. It is **not in the published 0.2.0 image**.
+Development `main` also has an experimental native Vulkan DLSS frame-generation CLI. Spark passed 2× video in H.264/H.265/AV1, native 3×–6× and variable-rate timing within Matroska's timestamp precision. The dedicated ARM64 Docker image passed short CLI processing too, using normal NVIDIA Container Toolkit mounts. This currently creates video-only intermediates; worker/UI integration, arbitrary target FPS, cascade modes and complete media delivery remain unfinished. It is **not in the published 0.2.0 image**.
 
 ## Start on your NAS
 
