@@ -565,6 +565,15 @@ test('an explicit DLSS choice survives missing support without switching to resi
 });
 
 test('large real frame comparison reviews a batch, invalidates edits, and continues saved full settings', async ({page}) => {
+  let changeAvailableCodec=false;
+  // Only capability changes are simulated; preview and full jobs use the real CPU worker.
+  await page.route('**/api/state',async route=>{
+    const response=await route.fetch();
+    if(!response.ok()){await route.fulfill({response});return;}
+    const state=await response.json();
+    if(changeAvailableCodec)for(const worker of state.workers)worker.capabilities.encoders=['hevc_cpu'];
+    await route.fulfill({response,json:state});
+  });
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await signIn(page);
@@ -606,6 +615,13 @@ test('large real frame comparison reviews a batch, invalidates edits, and contin
   await expect.poll(()=>page.evaluate(()=>document.fullscreenElement?.getAttribute('aria-label'))).toBe('Frame comparison');
   await comparison.getByRole('button',{name:'Exit expanded preview',exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>!!document.fullscreenElement)).toBe(false);
+  changeAvailableCodec=true;
+  await expect(page.getByRole('combobox',{name:'Video format',exact:true})).toContainText('H.265 / HEVC');
+  await expect(run).toBeDisabled();
+  await expect(comparison.getByText('The frame or settings changed. Preview again to compare this selection.')).toBeVisible();
+  changeAvailableCodec=false;
+  await expect(page.getByRole('combobox',{name:'Video format',exact:true})).toContainText('H.264');
+  await expect(run).toBeEnabled();
   await time.fill('3');await time.press('Tab');
   await expect(run).toBeDisabled();
   await expect(comparison.getByText('The frame or settings changed. Preview again to compare this selection.')).toBeVisible();

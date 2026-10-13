@@ -154,6 +154,15 @@ function Recipe({paths,state,onCreated,compareJob}) {
   const scales=engine==='dlss5'?['1']:engine==='dlss-sr'?['1','2','3']:['1','2','3','4'];
   const scale=scales.includes(desired.scale)?desired.scale:scales[0];
   const change=(key,value)=>setDesired(current=>({...current,[key]:value,...(key==='frame_generation' && value?{interpolate:false}: {})}));
+  const effectiveRecipe={engine,scale:Number(scale),codec,encoder,quality:Number(desired.quality),output_directory:desired.output_directory};
+  if(advancedDLSS) Object.assign(effectiveRecipe,{dlss_mode:dlssMode,dlss_preset:dlssPreset,temporal_quality:temporalQuality});
+  if(vsr && desired.vsr_quality!=='default') effectiveRecipe.vsr_quality=Number(desired.vsr_quality);
+  if(vsr && desired.vsr_strength!==null) effectiveRecipe.vsr_strength=desired.vsr_strength/100;
+  if(customSize) Object.assign(effectiveRecipe,{output_width:desired.output_width,output_height:desired.output_height});
+  if(generation) Object.assign(effectiveRecipe,{frame_generation:true,frame_rate:desired.frame_rate,frame_generation_mode:fgMode,frame_generation_quality:fgQuality});
+  if(hdr) Object.assign(effectiveRecipe,{hdr:true,...Object.fromEntries(['hdr_contrast','hdr_saturation','hdr_middle_gray','hdr_luminance','hdr_debanding'].map(key=>[key,desired[key]]))});
+  for(const key of ['denoise','deinterlace','sharpen','interpolate']) effectiveRecipe[key]=engine==='resize' && desired[key];
+  if(generation) effectiveRecipe.interpolate=false;
   async function submit(preview_seconds, frame=false, reviewed=false) {
     if(reviewed && (!comparisonReady || loaded.Original!==originalURL || loaded.Enhanced!==enhancedURL))return;
     if(!path || busy || engineUnavailable || !codecs.length || !desired.output_directory.trim()) return;
@@ -161,15 +170,7 @@ function Recipe({paths,state,onCreated,compareJob}) {
     if(generation && !fgModes.length) { setError('DLSS frame generation is unavailable. Choose a compatible worker or turn off frame generation.'); return; }
     if(hdr && !hdrWorkers.length) { setError('RTX Video HDR is unavailable. Choose a compatible worker or turn off HDR.'); return; }
     setBusy(true); setError('');
-    const recipe={engine,scale:Number(scale),codec,encoder,quality:Number(desired.quality),output_directory:desired.output_directory,preview_seconds};
-    if(advancedDLSS) Object.assign(recipe,{dlss_mode:dlssMode,dlss_preset:dlssPreset,temporal_quality:temporalQuality});
-    if(vsr && desired.vsr_quality!=='default') recipe.vsr_quality=Number(desired.vsr_quality);
-    if(vsr && desired.vsr_strength!==null) recipe.vsr_strength=desired.vsr_strength/100;
-    if(customSize) Object.assign(recipe,{output_width:desired.output_width,output_height:desired.output_height});
-    if(generation) Object.assign(recipe,{frame_generation:true,frame_rate:desired.frame_rate,frame_generation_mode:fgMode,frame_generation_quality:fgQuality});
-    if(hdr) Object.assign(recipe,{hdr:true,...Object.fromEntries(['hdr_contrast','hdr_saturation','hdr_middle_gray','hdr_luminance','hdr_debanding'].map(key=>[key,desired[key]]))});
-    for(const key of ['denoise','deinterlace','sharpen','interpolate']) recipe[key]=engine==='resize' && desired[key];
-    if(generation) recipe.interpolate=false;
+    const recipe={...effectiveRecipe,preview_seconds};
     if(frame) recipe.preview_frame_time=frameTime;
     try {
       if(preview_seconds) {
@@ -190,11 +191,12 @@ function Recipe({paths,state,onCreated,compareJob}) {
     finally{setBusy(false);}
   }
   const reviewedJob=review && state.jobs.find(j=>j.id===review.id);
-  const currentReview=review && review.path===path && review.time===frameTime && review.selection===JSON.stringify(desired);
+  const effectiveMatch=!reviewedJob || (reviewedJob.target===(worker || null) && Object.entries(effectiveRecipe).every(([key,value])=>reviewedJob.recipe[key]===value));
+  const currentReview=review && review.path===path && review.time===frameTime && review.selection===JSON.stringify(desired) && effectiveMatch;
   const comparisonReady=currentReview && reviewedJob?.status==='completed';
   const originalURL=path && info && Number.isFinite(frameTime) && frameTime>=0 && frameTime<info.duration?comparisonReady?`/api/jobs/${review.id}/frame?side=original`:`/api/library/frame?path=${encodeURIComponent(path)}&seconds=${frameTime}`:null;
   const enhancedURL=comparisonReady?`/api/jobs/${review.id}/frame?side=enhanced`:null;
-  const canPreview=!!path && !busy && !!codecs.length && !engineUnavailable && !sizeInvalid && !!desired.output_directory.trim();
+  const canPreview=!!path && !busy && !!codecs.length && !engineUnavailable && !vsrUnavailable && !sizeInvalid && (!generation || !!fgModes.length) && (!hdr || !!hdrWorkers.length) && !!desired.output_directory.trim();
   return <>
     {path && <section className="panel frame-preview" aria-label="Frame comparison" ref={panel}><VStack gap={5} padding={6}>
       <HStack hAlign="between" gap={3} wrap="wrap"><div><Heading level={2}>Compare a frame</Heading><Copy>Preview one moment before running the full video.</Copy></div>{document.fullscreenEnabled && <Button label={expanded?'Exit expanded preview':'Expand preview'} variant="ghost" onClick={expand}/>}</HStack>
