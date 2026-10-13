@@ -54,7 +54,7 @@ In **Library**, choose a video and select **Preview 5 seconds**. Download and re
 
 ## Add open-source AI on Spark or desktop
 
-The larger AI image uses pinned PyTorch CUDA 13.0 wheels on Python 3.12. The local build/import check passed. This image targets Linux AMD64 and ARM64. The application adapter passed short physical DGX Spark CUDA/NVENC jobs in an existing PyTorch runtime; **this larger image recipe and RTX 5080 execution are still unverified**. Check the base image and GPU support on the target device before a library run.
+The larger AI image uses pinned PyTorch CUDA 13.0 wheels on Python 3.12 and targets Linux AMD64 and ARM64. Its verified ARM64 development package passed short actual Unraid → Spark → Unraid Real-ESRGAN CUDA/NVENC previews in H.264/H.265/AV1 and full H.264 continuation, including preserved chapters/media bytes and intact originals. Local build/import checks also passed. This is functional short-clip acceptance; representative quality, long jobs, external-drive behavior and deferred RTX 5080 testing remain open. Build from development `main` for the synchronization fixes; the public 0.2.0 image is unchanged. [Evidence and exact package provenance](../working.md).
 
 Download the official model onto the initialized scratch drive:
 
