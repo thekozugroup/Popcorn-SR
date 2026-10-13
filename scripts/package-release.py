@@ -106,8 +106,12 @@ def main():
             (kit / "images.env").write_text(
                 f"POPCORN_IMAGE={packages['manager']['image']}\nPOPCORN_NGX_IMAGE={packages['ngx']['image']}\n")
             for name in ("compose.yaml", "compose.worker.yaml", "compose.single.yaml", "compose.nvidia.yaml",
-                         "compose.ngx.yaml", ".env.example", "LICENSE", "THIRD-PARTY-NOTICES.md"):
+                         "compose.ngx.yaml", "compose.updates.yaml", ".env.example", "LICENSE", "THIRD-PARTY-NOTICES.md"):
                 shutil.copyfile(REPO / name, kit / name)
+            (kit / "scripts").mkdir()
+            shutil.copyfile(REPO / "scripts/update-worker.py", kit / "scripts/update-worker.py")
+            shutil.copytree(REPO / "systemd", kit / "systemd")
+            shutil.copytree(REPO / "unraid", kit / "unraid")
             shutil.copytree(REPO / "docs", kit / "docs")
             shutil.copytree(REPO / "native", kit / "native")
             (kit / "README.txt").write_text(
@@ -120,6 +124,7 @@ def main():
                 "Manager: docker compose up -d --no-build --pull never manager\n"
                 "Paired GPU worker: use compose.worker.yaml + compose.ngx.yaml; single host: compose.yaml + compose.single.yaml + compose.ngx.yaml.\n"
                 "Initialize the mounted scratch subfolder before starting a worker, and create its one-use pairing code in the Web UI.\n"
+                "Optional host-controlled worker updates: follow docs/updates.md using compose.updates.yaml, scripts/update-worker.py and systemd/.\n"
                 "The NGX worker needs separately licensed NVIDIA runtimes/headers and the native bridges: native/README.md. No proprietary SDK or model is included.\n"
                 "DLSS video adaptation is experimental. VSR/HDR/neural rendering require compatible additional runtimes and are gated. Preview your content before a batch.\n"
                 "Image layers use the host's Docker data drive. Move that storage too if built-in drive endurance is a concern.\n")
@@ -156,6 +161,7 @@ def main():
                     "POPCORN_ADMIN_TOKEN": "release-configuration-check-not-a-secret",
                     "POPCORN_MANAGER": "http://manager.example:8787", "POPCORN_NGX_BUNDLE": str(loaded / "runtime"),
                     "POPCORN_NGX_DRIVER": str(loaded / "driver.so"),
+                    "UPDATE_CONTROL_PATH": str(loaded / "updates"),
                     **{key: str(loaded / key.lower()) for key in
                        ("STATE_PATH", "LIBRARY_PATH", "OUTPUT_PATH", "WORKER_STATE_PATH", "SCRATCH_PATH")},
                 }
@@ -163,7 +169,8 @@ def main():
                 settings.write_text("".join(f"{k}={v}\n" for k, v in configuration.items()))
                 environment = {k: v for k, v in os.environ.items() if not k.startswith("POPCORN_")}
                 for files in (("compose.yaml",), ("compose.worker.yaml", "compose.ngx.yaml"),
-                              ("compose.yaml", "compose.single.yaml", "compose.ngx.yaml")):
+                              ("compose.yaml", "compose.single.yaml", "compose.ngx.yaml"),
+                              ("compose.worker.yaml", "compose.ngx.yaml", "compose.updates.yaml")):
                     command = ["docker", "compose", "--env-file", str(settings), "--project-directory", str(loaded)]
                     for name in files:
                         command += ["-f", str(loaded / name)]

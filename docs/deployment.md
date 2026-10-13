@@ -1,6 +1,6 @@
 # Installation
 
-For prebuilt manager/native-worker archives and current registry tags, follow [Docker release kits](releases.md). Kit images use explicit local selections and `--pull never`. [Container updates](updates.md) describes Unraid’s existing update path and the optional Linux host controller under development.
+For prebuilt manager/native-worker archives and current registry tags, follow [Docker release kits](releases.md). Kit images use explicit local selections and `--pull never`. [Container updates](updates.md) describes Unraid’s existing update path and the optional Linux host controller available in 0.4.0.
 
 The manager needs no GPU. A worker needs FFmpeg and a usable encoder. Network workers download from the manager and return results; they do not need an SMB/NFS share or an inbound port.
 
@@ -18,7 +18,7 @@ If Compose is already installed, use the alternative below:
 4. Run `docker compose up -d --no-build --pull always manager` from this checkout. Open `http://NAS-IP:8787`.
 5. Sign in, then select **Processing → Connect a worker**. The code expires in ten minutes; it is not your permanent access key.
 
-The template uses the public `ghcr.io/thekozugroup/popcorn-sr:0.2.0` image. Anonymous pulls need no GitHub account. Source builds remain available with `docker build -t popcorn-sr:dev .`. Do not expose port 8787 directly to the internet. Use a reverse proxy with HTTPS or a VPN for remote use; HTTP on a trusted LAN sends credentials/video without encryption.
+The template uses the public `ghcr.io/thekozugroup/popcorn-sr:stable` image. Anonymous pulls need no GitHub account. Source builds remain available with `docker build -t popcorn-sr:dev .`. Do not expose port 8787 directly to the internet. Use a reverse proxy with HTTPS or a VPN for remote use; HTTP on a trusted LAN sends credentials/video without encryption.
 
 ## Linux worker on DGX Spark or RTX 5080 desktop
 
@@ -39,10 +39,10 @@ PGID=1000
 Use the worker user's actual numeric UID/GID. Create the state directory. Mount your external drive, then create a scratch subfolder **on that mounted drive**. Initialize it:
 
 ```sh
-docker pull ghcr.io/thekozugroup/popcorn-sr:0.2.0
+docker pull ghcr.io/thekozugroup/popcorn-sr:stable
 docker run --rm --user "$(id -u):$(id -g)" \
   --mount type=bind,src=/mnt/optane/popcorn-scratch,dst=/scratch \
-  ghcr.io/thekozugroup/popcorn-sr:0.2.0 init-scratch /scratch
+  ghcr.io/thekozugroup/popcorn-sr:stable init-scratch /scratch
 docker compose -f compose.worker.yaml -f compose.nvidia.yaml up -d --no-build --pull always
 ```
 
@@ -52,15 +52,15 @@ To exercise these controls locally with an already built manager/CPU image, run 
 
 The worker tests each codec with a real encode before appearing ready. Spark and desktop driver/library differences may disable individual codecs; no NVIDIA fallback to CPU occurs when a GPU job is requested.
 
-On development `main`, pairing is saved before these tests start. The device immediately shows **Checking support**, stays connected while checks run, and accepts jobs only after verified options appear. Long GPU checks do not consume the code's remaining lifetime. **Checks failed** explains when to reconnect the temporary drive or restart the worker. Revoked pairing requires a new code and worker state folder. This startup behavior is not yet in the public 0.2.0 image.
+In 0.4.0, pairing is saved before these tests start. The device immediately shows **Checking support**, stays connected while checks run, and accepts jobs only after verified options appear. Long GPU checks do not consume the code's remaining lifetime. **Checks failed** explains when to reconnect the temporary drive or restart the worker. Revoked pairing requires a new code and worker state folder.
 
-On development `main`, select one or more videos in **Input**. In **Compare a frame**, choose the video and time, then **Preview frame**. Review the large Original/Enhanced images, or choose **Expand preview**. **Run full video** / **Run full batch** becomes available after both images load. The selected batch uses the current reviewed settings; the text identifies which video was sampled. Changes to the frame or settings require a new comparison. **Compare frame** in the queue reopens saved settings.
+In 0.4.0, select one or more videos in **Input**. In **Compare a frame**, choose the video and time, then **Preview frame**. Review the large Original/Enhanced images, or choose **Expand preview**. **Run full video** / **Run full batch** becomes available after both images load. The selected batch uses the current reviewed settings; the text identifies which video was sampled. Changes to the frame or settings require a new comparison. **Compare frame** in the queue reopens saved settings.
 
 Still previews use a video-only sample of up to five seconds, starting at the chosen time. Only its first picture is compared, so generated intermediate frames and motion artifacts need the downloadable sample. HDR still comparisons are disabled: use **Preview 5 seconds**, download the HDR video and review it on an HDR display. These audiovisual previews retain **Enhance full video** in the queue. Full continuation reuses the saved source, destination, enhancement and device choice, resets the frame/time limit, rechecks source integrity/worker compatibility and restores full media preservation. A changed source requires a new preview. The worker currently downloads and verifies the whole source even for a short sample; allow enough scratch space and transfer time.
 
 ## Add open-source AI on Spark or desktop
 
-The larger AI image uses pinned PyTorch CUDA 13.0 wheels on Python 3.12 and targets Linux AMD64 and ARM64. Its verified ARM64 development package passed short actual Unraid → Spark → Unraid Real-ESRGAN CUDA/NVENC previews in H.264/H.265/AV1 and full H.264 continuation, including preserved chapters/media bytes and intact originals. Local build/import checks also passed. This is functional short-clip acceptance; representative quality, long jobs, external-drive behavior and deferred RTX 5080 testing remain open. Build from development `main` for the synchronization fixes; the public 0.2.0 image is unchanged. [Evidence and exact package provenance](../working.md).
+The larger AI image uses pinned PyTorch CUDA 13.0 wheels on Python 3.12 and targets Linux AMD64 and ARM64. Its verified ARM64 development package passed short actual Unraid → Spark → Unraid Real-ESRGAN CUDA/NVENC previews in H.264/H.265/AV1 and full H.264 continuation, including preserved chapters/media bytes and intact originals. Local build/import checks also passed. This is functional short-clip acceptance; representative quality, long jobs, external-drive behavior and deferred RTX 5080 testing remain open. The optional AI image can be built from the release source. [Evidence and exact package provenance](../working.md).
 
 Download the official model onto the initialized scratch drive:
 
@@ -73,7 +73,7 @@ The AI worker image is substantially larger than the base worker; check the buil
 
 RTX Video uses a separate VFX runtime on Linux x86. See [engines](engines.md); no current public Linux ARM64 VFX Python wheel was found.
 
-For the experimental native DLSS worker on development `main`, use Docker Compose 2.30+ and follow [native setup](../native/README.md). Its NGX overlay includes a 384-MiB executable RAM temporary mount required for NVIDIA feature loading, with read-only SDK/driver mounts. Video intermediates still go to the selected temporary drive.
+For the experimental native DLSS worker, use Docker Compose 2.30+ and follow [native setup](../native/README.md). Its NGX overlay includes a 384-MiB executable RAM temporary mount required for NVIDIA feature loading, with read-only SDK/driver mounts. Video intermediates still go to the selected temporary drive.
 
 ## One Linux desktop
 

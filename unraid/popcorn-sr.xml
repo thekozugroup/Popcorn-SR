@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>Popcorn-SR</Name>
-  <Repository>ghcr.io/thekozugroup/popcorn-sr:0.2.0</Repository>
+  <Repository>ghcr.io/thekozugroup/popcorn-sr:stable</Repository>
   <Registry>https://github.com/thekozugroup/Popcorn-SR/pkgs/container/popcorn-sr</Registry>
   <Network>bridge</Network>
   <Shell>sh</Shell>

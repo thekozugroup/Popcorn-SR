@@ -10,7 +10,7 @@ An interrupted network job is marked failed and can be retried. Schedule manager
 
 ## Linux / DGX Spark
 
-The development worker update protocol requires 0.4.0 or later on manager and worker. It is opt-in. A worker without a configured host service continues using ordinary Docker/Compose updates.
+The worker update protocol requires 0.4.0 or later on manager and worker. It is opt-in. A worker without a configured host service continues using ordinary Docker/Compose updates.
 
 Install the host files under `/opt/popcorn-sr`, owned by root and not writable by the worker: `update-worker.py` from `scripts/`, a resolved Compose file containing only the `worker` service, private `worker.env`, and `update.json`. The resolved Compose configuration must retain an image variable (`POPCORN_NGX_IMAGE`, `POPCORN_AI_IMAGE` or `POPCORN_IMAGE`) rather than bake in the current image. Keep the container's default unique hostname. Preserve the existing worker state, initialized scratch folder and read-only SDK/driver mounts. Layer `compose.updates.yaml` over the worker configuration: it mounts only `/var/lib/popcorn-sr/updates` at `/updates` and opts this worker out of other Watchtower updates.
 
