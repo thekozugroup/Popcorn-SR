@@ -9,6 +9,64 @@ test.afterEach(async ({page}) => {
   await page.unrouteAll({behavior:'wait'});
 });
 
+async function accessibility(page) {
+  // This app has no frames. Scan the actual page directly so a separate
+  // analysis page cannot use a different system theme than emulateMedia.
+  expect(page.frames()).toHaveLength(1);
+  return new AxeBuilder({page}).setLegacyMode(true).analyze();
+}
+
+test('one workspace selects input, keeps settings across setup, and returns a real queued copy', async ({page}) => {
+  await signIn(page);
+  await expect.poll(async()=>page.locator('#connection').textContent()).toMatch(/connected/i);
+  await expect(page.getByRole('navigation')).toHaveCount(0);
+  await expect(page.getByRole('combobox')).toHaveCount(3);
+  await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeDisabled();
+  const icon=await page.request.get(await page.locator('link[rel=icon]').getAttribute('href'));
+  expect(icon.ok()).toBeTruthy();
+  expect(await icon.text()).toContain('cx="21" cy="20.3" r="4.5" fill="#14b8a6"');
+  const input=page.getByRole('region',{name:'Input',exact:true});
+  const output=page.getByRole('region',{name:'Output queue',exact:true});
+  const settings=page.getByRole('region',{name:'Upscaling settings',exact:true});
+  const source=page.getByRole('button',{name:'A clearer picture.mkv',exact:true});
+  await source.click();
+  await expect(source).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('combobox',{name:'Output size',exact:true}).click();
+  await page.getByRole('option',{name:'Three times the size (3×)',exact:true}).click();
+  await moreOptions(page);
+  await page.getByLabel('Save copies to').fill('simple-workspace');
+  await navigate(page,'Processing');
+  await page.getByRole('button',{name:'Back to videos',exact:true}).click();
+  await expect(source).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByLabel('Save copies to')).toHaveValue('simple-workspace');
+  await expect(page.getByRole('combobox',{name:'Output size',exact:true})).toContainText('Three times');
+  await page.getByRole('button',{name:'More options',exact:true}).click();
+  await expect(page.getByRole('combobox')).toHaveCount(3);
+  const [response]=await Promise.all([
+    page.waitForResponse(r=>r.url().endsWith('/api/jobs') && r.request().method()==='POST'),
+    page.getByRole('button',{name:'Add to queue',exact:true}).click(),
+  ]);
+  expect(response.ok()).toBeTruthy();
+  const job=await response.json();
+  expect(job.recipe).toMatchObject({engine:'resize',scale:3,preview_seconds:0,output_directory:'simple-workspace'});
+  const download=output.locator(`[data-job-id="${job.id}"]`).getByRole('link',{name:'Download copy',exact:true});
+  await expect(download).toBeVisible({timeout:30000});
+  expect((await page.request.get(await download.getAttribute('href'))).ok()).toBeTruthy();
+  await expect(source).toHaveAttribute('aria-pressed','false');
+  for(const [width,height,mode] of [[1440,1000,'light'],[768,1024,'dark'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});
+    await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    const {left,right,below}=await page.evaluate(()=>({left:document.querySelector('[aria-label="Input"]').getBoundingClientRect().toJSON(),right:document.querySelector('[aria-label="Output queue"]').getBoundingClientRect().toJSON(),below:document.querySelector('[aria-label="Upscaling settings"]').getBoundingClientRect().toJSON()}));
+    expect(below.y).toBeGreaterThan(Math.max(left.y+left.height,right.y+right.height));
+    if(width>=768) expect(right.x).toBeGreaterThan(left.x+left.width);
+    else expect(right.y).toBeGreaterThan(left.y+left.height);
+    expect((await accessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    await page.evaluate(()=>scrollTo(0,0));
+    if(process.env.POPCORN_CAPTURE_UI==='1') await page.screenshot({path:`evidence/simple-workspace-20261013/final-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+  }
+});
+
 test('VSR controls keep exact dimensions and verified quality intent (UI fixture; no GPU execution)', async ({page}) => {
   let ready=true, submitted;
   await page.route('**/api/state', async route => {
@@ -45,7 +103,7 @@ test('VSR controls keep exact dimensions and verified quality intent (UI fixture
   await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
   await page.getByRole('spinbutton',{name:'Output width',exact:true}).fill('1920');
   await page.getByRole('spinbutton',{name:'Output width',exact:true}).press('Tab');
-  await page.getByRole('button',{name:'More options',exact:true}).click();
+  await moreOptions(page);
   await page.getByRole('spinbutton',{name:'VSR strength',exact:true}).fill('60');
   await page.getByRole('spinbutton',{name:'VSR strength',exact:true}).press('Tab');
   await page.getByRole('combobox',{name:'Video format',exact:true}).click();
@@ -58,8 +116,7 @@ test('VSR controls keep exact dimensions and verified quality intent (UI fixture
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/vsr-controls-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
     for(const control of await page.getByRole('spinbutton').all()) expect((await control.boundingBox()).height).toBeGreaterThanOrEqual(44);
   }
@@ -109,7 +166,7 @@ test('HDR controls preserve intent and require verified exports (UI fixture; no 
   await page.getByRole('combobox',{name:'Video format',exact:true}).click();
   await expect(page.getByRole('option',{name:'H.264 · broad compatibility',exact:true})).toHaveAttribute('aria-disabled','true');
   await page.getByRole('option',{name:'AV1 · newer players',exact:true}).click();
-  await page.getByRole('button',{name:'More options',exact:true}).click();
+  await moreOptions(page);
   for(const [label,value] of [['Peak brightness','1000'],['HDR contrast','85'],['HDR saturation','110'],['Midtone brightness','45']]) {
     await page.getByRole('spinbutton',{name:label,exact:true}).fill(value);
     await page.getByRole('spinbutton',{name:label,exact:true}).press('Tab');
@@ -124,8 +181,7 @@ test('HDR controls preserve intent and require verified exports (UI fixture; no 
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/hdr-controls-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
     for(const control of await page.getByRole('spinbutton').all()) {
       expect((await control.boundingBox()).height).toBeGreaterThanOrEqual(44);
@@ -169,7 +225,7 @@ test('DLSS controls obey verified combinations (UI fixture; no GPU execution)', 
   await expect(page.getByRole('combobox',{name:'DLSS mode',exact:true})).toBeVisible();
   await page.getByRole('combobox',{name:'DLSS mode',exact:true}).click();
   await page.getByRole('option',{name:'Quality · 1.5×',exact:true}).click();
-  await page.getByRole('button',{name:'More options',exact:true}).click();
+  await moreOptions(page);
   await expect(page.getByRole('combobox',{name:'DLSS model preset',exact:true})).toContainText('K · fine detail');
   await page.getByRole('combobox',{name:'DLSS model preset',exact:true}).click();
   await expect(page.getByRole('option',{name:'M · Performance default',exact:true})).toHaveCount(0);
@@ -186,8 +242,7 @@ test('DLSS controls obey verified combinations (UI fixture; no GPU execution)', 
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/dlss-controls-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   }
   await navigate(page,'Queue');
@@ -197,8 +252,7 @@ test('DLSS controls obey verified combinations (UI fixture; no GPU execution)', 
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/dlss-summary-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   }
 });
@@ -233,6 +287,8 @@ test('frame generation is independent, verified, and saved with the codec (UI fi
   await expect(toggle).toBeDisabled();
   await page.getByRole('combobox',{name:'Processing device',exact:true}).click();
   await page.getByRole('option',{name:'Frame-generation controls fixture',exact:true}).click();
+  await page.getByRole('combobox',{name:'Enhancement',exact:true}).click();
+  await page.getByRole('option',{name:'Conventional resizing',exact:true}).click();
   await expect(toggle).toBeEnabled();
   await toggle.check();
   await page.getByRole('combobox',{name:'Output size',exact:true}).click();
@@ -244,7 +300,7 @@ test('frame generation is independent, verified, and saved with the codec (UI fi
   await page.getByRole('option',{name:'480 fps',exact:true}).click();
   await page.getByRole('combobox',{name:'Video format',exact:true}).click();
   await page.getByRole('option',{name:'H.265 / HEVC · smaller files',exact:true}).click();
-  await page.getByRole('button',{name:'More options',exact:true}).click();
+  await moreOptions(page);
   await page.getByRole('combobox',{name:'Frame-generation mode',exact:true}).click();
   await page.getByRole('option',{name:'Cascade · multiple NVIDIA passes',exact:true}).click();
   await expect(page.getByRole('combobox',{name:'Frame-generation motion',exact:true})).toContainText('Balanced');
@@ -256,8 +312,7 @@ test('frame generation is independent, verified, and saved with the codec (UI fi
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/frame-generation-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   }
   await page.getByRole('button',{name:'Preview 5 seconds',exact:true}).click();
@@ -267,13 +322,12 @@ test('frame generation is independent, verified, and saved with the codec (UI fi
   await expect(page.getByText('Your selection is kept. Choose a compatible worker or turn off frame generation to continue.',{exact:true})).toBeVisible({timeout:5000});
   await expect(toggle).toBeChecked();
   await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
-  await expect(page.getByRole('button',{name:'Enhance full video',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeDisabled();
   for (const [width,height,mode] of [[1440,1100,'light'],[390,844,'dark']]) {
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/frame-generation-unavailable-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   }
   await toggle.uncheck();
@@ -284,25 +338,27 @@ test('frame generation is independent, verified, and saved with the codec (UI fi
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/frame-generation-summary-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   }
 });
 
+async function moreOptions(page) {
+  const control=page.getByRole('button',{name:'More options',exact:true});
+  if(await control.getAttribute('aria-expanded')!=='true') await control.click();
+}
 async function navigate(page, name) {
-  const toggle = page.getByTestId('mobile-nav-toggle');
-  // Astryx's inherited md breakpoint is 768px. Viewport updates resolve
-  // before its React media-query render; wait for the intended nav surface.
-  const mobile = page.viewportSize().width < 768;
-  if (mobile) {
-    await expect(toggle).toBeVisible();
-    await toggle.click();
-    await page.getByRole('dialog',{name:'Navigation',exact:true}).getByRole('button',{name,exact:true}).click();
-    await expect(page.getByRole('dialog',{name:'Navigation',exact:true})).not.toBeVisible();
+  await expect(page.locator('#connection')).toBeVisible();
+  if(name==='Processing') {
+    const setup=page.getByRole('button',{name:'Devices & storage',exact:true});
+    if(await setup.isVisible()) await setup.click();
   } else {
-    await expect(toggle).not.toBeVisible();
-    await page.getByRole('navigation').getByRole('button', {name, exact:true}).click();
+    const back=page.getByRole('button',{name:'Back to videos',exact:true});
+    if(await back.isVisible()) await back.click();
+    if(name==='Library') await moreOptions(page);
+    if(name==='Queue') for(const details of await page.locator('#jobs').getByRole('button',{name:'Details',exact:true}).all()) {
+      if(await details.getAttribute('aria-expanded')!=='true') await details.click();
+    }
   }
 }
 
@@ -310,7 +366,7 @@ async function signIn(page) {
   await page.goto('/');
   await page.getByLabel('Access key').fill('local-test-only-access-key-12345');
   await page.getByRole('button',{name:'Open Popcorn SR'}).click();
-  await expect(page.getByRole('heading',{name:'A better home for your videos.'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Upscale your videos'})).toBeVisible();
 }
 
 test('paired device shows checking, ready and failure without exposing stale support (UI fixture)', async ({page}) => {
@@ -342,8 +398,7 @@ test('paired device shows checking, ready and failure without exposing stale sup
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/pairing-checking-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   }
   await navigate(page,'Library');
@@ -353,7 +408,7 @@ test('paired device shows checking, ready and failure without exposing stale sup
   await page.getByRole('option',{name:'Processing computer (checking support)',exact:true}).click();
   await expect(page.getByText('Support checks are running. Options become available when they finish.',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
-  await expect(page.getByRole('button',{name:'Enhance full video',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeDisabled();
   await page.getByLabel('Save copies to').fill('previews/pairing');
   phase='ready';
   await expect(selector).toContainText('Processing computer');
@@ -379,8 +434,7 @@ test('paired device shows checking, ready and failure without exposing stale sup
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await page.evaluate(()=>scrollTo(0,0));
-    await page.screenshot({path:`evidence/screenshots/pairing-failed-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   }
   expect(errors).toEqual([]);
@@ -394,10 +448,9 @@ test('desktop preview completes on a real worker; responsive light/dark views pa
   });
   page.on('pageerror', error => errors.push(error.message));
   await signIn(page);
-  await expect.poll(async () => page.locator('#connection').textContent()).toContain('connected');
+  await expect.poll(async () => page.locator('#connection').textContent()).toMatch(/connected/i);
   await page.evaluate(() => scrollTo(0,0));
-  await page.screenshot({path:'evidence/screenshots/overview-desktop.png',fullPage:true,animations:"disabled"});
-  await page.getByRole('button',{name:'Try a preview'}).click();
+  await navigate(page,'Library');
   await page.getByRole('button',{name:'A clearer picture.mkv'}).click();
   const workers = (await (await page.request.get('/api/state')).json()).workers;
   await page.getByRole('combobox',{name:'Processing device',exact:true}).click();
@@ -410,15 +463,13 @@ test('desktop preview completes on a real worker; responsive light/dark views pa
   await expect(page.getByLabel('Save copies to')).toHaveValue('previews/check');
   await expect(page.getByRole('combobox',{name:'Processing device',exact:true})).toContainText(workers[0].name);
   await page.evaluate(() => scrollTo(0,0));
-  await page.screenshot({path:'evidence/screenshots/library-desktop.png',fullPage:true,animations:"disabled"});
   await page.getByRole('button',{name:'Preview 5 seconds'}).click();
-  await expect(page.getByRole('heading',{name:'Your queue'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Output queue',exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'Download preview'})).toBeVisible({timeout:30000});
   const download = await page.request.get(await page.getByRole('link',{name:'Download preview'}).getAttribute('href'));
   expect(download.ok()).toBeTruthy();
   expect((await download.body()).length).toBeGreaterThan(1000);
   await page.evaluate(() => scrollTo(0,0));
-  await page.screenshot({path:'evidence/screenshots/queue-desktop.png',fullPage:true,animations:"disabled"});
   const [continued] = await Promise.all([
     page.waitForResponse(r => r.url().endsWith('/full') && r.request().method() === 'POST'),
     page.locator('#jobs').getByRole('button',{name:'Enhance full video'}).click()
@@ -429,36 +480,38 @@ test('desktop preview completes on a real worker; responsive light/dark views pa
   expect(full.recipe.output_directory).toBe('previews/check');
   expect(full.recipe.scale).toBe(2);
   expect(full.target).toBe(workers[0].id);
-  const completed = page.locator('#jobs').getByRole('link',{name:'Download copy',exact:true});
+  const completed = page.locator(`[data-job-id="${full.id}"]`).getByRole('link',{name:'Download copy',exact:true});
   await expect(completed).toBeVisible({timeout:30000});
   const finished = (await (await page.request.get('/api/state')).json()).jobs.find(j => j.id === full.id);
   expect(finished.status).toBe('completed');
   expect(finished.result.duration).toBeGreaterThan(5.5);
   expect(finished.result.audio_streams).toBe(1);
-  expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+  expect((await accessibility(page)).violations).toEqual([]);
   for (const [width, height, mode] of [[390,844,'light'],[768,1024,'light'],[1440,1100,'dark']]) {
     await page.setViewportSize({width,height});
     await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     await navigate(page,'Processing');
     await page.evaluate(() => scrollTo(0,0));
-  await page.screenshot({path:`evidence/screenshots/processing-${width}-${mode}.png`,fullPage:true,animations:"disabled"});
-    const scan = await new AxeBuilder({page}).analyze();
+    const scan = await accessibility(page);
     expect(scan.violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
     expect(await page.locator('.path').evaluateAll(nodes => nodes.every(el => el.scrollWidth <= el.clientWidth + 1))).toBeTruthy();
     await navigate(page,'Library');
     await page.getByRole('button',{name:'A clearer picture.mkv'}).click();
     await page.evaluate(() => scrollTo(0,0));
-  await page.screenshot({path:`evidence/screenshots/library-${width}-${mode}.png`,fullPage:true,animations:"disabled"});
-    expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+    expect((await accessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
     expect(await page.locator('.path').evaluateAll(nodes => nodes.every(el => el.scrollWidth <= el.clientWidth + 1))).toBeTruthy();
   }
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => window.policyViolations)).toEqual([]);
+  const noiseLabel=page.locator('label').filter({hasText:'Reduce noise'});
+  await noiseLabel.click({position:{x:4,y:4}});
+  await expect(page.getByRole('checkbox',{name:'Reduce noise',exact:true})).toBeChecked();
+  await page.getByRole('checkbox',{name:'Reduce noise',exact:true}).uncheck();
   const shortControls = await page.evaluate(() => [...document.querySelectorAll('button,[role=combobox],input:not([type=hidden])')]
     .filter(el => el.getClientRects().length && !el.disabled && !el.closest('[aria-hidden=true]'))
-    .map(el => ({control:el, target:el.closest('.astryx-selector,.astryx-text-input') || el}))
+    .map(el => ({control:el, target:el.closest('.astryx-selector,.astryx-text-input') || (el.type==='checkbox'?document.querySelector(`label[for="${el.id}"]`):null) || el}))
     .filter(({target}) => target.getBoundingClientRect().height < 44)
     .map(({control,target}) => ({name:control.getAttribute('aria-label') || control.textContent,height:target.getBoundingClientRect().height})));
   expect(shortControls).toEqual([]);
@@ -476,7 +529,37 @@ test('login error, keyboard focus, and one-use pairing UI', async ({page}) => {
   await expect(page.locator('#pair-code')).toContainText(/.{16,}/);
   await expect(page.getByText('This code expires in 10 minutes and can be used once.')).toBeVisible();
   await expect(page.getByRole('button',{name:'Copy pairing code'})).toBeVisible();
-  expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
+  expect((await accessibility(page)).violations).toEqual([]);
   await page.keyboard.press('Tab');
   expect(await page.evaluate(() => document.activeElement !== document.body)).toBeTruthy();
+});
+
+test('an explicit DLSS choice survives missing support without switching to resizing (UI fixture)', async ({page}) => {
+  let available=true;
+  await page.route('**/api/state',async route=>{
+    const response=await route.fetch();
+    if(!response.ok()){await route.fulfill({response});return;}
+    const state=await response.json();
+    state.workers.push({id:'engine-loss-fixture',name:'DLSS controls fixture',online:true,revoked:false,scratch:{path:'/scratch',free_bytes:1e9},capabilities:{
+      initialization:'ready',engines:available?['resize','dlss-sr']:['resize'],encoders:['h264_nvidia'],platform:'Linux',architecture:'aarch64',notes:{},
+      dlss_sr:available?{settings:[['performance','default']],temporal_qualities:['high']}:{},
+    }});
+    await route.fulfill({response,json:state});
+  });
+  await signIn(page);
+  await page.getByRole('button',{name:'A clearer picture.mkv',exact:true}).click();
+  const enhancement=page.getByRole('combobox',{name:'Enhancement',exact:true});
+  // Automatically prefer verified DLSS when it is available; selecting it
+  // explicitly then protects that intent when capabilities change.
+  await expect(enhancement).toContainText('DLSS video upscaling');
+  await enhancement.click();
+  await page.getByRole('option',{name:'DLSS video upscaling · experimental',exact:true}).click();
+  available=false;
+  await expect(page.getByText('Selected enhancement is unavailable',{exact:true})).toBeVisible({timeout:6000});
+  await expect(enhancement).toContainText('DLSS video upscaling');
+  await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled();
+  available=true;
+  await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeEnabled({timeout:6000});
+  await expect(enhancement).toContainText('DLSS video upscaling');
 });

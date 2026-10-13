@@ -17,9 +17,9 @@ OWN-WORLD: Neutral Tailwind zinc surfaces, blue-500 actions with accessible dark
 
 STORY: Choose a library video, connect verified processing, make a short preview, then continue the full copy using saved settings. Every original stays separate and protected.
 
-FIRST VIEWPORT: A consistent sidebar, a clear choose-video action, a real library-to-worker-to-output diagram and three ordered onboarding steps. No fabricated activity or hardware readiness.
+FIRST VIEWPORT: Input on the left, output queue on the right, upscaling settings underneath. Three default selectors, one primary Add to queue action, collapsed optional controls and one secondary setup entry. No sidebar, dashboard or fabricated activity/readiness.
 
-FORM: Inline recipe and pairing sections with a durable queue. Completed previews offer a direct full-video continuation. seed: none (unavailable).
+FORM: One persistent input/queue workspace; setup is secondary. The family mark colors the lower-right kernel teal-500. Completed previews offer a direct full-video continuation. seed: none (unavailable).
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
@@ -33,3 +33,6 @@ Chromium captures at 390, 768 and 1440; light/dark and reduced-motion coverage. 
 
 
 2026-10-13 VSR extension review: preserves the incumbent Astryx world. Separate VSR/export quality, four verified AI levels, aligned exact dimensions and optional strength; saved selections remain visible and block submission when unsupported. Two bounded desktop/mobile render reviews passed; seven Chromium workflows include Axe, overflow, 44px numeric fields, invalid dimensions, refresh retention and restored capability/combined-setting submission. GPU capability states are explicitly fixtures. Mechanical detector: pre-existing 28px pairing-code advisory only. Local in-thread finish review, no independent-review claim. Verdict: ship these controls on development main. DESIGN.md records the new controls; genuine VFX, representative quality and physical acceptance remain open.
+
+
+2026-10-13 simplification review: the user replaced the multi-view journey with input left, output queue right and settings below. Three default selectors, collapsed optional controls, a secondary setup view and persistent selections satisfy that contract. Popcorn Batch's circle geometry is reused with SR's lower-right kernel teal-500. Actual 1440 light/390 dark CPU captures were reviewed in two bounded batches; 768 dark positioning, Axe, overflow, original workflow controls, real CPU queue/download, preview-to-full, setup retention, keyboard/CSP and 44px associated-label clicks passed. Fixture GPU states remain display-only evidence. No independent-review or NVIDIA-quality claim. Verdict: ship the simpler development UI; neural rendering is deferred by the user and the physical delivery gates stay explicit.

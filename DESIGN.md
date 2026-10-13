@@ -3,6 +3,7 @@ name: Popcorn SR
 description: A quiet native workspace that makes remote processing feel like a simple local library task.
 colors:
   accent: "#3b82f6"
+  family-sr: "#14b8a6"
   accent-text-light: "#1d4ed8"
   accent-text-dark: "#93c5fd"
   white-surface: "#ffffff"
@@ -245,15 +246,13 @@ The theme's base is 15px with ratio 1.2; the compiler quantizes the scale. `Head
 
 ## Layout
 
-Official `AppShell height="auto" variant="section"` supplies a divider-based header/sidebar/main region. `SideNav` inherits desktop width (260px). Below the official `md` point (768px), AppShell exposes a toggle and modal drawer containing the same navigation. `mobileOpen` and `onOpenChange` control it; navigation closes it. This replaces the former five-column compact tab strip.
+One workspace replaces the former overview/sidebar/library/queue navigation. The header carries the family mark, truthful processing status and one Devices & storage button. Desktop input and output queue share two equal columns; upscaling settings sit underneath. On screens below 768px, input, queue and settings stack in that order. Content remains centered at 1160px with existing spacing and neutral surfaces.
 
-Workspace content is centered and bounded (1160px), with padding (36px 40px 64px). Page headings/actions use gap (24px) and bottom space (28px). Recipe/worker grids start with two equal columns and gap (24px). Welcome uses `1.1fr 1fr` with gap (48px); ordered onboarding uses three columns and gap (32px). Rows use padding (20px 24px) and a single bottom divider. Official stack numeric spacing follows a 4px base.
+The default form shows Enhancement, Output size (DLSS mode for that engine) and Video format. Add to queue is the primary action; Preview 5 seconds is secondary. More options contains device selection, destination, frame generation, HDR and engine-specific advanced controls. Verified VSR quality/custom dimensions appear only when relevant. Setup has a direct Back to videos action; the hidden workspace stays mounted so input and settings survive that visit.
 
-At maximum **1023px**, recipe and worker grids stack to one column, PageHead becomes vertical with 16px gap, and welcome gap reduces to 24px. At maximum **767px**, workspace padding becomes (24px 20px 48px), welcome/onboarding also stack, rows use 16px padding, and file rows stack with 4px gap. The transfer diagram remains present and stacks. AppShell's drawer boundary (below 768px) is distinct from the 1023px tablet composition boundary.
+Input folders retain paging, refresh, parent navigation, safe relative paths and clear selected state. Queue rows lead with the filename, actual stage/status/progress and download/retry/cancel actions. Detailed method/codec/preset/frame/HDR/output information is under Details. Both lists scroll within bounded regions as content grows. There is no invented activity or diagram. The skip link targets the main landmark, and view changes focus it without scrolling.
 
-Buttons have `flexShrink: '0'` in the official theme extension, preserving their labels beside wrapping headings. File-row layout intentionally supplies its own flexible full-row behavior. Paths apply the `.path` utility directly to unlimited text elements, keeping the complete value inside its panel. The overview diagram/steps remain its local expression, not a universal screen template. Login is centered and bounded (420px), with viewport minimum height (100dvh).
-
-**The Inline Work Rule.** Keep recipes, pairing and job actions in their relevant workspace sections, using spacing and dividers to separate steps.
+The mark uses Popcorn Batch's exact circle geometry from commit `54170f2684f734712b6159ccc7592f3237fa6b71`, with the lower-right circle teal-500 (#14b8a6) instead of Batch's top blue circle. The tile and two neutral circles invert with the theme; favicon uses a fixed zinc-900 tile. Header and login use the same geometry. Teal identifies this family member and does not replace blue action/focus feedback.
 
 ## Elevation & Depth
 
@@ -273,7 +272,7 @@ Theme tokens set small/medium controls to 44px and large to 48px. Overrides add 
 
 ### Official component vocabulary
 
-`web/main.jsx` imports official `AppShell`, `SideNav`, `SideNavItem`, `SideNavHeading`, `TopNav`, `TopNavHeading`, `VStack`, `HStack`, `Heading`, `Text`, `Button`, `TextInput`, `Selector`, `CheckboxInput`, `Collapsible`, `Banner` and `ProgressBar` from `@astryxdesign/core` subpaths. Custom `Copy`, `PageHead`, `Empty`, `Status`, `Feedback`, recipes and rows compose these. Layout CSS does not recreate the control library.
+`web/main.jsx` imports official `VStack`, `HStack`, `Heading`, `Text`, `Button`, `TextInput`, `NumberInput`, `Selector`, `CheckboxInput`, `Collapsible`, `Banner` and `ProgressBar` from `@astryxdesign/core` subpaths. Custom `Copy`, `PageHead`, `Empty`, `Status`, `Feedback`, recipes and rows compose these. Layout CSS does not recreate the control library.
 
 ### Buttons
 
@@ -310,7 +309,7 @@ Custom `.panel` uses surface fill, a thin border, compiled panel radius and clip
   description="A folder inside your output mount. Example: enhanced/movies" />
 ```
 
-The recipe stores user intent in `desired` and derives effective worker, engine, codec, encoder and scale from current capability arrays on each render. `change` merges one field; polling does not reinitialize this state. Library renders `<Recipe key={selected}>`, so another file intentionally resets it. Compatible capabilities govern options/disabled encoders and conventional-filter checkboxes. The authenticated state poll runs every 3000ms while visible, resumes on visibility changes and guards overlapping refreshes. Connection errors retain workspace state and show reconnecting feedback; 401 clears the session. Submission uses effective values, queues the copy, refreshes and navigates to Queue.
+The recipe stores user intent in `desired` and derives effective worker, engine, codec, encoder and scale from current capability arrays on each render. `change` merges one field; polling does not reinitialize this state. Workspace keeps Recipe mounted, so another input or a visit to setup retains the chosen settings. Compatible capabilities govern options/disabled encoders and conventional-filter checkboxes. The authenticated state poll runs every 3000ms while visible, resumes on visibility changes and guards overlapping refreshes. Connection errors retain workspace state and show reconnecting feedback; 401 clears the session. Submission queues the copy, refreshes the adjacent queue and clears the selected input. Explicitly selected unavailable enhancements remain visible and block submission.
 
 ### NVIDIA recipe controls
 
@@ -318,11 +317,9 @@ The current inline recipe separates enhancement from encoding. **VSR quality** o
 
 The 2026-10-13 local finish pass reviewed actual 1440 light/390 dark VSR captures in two bounded rounds, with explicitly simulated GPU capabilities. Seven browser workflows passed, including Axe, overflow, numeric target sizes, invalid dimensions, heartbeat retention, capability loss/restoration and submitted combined settings. The mechanical detector found only the pre-existing 28px pairing-code advisory. The review was performed in this thread, without an independent reviewer, honoring the user's preference for direct work. Verdict: ship these controls on development main; genuine NVIDIA execution, representative quality and physical VFX acceptance remain open. Existing palette, typography, theme and composition records were preserved.
 
-### Navigation and Disclosure
+### Setup and disclosure
 
-`SideNavItem isSelected` supplies neutral fill, medium selected text and `aria-current="page"`. AppShell owns the skip link and mobile dialog/focus/dismissal behavior. App state controls drawer openness; view changes focus the workspace with `preventScroll`.
-
-`Collapsible trigger="More options" defaultIsOpen={false}` keeps advanced recipe options inline. Processing uses the same official component for unavailable engine details. Expansion/chevron/keyboard behavior is inherited, and the final theme override supplies its 44px trigger minimum.
+Devices & storage opens secondary setup; Back to videos returns to the same workspace. There is no sidebar or navigation drawer. Collapsible More options and queue Details preserve the official keyboard/disclosure behavior and 44px trigger target. Checkbox labels and their pressable rows have 44px minimum height; the rendered associated label is the clickable target for the smaller checkbox square.
 
 ### Messages, Status and Progress
 
@@ -346,7 +343,7 @@ sha256-6SjltZZHbimwo1Hbgahxv8D9b/3lyMZxSgBbD6dRcUQ=
 
 `popcorn_sr/server.py` validates hashes against `sha256-[A-Za-z0-9+/]{43}=`, quotes accepted values and emits `style-src 'self' '<hash>'; script-src 'self'` within the full CSP. It authorizes that exact stylesheet; no `unsafe-inline` allowance is introduced. Dependency updates must regenerate the policy from installed content rather than blindly retaining this hash. Runtime CSP proof remains separate from this source/hash inspection.
 
-Recipe mounting scrolls the inline panel into view and focuses its first combobox. Scroll is smooth unless reduced motion requests instant behavior. Official controls inherit fast/medium motion (125ms/250ms) and standard easing. Global reduced-motion CSS shortens animations/transitions to `.01ms` and restores automatic scrolling. No former custom 200ms view-entry animation exists in current source.
+Selecting a file leaves the two panes visible; there is no automatic jump to the recipe. View changes focus the main landmark without scrolling. Official controls inherit fast/medium motion (125ms/250ms) and standard easing. Global reduced-motion CSS shortens animations/transitions to `.01ms` and restores automatic scrolling. No former custom 200ms view-entry animation exists in current source.
 
 ## Do's and Don'ts
 
@@ -370,3 +367,9 @@ Recipe mounting scrolls the inline panel into view and focuses its first combobo
 - **Don't** promote redundant eyebrows, Unicode icon substitutes or one-off brand measurements into reusable system tokens.
 - **Don't** edit generated theme/bundle output or extract active tokens from the removed legacy UI.
 - **Don't** declare accessibility, target sizing or release checks passed from this documentation pass.
+
+## Single-workspace review — 2026-10-13
+
+Reviewed the actual generated-media CPU app at 1440 light and 390 dark, with a 768 dark layout check. The final view has input/queue columns, settings below, no sidebar/dashboard, truthful status and the family mark. Originals remain separate. Eight browser workflows passed, including direct Add to queue, a real downloaded CPU copy, saved settings/input across setup, preview-to-full continuation, pairing, keyboard/CSP/44px label target checks and all existing optional GPU-control contracts. An additional explicit-DLSS capability-loss regression verifies that an unavailable selected engine blocks submission instead of becoming conventional resizing. GPU fixtures remain labeled and do not prove GPU execution.
+
+The initial render check found the removed shell no longer supplied an explicit theme background; the new shell now does. The interactive checkbox label now has a real 44px clickable area, exercised at its edge. Axe scans the actual frame-free page directly because its separate analysis page can resolve system-theme colors differently after emulation; no contrast rule is disabled. The review was performed in this thread. Verdict: the simpler UI is ready for development main; 4K delivery/recovery, representative movie quality and external-drive acceptance remain separate. No additional polish loop or release promotion.

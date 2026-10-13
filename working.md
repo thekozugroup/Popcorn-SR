@@ -1,9 +1,21 @@
 # Popcorn SR — completion work
 
 ## Objective
-Complete a standalone Docker NAS manager and paired or single-host Linux worker, with a guided Astryx interface, configurable scratch/output storage, and parity for DLSS neural rendering, DLSS Super Resolution, RTX Video Super Resolution, RTX Video HDR and DLSS frame generation. Publish verified milestones on clean main. All five NVIDIA stages are mandatory completion gates; the 0.2.0 preview is not full completion.
+Complete a standalone Docker NAS manager and paired or single-host Linux worker, with one simple Astryx workspace, configurable scratch/output storage and verified available NVIDIA processing. Input on the left, output queue on the right, settings underneath. Publish verified milestones on clean main. On 2026-10-13 the user deferred neural rendering and accepted previous available DLSS versions; the historical five-stage mandatory gate is superseded. VSR/HDR remain optional, genuinely checked integrations rather than advertised support without a runtime. The 0.2.0 published preview remains separate from development main.
 
-## Current status — 2026-10-13
+## Current iteration — simplify the workspace and family identity
+
+Implementation complete: removed sidebar/dashboard and separate library/queue views. The input and queue remain together, with three selectors underneath, one primary action, optional controls in More options and a secondary setup entry. Settings survive setup and changing sources. Explicit missing enhancement choices block submission rather than silently falling back. The header/login/favicon use the Batch geometry with a lower-right teal-500 circle. Rust assessment favors a measured worker/frame-buffer component and keeps the lightweight manager/browser stack; no Rust runtime or speedup is claimed.
+
+Local verification: Ruff, 102 Python tests, production UI build and dependency audit passed. Eight full browser workflows plus the targeted explicit-DLSS intent regression passed; actual CPU queue/download and preview-to-full paths ran. Inspected final 1440 light/390 dark renders and checked 768 dark layout, Axe, overflow, keyboard/CSP and actual 44px clickable checkbox-label edges. GPU UI fixtures are labeled. Receipts are ignored under `evidence/simple-workspace-20261013/`. Docker verification/cleanup and clean-main publication are next. No GitHub Actions.
+
+User direction: remove navigation and dashboard complexity. Implement one input/queue view with three default settings, a single Add to queue action, collapsed advanced controls and secondary device/storage setup. Follow Popcorn Batch's triangular three-circle brand, coloring SR's lower-right circle teal-500. Evaluate Rust only where it offers a practical worker/frame-buffer benefit. Neural rendering is deferred; no SDK access yet.
+
+Before this redesign, an actual single-host Spark Compose trial at `fa157952e07527f3db73e515eb83c5c6abfe0695` paired in 2.53 seconds and passed all real SR/FG startup combinations after 552.87 seconds, with the production 90-second lease and shipped security/mount settings. Its first generated 4K H.264 SR job stopped on a manager rejection/connection error before delivery. No 4K/long-FG/GPU restart acceptance was obtained. The exact owned RAM folder, containers, images and native GPU processes were removed; original device containers/images and driver hash matched before/after. NAS untouched. Receipt: ignored `evidence/native-4k-lifecycle-20261013/physical.json`. The failing delivery remains open; the current UI work does not resolve it.
+
+
+
+## Previous iteration — Compose lifecycle — 2026-10-13
 
 Current iteration: committed source `69b4d15a8cf93ea67ae1359b6d7c93c761d7d7e9` passed all 22 actual single-host and separate manager/worker CPU Compose lifecycle/delivery checks (`evidence/compose-lifecycle-20261013/committed.json`). Saved pairing, idle manager restart, active graceful/hard shutdown, missing-marker recovery, missing host-folder refusal, copied markers on a real different filesystem and revoked credentials passed. Unrelated files survived and all generated originals remained unchanged. The initial harness attempt used a stale ephemeral port after Docker restart; refreshing that temporary mapping resolved it. Failed and successful receipts are retained. The final rebuilt ARM64 image is `sha256:b0957b05a40d9b136e595389fee4eb36d139745951baed9d718fce201c1a2fa5`; its revision and all 22 runtime module hashes matched. Ruff, 102 Python tests, production UI build, nine Compose configuration checks and the separate committed-image paired Docker smoke passed. Normal local verification now includes the lifecycle check.
 

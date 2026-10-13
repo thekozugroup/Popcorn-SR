@@ -1,10 +1,10 @@
-# NVIDIA enhancement completion requirements
+# NVIDIA enhancement roadmap and evidence
 
-Popcorn SR's completion goal includes all five primary NVIDIA video enhancements from [Visual Enhancer](https://github.com/Merserk/dlss5-visual-enhancer). This is an implementation and device-verification requirement. The published 0.2.0 preview does not meet it yet.
+The roadmap tracks the five primary NVIDIA video enhancements from [Visual Enhancer](https://github.com/Merserk/dlss5-visual-enhancer). On 2026-10-13 the user accepted shipping the available DLSS versions and deferred neural rendering because authorized SDK access is unavailable. Five-stage parity is no longer the immediate delivery gate. The published 0.2.0 preview remains separate from development main; runtime checks and device evidence still govern every exposed option.
 
-| Required stage | User controls to support | Current implementation gap |
+| Roadmap stage | User controls to support | Current implementation gap |
 |---|---|---|
-| DLSS neural rendering | Style, intensity, passes, tone/structure, masks, temporal quality | No native Linux video renderer or verified compatible neural runtime |
+| DLSS neural rendering · deferred | Style, intensity, passes, tone/structure, masks, temporal quality | No native Linux video renderer or verified compatible neural runtime |
 | DLSS Super Resolution | DLAA, Quality, Balanced, Performance, Ultra Performance; preset and temporal quality | Native CUDA SDR video backend, controls and packaged Unraid → Spark → Unraid delivery verified in three codecs. Current packaged Spark tests also passed generated 1080p SR+FG and three-minute 720p SR-only returns; representative quality and 4K remain unverified |
 | RTX Video Super Resolution | Quality 1–4, scale or custom dimensions | Current VFX API, four levels/strength/custom sizing, lossless pipeline gates and Astryx controls implemented; CPU contract/timing/delivery fixtures pass. Genuine VFX execution and compatible Spark runtime remain unverified |
 | RTX Video HDR | Contrast, saturation, middle gray, peak luminance, precision | TrueHDR backend, lossless paired pipeline, capability gating and Astryx controls implemented; CPU diagnostics verify 10-bit transport/export/delivery. Genuine SDK execution, quality/metadata and physical paired acceptance remain unfinished |

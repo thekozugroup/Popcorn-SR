@@ -20,7 +20,7 @@ Popcorn Super Resolution is a self-hosted video manager and processing worker. P
 
 ## Completion goal
 
-Development remains active. Full completion requires **DLSS neural rendering, DLSS Super Resolution, RTX Video Super Resolution, RTX Video HDR and DLSS frame generation**, with real processing, usable controls, previews and compatible combinations. [Acceptance and current gaps](docs/nvidia-parity.md). The preview features below do not establish five-stage parity.
+Development remains active. The immediate interface is one workspace: input on the left, output queue on the right, and upscaling settings underneath. Available verified DLSS Super Resolution and frame generation are the current NVIDIA focus. Neural rendering is deferred until authorized compatible SDK access exists; VSR/HDR integrations remain gated by real processing checks. [Roadmap and current evidence](docs/nvidia-parity.md). This does not claim five-stage parity.
 
 Development `main` now has an experimental native Linux CUDA DLSS Super Resolution video backend. Physical Spark tests passed all five SR modes, preset hints, three motion settings and H.264/H.265/AV1 video encoding with preserved frame timestamps. The dedicated NGX Docker worker also returned paired previews in all three codecs with audio and intact originals. It needs separately provisioned NVIDIA components and is **not in the published 0.2.0 image**. [Setup and evidence](native/README.md). Representative quality and the other NVIDIA stages remain unfinished.
 
@@ -82,3 +82,9 @@ The web UI uses the official [Astryx](https://astryx.atmeta.com/) React componen
 ## License and credits
 
 Popcorn SR is AGPL-3.0-or-later. NVIDIA SDKs, models, containers and third-party engines retain their own terms; no proprietary engine binaries are vendored. BasicSR network code and Real-ESRGAN model attribution are recorded in [third-party notices](THIRD-PARTY-NOTICES.md). [fast-rtxvsr](https://github.com/glarsson/fast-rtxvsr) and [Visual Enhancer](https://github.com/Merserk/dlss5-visual-enhancer) informed the engine interface; Visual Enhancer is separately licensed and not redistributed. Design uses [Taste](https://tasteskill.dev) and [Impeccable](https://impeccable.style).
+
+## Popcorn family identity
+
+SR uses the three-circle mark from [Popcorn Batch](https://github.com/thekozugroup/Popcorn-Batch/blob/54170f2684f734712b6159ccc7592f3237fa6b71/web/src/app/icon.svg), with its lower-right circle in Tailwind teal-500. Batch uses blue-500 on the top circle. The mark appears in the header, sign-in and browser favicon; action colors stay blue.
+
+[Rust assessment](docs/rust-assessment.md): favor a small worker/frame-handling component when profiling justifies it; no rewrite or unmeasured speedup is claimed.
