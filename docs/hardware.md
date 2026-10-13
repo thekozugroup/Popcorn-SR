@@ -14,6 +14,8 @@ Actual throughput is lower because of protocol overhead, storage speed, CPU load
 
 DGX Spark includes a [10 GbE RJ-45 port](https://docs.nvidia.com/dgx/dgx-spark/hardware.html). The slower NAS port, switch port or drive sets the practical ceiling. A USB-C-to-Ethernet adapter is useful when a device lacks a suitable network port; that still uses Ethernet, not a raw USB host-to-host connection.
 
+The user's NAS/Spark link was inspected read-only on 2026-10-13: the NAS's active physical port negotiated 1,000 Mb/s full duplex and Spark's port 10,000 Mb/s full duplex. The NAS therefore limits this path to at most the 1-GbE ceiling above, before storage/protocol overhead. No network configuration was changed and this was not a throughput benchmark. Short-clip LAN processing has separate functional acceptance; sustained library throughput remains to measure.
+
 ## USB-C
 
 The connector shape is not a networking protocol. Two ordinary host USB-C ports generally cannot form a data network through a passive cable. A specialized host-to-host bridge may expose a network interface if both operating systems support it. Thunderbolt networking also requires Thunderbolt-capable ports and compatible OS support; USB-C alone is insufficient. Spark's documented ports should not be treated as proof of Thunderbolt networking.

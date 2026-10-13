@@ -1,7 +1,13 @@
-# Popcorn SR — iteration 1
+# Popcorn SR — completion work
 
 ## Objective
 Complete a standalone Docker NAS manager and paired or single-host Linux worker, with a guided Astryx interface, configurable scratch/output storage, and parity for DLSS neural rendering, DLSS Super Resolution, RTX Video Super Resolution, RTX Video HDR and DLSS frame generation. Publish verified milestones on clean main. All five NVIDIA stages are mandatory completion gates; the 0.2.0 preview is not full completion.
+
+## Current status — 2026-10-13
+
+Goal active. Native experimental SDR DLSS SR/DLAA and DLSSG have passed packaged three-codec previews and full continuation over the actual Unraid → Spark → Unraid LAN path. The repaired read-only SDK/driver mounts and new storage refusal also passed physical acceptance. Forty-two tests, all nine Compose layouts, native compile checks, browser checks and both container builds passed exact-source CI at `a85ccfb37321430ee5f56d7ed511391a072d7556`: https://github.com/thekozugroup/Popcorn-SR/actions/runs/38364771474.
+
+RTX VSR, RTX HDR and neural rendering remain mandatory unfinished stages requiring compatible authorized runtimes and implementation. Packaged AI GPU acceptance, representative/large/long jobs, physical Optane checks and final publication remain open. RTX 5080 acceptance is deferred at the user's request; Windows is future work. Published 0.2.0 is unchanged. Slow startup also needs pairing before GPU checks so a one-use code cannot expire while the hardware is being tested. Earlier iteration notes below are historical evidence, not current completion claims.
 
 ## Acceptance
 - Authenticated one-use pairing, durable queue, worker leases, cancel/retry, streaming transfers.
@@ -12,7 +18,7 @@ Complete a standalone Docker NAS manager and paired or single-host Linux worker,
 - Browser desktop/mobile flows and error states verified.
 - CI tests, Docker smoke, public commits on main as thekozugroup@gmail.com.
 
-## Evidence and limits
+## Historical evidence and limits — 0.1.1
 Version 0.1.1 software implementation is complete, including the ARM64 AI encoding fix. Public repository: https://github.com/thekozugroup/Popcorn-SR. All development commits use main and thekozugroup@gmail.com, with no AI co-author tags.
 
 Verified on 2026-10-12:
@@ -219,11 +225,11 @@ Added an independent one-second drive/space monitor so a missing/replaced/full s
 
 Frozen-lock validation, the unchanged UI production build, rebuilt default ARM64 image and real paired Docker processing/return also passed. The final local image is `8305f4e7d88f`; its receipt is gitignored `evidence/storage-plan-final-docker-smoke.json`. Taste's brief/copy guidance and Impeccable clarify guidance informed the low-space message; it uses the existing Temporary storage terminology and reports requirement/availability/action without changing the layout. Large/long generation still needs storage/performance optimization and acceptance; conservative estimates are not a claim that the current full-file intermediate design is efficient.
 
-### Documented NGX mount acceptance: unresolved loader failure
+### Documented NGX mount repair and acceptance
 
 Exact storage-guard commit `fa8f6eb8e6874d879cb485abf1c57be2038422a6` passed the full verification and native AMD64/ARM64 package workflow: https://github.com/thekozugroup/Popcorn-SR/actions/runs/38360529518. The prior goal turn made concrete progress; the current turn is investigating a reproducible deployment failure, without reducing the five-stage goal.
 
-The actual Unraid/Spark trial parsed the shipped Compose configuration on Spark, then applied those mounts/environment/default 64-MiB `/tmp` to isolated containers. This was not a production Compose deployment. Unlike the earlier successful trial's copied SDK bootstrap, the read-only `/opt/ngx` SDK and separate read-only host driver failed both SR and FG startup. All three NVIDIA encoders passed; no combined job or physical oversized-job refusal claim follows from this failed run. Receipt: gitignored `evidence/compose-nas-spark.json`.
+The first Unraid/Spark trial parsed the shipped Compose configuration on Spark, then applied those mounts/environment/default 64-MiB `/tmp` to isolated containers. This was not a production Compose deployment. Unlike the earlier successful trial's copied SDK bootstrap, the read-only `/opt/ngx` SDK and separate read-only host driver failed both SR and FG startup. All three NVIDIA encoders passed; no combined job or physical oversized-job refusal claim follows from that failed run. Failed receipt: gitignored `evidence/compose-nas-spark-mount-failed.json`.
 
 A subsequent isolated Spark diagnostic reproduced the failure with separate or bundled drivers and with a writable SDK mount. Driver loading itself succeeds, so changing SDK write permissions alone does not resolve the issue. Both trials removed all owned containers, imported image tags and RAM folders, with original running-service and image inventories preserved. The host driver hash was unchanged in the diagnostic. Next: isolate native feature-library loading and repair the real deployment configuration before rerunning full NAS delivery and storage-refusal acceptance.
 
@@ -232,3 +238,12 @@ The loader comparison identified an executable-temporary-memory requirement and 
 Spark's actual Docker Compose 5.0.2 parser passed all nine layouts; only owned temporary RAM copies were used, then removed, with service/image inventories unchanged. Forty-two Python tests, Ruff, the unchanged production UI build and actual local ARM64 paired Docker processing/return passed again. Receipt: gitignored `evidence/ngx-mount-docker-smoke.json`. The mount repair changes deployment configuration/verification/documentation only; the `fa8f6eb` package's recorded native/Python hashes still match. Its verified archives will be used with the repaired configuration for the next physical trial, with both image and configuration provenance recorded separately.
 
 The first post-repair CI run exposed a checker portability issue: Compose 2 omits the false `create_host_path` field that Compose 5 includes explicitly. The checker now accepts omitted false values while rejecting true. This changes verification only; the explicit false mount declarations and runtime/deployment configuration are unchanged. Exact CI and the full physical trial remain in progress.
+
+The corrected configuration/checker commit `a85ccfb37321430ee5f56d7ed511391a072d7556` subsequently passed [all CI checks](https://github.com/thekozugroup/Popcorn-SR/actions/runs/38364771474), and the physical mount/storage trial passed:
+
+- Verified archives from `fa8f6eb8e6874d879cb485abf1c57be2038422a6` retained matching native/Python file hashes, architecture, environment and imported filesystem layers. The receipt records image/archive provenance separately from configuration commit `a85ccfb` and both Compose file hashes. Imported manager ID: `sha256:03d008b40822884a34f483798853859617da5090d75111cc222f55ef93a58f81`; worker ID: `sha256:80ee57b08013bdfab55eb04cde78cd99b4c1001f466ce191df907fd5d7daf04e`.
+- Spark parsed the shipped Compose files, then an isolated worker used those read-only `/opt/ngx` SDK/host-driver mounts, read-only root, normal Tini entrypoint, 384-MiB executable temporary RAM mount and normal 1-GiB scratch reserve. No SDK bootstrap or runtime copy was used. All 25 SR settings, all three motion qualities, all nine FG settings and the combined native render passed in 549.32 seconds. This validates the mounted runtime layout; the test used host networking and bounded CPU/memory, not a production `compose up` lifecycle/default-bridge deployment.
+- Actual Unraid → Spark → Unraid previews passed H.264/Performance/60, HEVC/Quality/K/59.94 and AV1/DLAA/J/120, followed by a six-second H.264 full continuation. All outputs fully decoded; NAS saved hashes and authenticated download hashes matched. Original hashes, chapter synchronization, subtitle/attachment bytes and full-export audio packet bytes were preserved. Preview wall times were 31.72/36.55/35.18 seconds; full continuation was 28.99 seconds. These tiny generated clips are functional evidence, not HD throughput or representative quality.
+- A separate 11,716-byte compressed 1920×1080 black clip requested a five-second 2×/480-fps preview. The planner required 212.78 GiB against 60.76 GiB available and rejected it with a clear next action. No output or owned job folder remained and its source hash was unchanged. The separate worker regression establishes rejection before source transfer; this physical trial does not independently measure network bytes.
+- Read-only SDK and original host-driver hashes were unchanged. All owned test containers, imported image tags and RAM folders were removed on both hosts. Before/after service/image inventories matched with no cleanup errors; a final read-only inspection confirmed the original 15 NAS/four Spark services, absent test tags and absent exact RAM roots. Receipt: gitignored `evidence/compose-nas-spark.json`.
+- Read-only NIC inspection found NAS 1-Gb/s and Spark 10-Gb/s full-duplex links. The hardware guide explains the current NAS ceiling without treating link speed as measured sustained throughput. No network settings were changed. The full five-stage goal remains active; pairing before slow startup, long-job storage optimization, remaining native stages/authorized runtimes, packaged AI GPU acceptance, Optane and final publication are still required. Published 0.2.0 is unchanged.
