@@ -52,16 +52,21 @@ def version(value):
 def retains_features(previous, current):
     if current.get("initialization") != "ready":
         return False
+    if previous.get("resolution_rules") and not current.get("resolution_rules"):
+        return False
     for key in ("engines", "encoders"):
         if not set(previous.get(key, [])).issubset(current.get(key, [])):
             return False
     for key in ("dlss_sr", "dlss_frame_generation", "rtx_vsr", "rtx_hdr"):
         old, new = previous.get(key, {}), current.get(key, {})
-        for field in ("settings", "pipelines", "upscalers", "qualities"):
+        for field in ("settings", "pipelines", "upscalers", "qualities", "temporal_qualities"):
             if not all(item in new.get(field, []) for item in old.get(field, [])):
                 return False
         if new.get("maximum_factor", 0) < old.get("maximum_factor", 0):
             return False
+        for field in ("resolution_targets", "custom_size", "strength", "lossless"):
+            if old.get(field) and not new.get(field):
+                return False
     return True
 
 

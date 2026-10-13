@@ -6,6 +6,7 @@ import secrets
 import shutil
 import subprocess
 import time
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
@@ -20,7 +21,17 @@ from . import __version__
 from .config import Settings, beneath
 from .db import Store, digest
 from .dlss import compatible_recipe
-from .media import VIDEO_EXTENSIONS, dimensions, frame_image, inspect_source, probe, sha256, validate_output
+from .media import (
+    VIDEO_EXTENSIONS,
+    dimensions,
+    frame_image,
+    inspect_source,
+    picture_metadata,
+    probe,
+    sha256,
+    validate_output,
+    video_duration,
+)
 from .models import Failure, Heartbeat, JobCreate, PairRequest
 
 
@@ -34,6 +45,7 @@ def create_app(settings: Settings | None = None):
         raise RuntimeError("Library and output must be separate folders. Mount originals read-only.")
     attempts = {}
     media_slots = asyncio.Semaphore(1)
+    metadata_cache = OrderedDict()
 
     async def media_call(function, *args):
         # Frame requests and return validation share the lightweight manager's
@@ -122,8 +134,10 @@ def create_app(settings: Settings | None = None):
             raise HTTPException(409, str(exc)) from exc
 
     def public_job(job):
+        width, height = dimensions(job["source"], job["recipe"])
         return {k: v for k, v in job.items() if k not in {"lease", "lease_until", "source"}} | {
-            "source": {k: v for k, v in job["source"].items() if k != "mtime_ns"}
+            "source": {k: v for k, v in job["source"].items() if k != "mtime_ns"},
+            "planned_output": {"width": width, "height": height},
         }
 
     @app.get("/health")
@@ -207,6 +221,7 @@ def create_app(settings: Settings | None = None):
                             "path": str(entry.relative_to(cfg.library)),
                             "directory": entry.is_dir(),
                             "size": 0 if entry.is_dir() else entry.stat().st_size,
+                            "modified_ns": 0 if entry.is_dir() else entry.stat().st_mtime_ns,
                         }
                     )
             items.sort(key=lambda e: (not e["directory"], e["name"].casefold()))
@@ -302,7 +317,8 @@ def create_app(settings: Settings | None = None):
             advanced_vsr = body.recipe.engine == "rtx-vsr" and any(value is not None for value in (
                 body.recipe.vsr_quality, body.recipe.vsr_strength, body.recipe.output_width,
             ))
-            if (require_compatible or advanced_dlss or advanced_vsr or body.recipe.frame_generation or body.recipe.hdr) and not any(
+            if (require_compatible or advanced_dlss or advanced_vsr or body.recipe.frame_generation or body.recipe.hdr
+                or body.recipe.resolution_rules is not None or body.recipe.target_resolution is not None) and not any(
                 not w["revoked"]
                 and (not body.worker_id or w["id"] == body.worker_id)
                 and compatible_recipe(body.recipe.model_dump(), w["capabilities"])
@@ -312,6 +328,14 @@ def create_app(settings: Settings | None = None):
                     "No worker has verified these settings. Connect a compatible worker or choose verified settings."
                 )
             source = await asyncio.to_thread(inspect_source, path)
+            if body.recipe.resolution_rules is not None or body.recipe.target_resolution is not None:
+                from .models import Recipe
+                from .resolution import resolve
+
+                workers = [w for w in store.workers() if not w["revoked"] and (not body.worker_id or w["id"] == body.worker_id)]
+                body.recipe = Recipe(**resolve(body.recipe.model_dump(), source, workers))
+                if not any(compatible_recipe(body.recipe.model_dump(), w["capabilities"], source) for w in workers):
+                    raise ValueError("Resolution rules require an updated worker with verified support. Update the worker or use a fixed scale.")
             if body.recipe.preview_frame_time is not None:
                 from fractions import Fraction
 
@@ -321,7 +345,7 @@ def create_app(settings: Settings | None = None):
                         raise ValueError
                 except (ValueError, ZeroDivisionError):
                     raise ValueError("This source has no declared frame rate. Use a full conventional resize or another video.") from None
-                remaining = source["duration"] - body.recipe.preview_frame_time
+                remaining = video_duration(source) - body.recipe.preview_frame_time
                 if remaining <= 0 or (body.recipe.frame_generation and remaining < 0.5):
                     raise ValueError("Choose an earlier frame. Motion previews need at least half a second remaining.")
                 if body.recipe.hdr:
@@ -484,6 +508,31 @@ def create_app(settings: Settings | None = None):
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
 
+    @app.get("/api/library/metadata", dependencies=[Depends(admin)])
+    async def library_metadata(path: str):
+        try:
+            original = beneath(cfg.library, path, file=True)
+            if original.suffix.lower() not in VIDEO_EXTENSIONS:
+                raise ValueError("Choose a supported video file.")
+            # Shares can change beneath us. Validate containment and identity
+            # on every request, including cache hits; retain at most 256 headers.
+            stat = original.stat()
+            key = (str(original), stat.st_ino, stat.st_size, stat.st_mtime_ns)
+            def read_metadata():
+                if key not in metadata_cache:
+                    info = picture_metadata(original)
+                    after = original.stat()
+                    if (after.st_ino, after.st_size, after.st_mtime_ns) != key[1:]:
+                        raise ValueError("Video changed while reading details. Refresh the input list.")
+                    metadata_cache[key] = info
+                    if len(metadata_cache) > 256:
+                        metadata_cache.popitem(last=False)
+                metadata_cache.move_to_end(key)
+                return metadata_cache[key]
+            return await media_call(read_metadata)
+        except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+            raise HTTPException(400, "Video details unavailable. Refresh or choose another file.") from exc
+
     @app.get("/api/library/info", dependencies=[Depends(admin)])
     async def library_info(path: str):
         try:
@@ -493,7 +542,7 @@ def create_app(settings: Settings | None = None):
             info = await media_call(probe, original)
             if info["hdr"] or info["bit_depth"] != 8:
                 raise ValueError("Frame comparison currently supports 8-bit SDR video.")
-            return {key: info[key] for key in ("duration", "width", "height", "frame_rate")}
+            return {**{key: info[key] for key in ("width", "height", "frame_rate", "codec")}, "duration": video_duration(info)}
         except (ValueError, OSError) as exc:
             raise HTTPException(400, str(exc)) from exc
 
@@ -504,7 +553,7 @@ def create_app(settings: Settings | None = None):
             if original.suffix.lower() not in VIDEO_EXTENSIONS:
                 raise ValueError("Choose a supported video file.")
             info = await media_call(probe, original)
-            if info["hdr"] or info["bit_depth"] != 8 or seconds >= info["duration"]:
+            if info["hdr"] or info["bit_depth"] != 8 or seconds >= video_duration(info):
                 raise ValueError("Choose a frame within an 8-bit SDR video.")
             return Response(await media_call(frame_image, original, seconds), media_type="image/png")
         except (ValueError, OSError, subprocess.TimeoutExpired) as exc:

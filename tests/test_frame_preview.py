@@ -3,6 +3,7 @@
 import asyncio
 import io
 import struct
+import subprocess
 import sys
 from fractions import Fraction
 
@@ -11,7 +12,7 @@ import httpx
 import numpy as np
 
 from popcorn_sr.frame_generation import adapter_process, source_timeline
-from popcorn_sr.media import frame_image, sha256
+from popcorn_sr.media import frame_image, probe, sha256
 from popcorn_sr.models import Recipe
 from popcorn_sr.preview_sample import sample
 from popcorn_sr.scratch import initialize
@@ -154,3 +155,36 @@ def test_selected_vfr_sample_keeps_rate_pts_pixels_and_long_final_interval(tmp_p
         frames = list(video.decode(video=0))
         assert [f.pts * f.time_base for f in frames] == [0, Fraction(8, 100)]
         assert [int(f.to_ndarray(format="rgb24")[0, 0, 0]) for f in frames] == [120, 200]
+
+
+def test_selected_frame_uses_picture_clock_when_audio_starts_seconds_earlier(setup, auth, tmp_path):
+    client, store, cfg, original = setup
+    source = cfg.library / "audio-preroll.mkv"
+    subprocess.run(["ffmpeg", "-v", "error", "-itsoffset", "3.681", "-i", str(original),
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=4.8", "-map", "0:v:0", "-map", "1:a:0",
+                    "-c:v", "copy", "-c:a", "aac", str(source)], check=True)
+    before = sha256(source)
+    info = probe(source)
+    assert info["duration"] > 4.7 and .95 < info["video_duration"] < 1.05
+    assert float(info["video_start_time"]) > 3.6
+    response = client.get("/api/library/info", params={"path": source.name})
+    assert .95 < response.json()["duration"] < 1.05
+    assert client.get("/api/library/frame", params={"path": source.name, "seconds": 2}).status_code == 400
+    credentials, _ = pair_worker(client)
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    initialize(scratch)
+    worker = Worker("http://testserver", tmp_path / "worker-state", scratch)
+    worker.token, worker.worker_id, worker.reserve = credentials["token"], credentials["worker_id"], 0
+    queued = client.post("/api/jobs", json={"path": source.name,
+                         "recipe": Recipe(scale=1, preview_seconds=5, preview_frame_time=.25).model_dump()})
+    assert queued.status_code == 200, queued.text
+    result = run_claim(client, store, worker, store.claim(store.worker(worker.token), 90))
+    assert .7 < result["result"]["duration"] < .8
+    original_frame = client.get(f"/api/jobs/{result['id']}/frame?side=original")
+    enhanced_frame = client.get(f"/api/jobs/{result['id']}/frame?side=enhanced")
+    assert original_frame.status_code == enhanced_frame.status_code == 200
+    pixels = png_pixels(original_frame.content).astype(float)
+    returned = png_pixels(enhanced_frame.content).astype(float)
+    assert np.mean(np.abs(pixels - returned)) < 15
+    assert sha256(source) == before

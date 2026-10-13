@@ -12,6 +12,10 @@ Taste + Impeccable. Restrained Apple-like hierarchy, native system typography, z
 ## Main workspace
 Input on the left, output queue with status on the right, upscaling settings underneath. Stack those sections on small screens. No dashboard, sidebar, onboarding diagram or separate queue/library pages. Show method, output size and format; one primary Add to queue action. Put device selection, destination and optional processing controls under More options. Devices & storage is secondary setup, with a direct return to videos. Keep selections/settings when visiting setup.
 
+Input rows show original picture dimensions and codec on the right; output rows show requested dimensions while pending and accepted result dimensions/codec when finished. No file-savings figures. Select page handles a large visible batch. Optional resolution rules map each input group to its own target, preserve cropped/portrait aspect ratio, keep unmatched sizes, and apply to both previews and full runs. Keep the default workspace compact until those rules are opened.
+
+The header connection indicator is a compact Astryx badge with a semantic tinted background and dot, vertically aligned beside Devices & storage on desktop. A connected worker can still be running processing checks; its detailed readiness belongs in Devices & storage and controls remain gated.
+
 When inputs are selected, show one large Original/Enhanced frame comparison between the input/queue and settings. A batch picker appears only for multiple inputs; a time picker selects the frame. Expand the comparison without adding navigation or a modal. Use actual processing, invalidate changed frame/settings, and make full continuation available after both images load. Keep audiovisual samples for motion/HDR review; still comparison is SDR-only.
 
 ## Family identity

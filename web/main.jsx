@@ -13,6 +13,8 @@ import {CheckboxInput} from '@astryxdesign/core/CheckboxInput';
 import {Collapsible} from '@astryxdesign/core/Collapsible';
 import {Banner} from '@astryxdesign/core/Banner';
 import {ProgressBar} from '@astryxdesign/core/ProgressBar';
+import {Icon} from '@astryxdesign/core/Icon';
+import {Badge} from '@astryxdesign/core/Badge';
 import {popcornTheme} from './themes/popcorn.js';
 import './styles.css';
 
@@ -23,6 +25,9 @@ const vsrLevels = {'1':'Level 1 · Fast','2':'Level 2 · Balanced','3':'Level 3 
 const frameRates = ['23.976','25','29.97','30','50','59.94','60','90','119.88','120','144','165','180','240','360','480'];
 const frameModes = {auto:'Auto · recommended',native:'Native · one NVIDIA pass',cascade:'Cascade · multiple NVIDIA passes'};
 const motionNames = {high:'High',medium:'Balanced',low:'Fast'};
+const resolutionNames = {'480':'480p','720':'720p','1080':'1080p','1440':'1440p','2160':'4K','4320':'8K',other:'Other resolutions'};
+const defaultResolutionRules = {'480':'720','720':'1080','1080':'2160','1440':'2160','2160':'keep','4320':'keep',other:'keep'};
+const resolution = info => info?.width && info?.height ? `${info.width} × ${info.height}` : null;
 const bytes = n => n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${(n / 1024 ** 2).toFixed(1)} MB`;
 const workerReady = w => !w.capabilities.updates?.draining && (w.capabilities.initialization===undefined || w.capabilities.initialization==='ready');
 const workerStatus = w => !w.online?'Offline':w.capabilities.updates?.draining?'Updating':w.capabilities.initialization==='checking'?'Checking support':workerReady(w)?'Connected':'Checks failed';
@@ -42,8 +47,33 @@ function Brand() {
 function Copy({children, ...props}) { return <Text as="p" color="secondary" wordBreak="break-word" {...props}>{children}</Text>; }
 function PageHead({title, copy, action}) { return <div className="page-head"><VStack gap={3} className="min-w-0"><Heading level={1}>{title}</Heading><Copy>{copy}</Copy></VStack>{action}</div>; }
 function Empty({title, copy, children}) { return <VStack gap={4} padding={8}><Heading level={3}>{title}</Heading><Copy>{copy}</Copy>{children}</VStack>; }
-function Status({online, children, id}) { return <HStack gap={2} wrap="wrap" id={id}><span className={`status-dot ${online === true ? 'online' : online === false ? 'warning' : ''}`} aria-hidden="true"/><Text type="supporting" color="secondary">{children}</Text></HStack>; }
+function Status({online, children, id}) { return <HStack gap={2} wrap="wrap" vAlign="center" id={id}><span className={`status-dot ${online === true ? 'online' : online === false ? 'warning' : ''}`} aria-hidden="true"/><Text type="supporting" color="secondary">{children}</Text></HStack>; }
 function Feedback({message}) { return message ? <Banner status={message.error ? 'error' : 'success'} title={message.text} collapsible={false}/> : null; }
+function MediaSpec({info,format,pending=false}) {
+  return <span className="media-spec"><Text type="supporting" weight="medium">{resolution(info) || 'Reading…'}{pending && resolution(info)?' · Target':''}</Text><Text type="supporting" color="secondary">{codecNames[info?.codec || format] || info?.codec || format || 'Video'}</Text></span>;
+}
+function InputRow({item,selected,onChoose}) {
+  const row=useRef(null), [metadata,setMetadata]=useState(null), [unavailable,setUnavailable]=useState(false);
+  useEffect(()=>{
+    if(item.directory)return;
+    let live=true, requested=false;
+    const observer=new IntersectionObserver(entries=>{
+      if(!requested && entries.some(entry=>entry.isIntersecting)) {
+        requested=true;observer.disconnect();
+        api(`/api/library/metadata?path=${encodeURIComponent(item.path)}`).then(info=>{if(live)setMetadata(info);}).catch(()=>{if(live)setUnavailable(true);});
+      }
+    },{root:row.current.closest('.pane-content')});
+    observer.observe(row.current);
+    return()=>{live=false;observer.disconnect();};
+  },[item.path,item.modified_ns,item.directory]);
+  return <div ref={row} className={`row file-row ${selected?'selected-file':''}`}>
+    <Button label={item.name} variant="ghost" className="input-choice" width="100%" aria-pressed={item.directory?undefined:selected} onClick={onChoose}><span className="file-content">
+      {!item.directory && <span className="file-selection" aria-hidden="true">{selected && <Icon icon="check" size="sm"/>}</span>}
+      <Text weight="medium" className="path file-name">{item.name}</Text>
+      {item.directory?<Icon icon="chevronRight" color="secondary"/>:unavailable?<span className="media-spec"><Text type="supporting" color="secondary">Details unavailable</Text></span>:<MediaSpec info={metadata} format={item.name.split('.').pop().toUpperCase()}/>}
+    </span></Button>
+  </div>;
+}
 function Login({onLogin, initialError}) {
   const [key,setKey] = useState(''), [error,setError] = useState(initialError), [busy,setBusy] = useState(false);
   async function submit(event) {
@@ -65,20 +95,21 @@ function Login({onLogin, initialError}) {
 }
 function Jobs({jobs,onAction,onCompare}) {
   return <div id="jobs" className="pane-content" aria-label="Output jobs">
-    {!jobs.length ? <Empty title="Finished copies appear here" copy="Choose an input, then add it to the queue."/> : jobs.map(job => <article className="row job-row" key={job.id} data-job-id={job.id} aria-label={job.path.split('/').pop()}>
-      <HStack gap={3} hAlign="between" vAlign="start"><Text weight="semibold" className="path">{job.path.split('/').pop()}{job.recipe.preview_seconds ? ' · Preview' : ''}</Text><Text type="supporting" className="job-status">{({completed:'Ready',failed:'Failed',cancelled:'Cancelled',queued:'Queued',running:`${Math.floor(job.progress)}%`})[job.status] || job.status}</Text></HStack>
-      <Copy type="supporting">{job.stage}{job.status==='queued'?' · Waiting for a compatible device':''}</Copy>
+    {!jobs.length ? <Empty title="Your processed videos" copy="Select an input and add it to the queue. Finished copies appear here."/> : jobs.map(job => <article className="row job-row" key={job.id} data-job-id={job.id} aria-label={job.path.split('/').pop()}>
+      <div className="media-heading"><VStack gap={1} className="min-w-0"><Text weight="medium" className="path">{job.path.split('/').pop()}</Text><Text type="supporting" color="secondary" className="job-status">{({completed:'Ready',failed:'Failed',cancelled:'Cancelled',queued:'Queued',running:`Processing · ${Math.floor(job.progress)}%`})[job.status] || job.status}{job.recipe.preview_seconds?' · Preview':''}</Text></VStack>{(job.result || job.planned_output) && <MediaSpec info={job.result || job.planned_output} format={job.recipe.codec} pending={!job.result}/>}</div>
+      {['queued','running'].includes(job.status) && <Copy type="supporting">{job.status==='queued'?'Waiting for a compatible device':job.stage}</Copy>}
       {job.status==='running' && <ProgressBar label={`Processing ${job.path}`} value={job.progress} isLabelHidden/>}
       {job.error && <Banner status="error" title={job.error} collapsible={false}/>}
       <HStack gap={2} wrap="wrap">
         {job.status==='completed'?<><Button href={`/api/jobs/${job.id}/download`} label={`Download ${job.recipe.preview_seconds?'preview':'copy'}`}/>{!!job.recipe.preview_seconds && <>{!job.recipe.hdr && <Button label="Compare frame" onClick={()=>onCompare(job)}/>} {job.recipe.preview_frame_time==null && <Button label="Enhance full video" clickAction={()=>onAction(job.id,'full')}/>}</>}</>:['failed','cancelled'].includes(job.status)?<Button label="Retry" clickAction={()=>onAction(job.id,'retry')}/>:<Button variant="ghost" label="Cancel" clickAction={()=>onAction(job.id,'cancel')}/>}
-        <Collapsible trigger="Details" defaultIsOpen={false}><VStack gap={2} paddingBlockStart={2}>
+        <Collapsible trigger={<Text type="supporting">Details</Text>} defaultIsOpen={false}><VStack gap={2} paddingBlockStart={2}>
           <Copy type="supporting">{engines[job.recipe.engine] || job.recipe.engine} · {codecNames[job.recipe.codec] || job.recipe.codec} / {job.recipe.output_width?`${job.recipe.output_width} × ${job.recipe.output_height} px`:job.recipe.engine==='dlss-sr' && job.recipe.dlss_mode?dlssModes[job.recipe.dlss_mode]:`${job.recipe.scale}×`}</Copy>
           {job.recipe.engine==='rtx-vsr' && <Copy type="supporting">VSR quality: {job.recipe.vsr_quality?vsrLevels[job.recipe.vsr_quality]:'Worker default'}{job.recipe.vsr_strength!=null?` · Strength: ${Math.round(job.recipe.vsr_strength*100)}%`:''}</Copy>}
           {job.recipe.engine==='dlss-sr' && <Copy type="supporting">Preset: {job.recipe.dlss_preset && job.recipe.dlss_preset!=='default'?job.recipe.dlss_preset.toUpperCase():'Automatic'} · Motion estimation: {motionNames[job.recipe.temporal_quality || 'high']}</Copy>}
           {job.recipe.frame_generation && <Copy type="supporting">DLSS frame generation: {job.recipe.frame_rate} fps · {frameModes[job.recipe.frame_generation_mode || 'auto'].split(' · ')[0]} · Motion: {motionNames[job.recipe.frame_generation_quality || 'high']}</Copy>}
           {job.recipe.hdr && <Copy type="supporting">RTX Video HDR · 10-bit · Peak brightness: {job.recipe.hdr_luminance || 650} nits</Copy>}
-          {job.result && <Copy type="supporting" className="path">{job.result.path} / {bytes(job.result.bytes)}</Copy>}
+          {job.source && <Copy type="supporting">Original: {resolution(job.source)}{job.result?` · Output: ${resolution(job.result)}`:''}</Copy>}
+          {job.result && <Copy type="supporting" className="path">{job.result.path}</Copy>}
         </VStack></Collapsible>
       </HStack>
     </article>)}
@@ -96,13 +127,14 @@ function Recipe({paths,state,onCreated,compareJob}) {
     return()=>{live=false;};
   },[path]);
   useEffect(()=>{if(compareJob?.path===path && review?.id===compareJob.id)return;setFrameTime(0);setReview(null);},[path]);
-  const [desired,setDesired]=useState({worker:'',engine:'auto',scale:'2',size_mode:'scale',output_width:1920,output_height:1080,vsr_quality:'default',vsr_strength:null,codec:'h264',encoder:'auto',quality:'23',dlss_mode:'performance',dlss_preset:'default',temporal_quality:'high',frame_generation:false,frame_rate:'60',frame_generation_mode:'auto',frame_generation_quality:'high',hdr:false,hdr_contrast:100,hdr_saturation:100,hdr_middle_gray:50,hdr_luminance:650,hdr_debanding:true,output_directory:'enhanced',denoise:false,deinterlace:false,sharpen:false,interpolate:false});
+  const [desired,setDesired]=useState({worker:'',engine:'auto',scale:'2',size_mode:'scale',resolution_rules:defaultResolutionRules,output_width:1920,output_height:1080,vsr_quality:'default',vsr_strength:null,codec:'h264',encoder:'auto',quality:'23',dlss_mode:'performance',dlss_preset:'default',temporal_quality:'high',frame_generation:false,frame_rate:'60',frame_generation_mode:'auto',frame_generation_quality:'high',hdr:false,hdr_contrast:100,hdr_saturation:100,hdr_middle_gray:50,hdr_luminance:650,hdr_debanding:true,output_directory:'enhanced',denoise:false,deinterlace:false,sharpen:false,interpolate:false});
   const [error,setError]=useState(''), [busy,setBusy]=useState(false);
   useEffect(()=>{
     if(!compareJob)return;
     const r=compareJob.recipe;
-    const restored={...desired,...r,worker:compareJob.target || '',scale:String(r.scale),quality:String(r.quality),vsr_quality:r.vsr_quality?String(r.vsr_quality):'default',vsr_strength:r.vsr_strength==null?null:r.vsr_strength*100,size_mode:r.output_width?'custom':'scale',dlss_mode:r.dlss_mode || 'performance'};
+    const restored={...desired,...r,resolution_rules:r.resolution_rules || defaultResolutionRules,worker:compareJob.target || '',scale:String(r.scale),quality:String(r.quality),vsr_quality:r.vsr_quality?String(r.vsr_quality):'default',vsr_strength:r.vsr_strength==null?null:r.vsr_strength*100,size_mode:r.resolution_rules?'rules':r.output_width?'custom':'scale',dlss_mode:r.dlss_mode || 'performance'};
     delete restored.preview_seconds;delete restored.preview_frame_time;
+    delete restored.target_resolution;
     setDesired(restored);setChosen(compareJob.path);setFrameTime(r.preview_frame_time || 0);
     setReview({id:compareJob.id,path:compareJob.path,time:r.preview_frame_time || 0,selection:JSON.stringify(restored)});
     panel.current?.scrollIntoView({block:'start',behavior:'auto'});
@@ -117,7 +149,8 @@ function Recipe({paths,state,onCreated,compareJob}) {
   const supported=[...new Set(candidates.flatMap(w=>w.capabilities.engines || []))];
   const engine=desired.engine==='auto'?['dlss-sr','rtx-vsr','realesrgan','resize'].find(e=>supported.includes(e)) || 'resize':desired.engine;
   const engineUnavailable=desired.engine!=='auto' && !supported.includes(desired.engine);
-  const capable=candidates.filter(w=>(w.capabilities.engines || []).includes(engine));
+  const rulesEnabled=desired.size_mode==='rules';
+  const capable=candidates.filter(w=>(w.capabilities.engines || []).includes(engine) && (!rulesEnabled || (w.capabilities.resolution_rules && (engine!=='dlss-sr' || w.capabilities.dlss_sr?.resolution_targets) && (engine!=='rtx-vsr' || w.capabilities.rtx_vsr?.custom_size))));
   const settings=capable.flatMap(w=>w.capabilities.dlss_sr?.settings || []);
   const modes=Object.keys(dlssModes).filter(mode=>settings.some(([m])=>m===mode));
   const advancedDLSS=engine==='dlss-sr' && modes.length>0;
@@ -156,6 +189,7 @@ function Recipe({paths,state,onCreated,compareJob}) {
   const scale=scales.includes(desired.scale)?desired.scale:scales[0];
   const change=(key,value)=>setDesired(current=>({...current,[key]:value,...(key==='frame_generation' && value?{interpolate:false}: {})}));
   const effectiveRecipe={engine,scale:Number(scale),codec,encoder,quality:Number(desired.quality),output_directory:desired.output_directory};
+  if(rulesEnabled) effectiveRecipe.resolution_rules=desired.resolution_rules;
   if(advancedDLSS) Object.assign(effectiveRecipe,{dlss_mode:dlssMode,dlss_preset:dlssPreset,temporal_quality:temporalQuality});
   if(vsr && desired.vsr_quality!=='default') effectiveRecipe.vsr_quality=Number(desired.vsr_quality);
   if(vsr && desired.vsr_strength!==null) effectiveRecipe.vsr_strength=desired.vsr_strength/100;
@@ -192,7 +226,7 @@ function Recipe({paths,state,onCreated,compareJob}) {
     finally{setBusy(false);}
   }
   const reviewedJob=review && state.jobs.find(j=>j.id===review.id);
-  const effectiveMatch=!reviewedJob || (reviewedJob.target===(worker || null) && Object.entries(effectiveRecipe).every(([key,value])=>reviewedJob.recipe[key]===value));
+  const effectiveMatch=!reviewedJob || (reviewedJob.target===(worker || null) && Object.entries(effectiveRecipe).every(([key,value])=>rulesEnabled && ['scale','dlss_mode'].includes(key) || JSON.stringify(reviewedJob.recipe[key])===JSON.stringify(value)));
   const currentReview=review && review.path===path && review.time===frameTime && review.selection===JSON.stringify(desired) && effectiveMatch;
   const comparisonReady=currentReview && reviewedJob?.status==='completed';
   const originalURL=path && info && Number.isFinite(frameTime) && frameTime>=0 && frameTime<info.duration?comparisonReady?`/api/jobs/${review.id}/frame?side=original`:`/api/library/frame?path=${encodeURIComponent(path)}&seconds=${frameTime}`:null;
@@ -224,9 +258,14 @@ function Recipe({paths,state,onCreated,compareJob}) {
     <form onSubmit={e=>{e.preventDefault();submit(0);}}><VStack gap={6}>
       <div className="settings-grid">
         <Selector label="Enhancement" value={engine} onChange={v=>change('engine',v)} width="100%" options={[...new Set([...supported,engine])].map(e=>({value:e,label:engines[e] || e,disabled:!supported.includes(e)}))}/>
-        {advancedDLSS?<Selector label="DLSS mode" value={dlssMode} onChange={v=>change('dlss_mode',v)} width="100%" options={modes.map(value=>({value,label:dlssModes[value]}))}/>:<Selector label="Output size" value={customSize?'custom':scale} onChange={v=>v==='custom'?change('size_mode','custom'):setDesired(current=>({...current,size_mode:'scale',scale:v}))} width="100%" options={[...scales.map(v=>({value:v,label:({'1':'Keep source size (1×)','2':'Twice the size (2×)','3':'Three times the size (3×)','4':'Four times the size (4×)'})[v]})),...(vsr && capable.some(w=>w.capabilities.rtx_vsr?.custom_size) || customSize?[{value:'custom',label:'Custom dimensions'}]:[])]}/>}
+        {rulesEnabled?<VStack gap={1} className="rule-summary"><Text weight="medium">Output size</Text><Copy>By input resolution</Copy><Copy type="supporting">Set each target below.</Copy></VStack>:advancedDLSS?<Selector label="DLSS mode" value={dlssMode} onChange={v=>change('dlss_mode',v)} width="100%" options={modes.map(value=>({value,label:dlssModes[value]}))}/>:<Selector label="Output size" value={customSize?'custom':scale} onChange={v=>v==='custom'?change('size_mode','custom'):setDesired(current=>({...current,size_mode:'scale',scale:v}))} width="100%" options={[...scales.map(v=>({value:v,label:({'1':'Keep source size (1×)','2':'Twice the size (2×)','3':'Three times the size (3×)','4':'Four times the size (4×)'})[v]})),...(vsr && capable.some(w=>w.capabilities.rtx_vsr?.custom_size) || customSize?[{value:'custom',label:'Custom dimensions'}]:[])]}/>}
         <Selector label="Video format" value={codec} onChange={v=>change('codec',v)} width="100%" options={['h264','hevc','av1'].map(v=>({value:v,label:({h264:'H.264 · broad compatibility',hevc:'H.265 / HEVC · smaller files',av1:'AV1 · newer players'})[v],disabled:!codecs.includes(v)}))}/>
       </div>
+      <Collapsible trigger="Resolution rules" defaultIsOpen={false}><VStack gap={4} paddingBlockStart={4}>
+        <div className="checkbox-row"><CheckboxInput label="Set output by input resolution" value={rulesEnabled} onChange={value=>change('size_mode',value?'rules':'scale')} isDisabled={engine==='dlss5'}/></div>
+        <Copy type="supporting">Each video uses its matching rule. Cropped and portrait videos keep their shape. Unmatched resolutions keep their original size.</Copy>
+        {rulesEnabled && <><div className="resolution-rules">{Object.entries(resolutionNames).filter(([key])=>key!=='other').map(([key,label])=><div className="resolution-rule" key={key}><Text weight="medium">{label} input</Text><Icon icon="chevronRight" color="secondary"/><Selector label={`${label} output`} isLabelHidden value={desired.resolution_rules[key]} onChange={value=>setDesired(current=>({...current,resolution_rules:{...current.resolution_rules,[key]:value}}))} width="100%" options={[{value:'keep',label:'Keep resolution'},...Object.entries(resolutionNames).filter(([value])=>value!=='other' && Number(value)>Number(key)).map(([value,label])=>({value,label}))]}/></div>)}</div>{engine==='dlss-sr' && <Copy type="supporting">DLSS uses a verified mode, then fits the enhanced picture to your target. Targets above 3× need another enhancement.</Copy>}</>}
+      </VStack></Collapsible>
       {vsrRequested && <VStack gap={3}><Selector label="VSR quality" value={desired.vsr_quality} onChange={v=>change('vsr_quality',v)} width="100%" options={[{value:'default',label:'Worker default'},...Object.entries(vsrLevels).filter(([value])=>vsrQualities.includes(value) || value===desired.vsr_quality).map(([value,label])=>({value,label,disabled:!vsrQualities.includes(value)}))]} description="Higher levels favor detail and take longer. This controls enhancement; export quality controls file size."/>{customSize && <div className="form-grid">{[['output_width','Output width'],['output_height','Output height']].map(([key,label])=><NumberInput key={key} label={label} value={desired[key]} onChange={v=>change(key,v)} min={64} max={7680} step={8} units="px" isIntegerOnly isWheelEnabled={false} width="100%" description="64–7680 pixels, in multiples of 8."/>)}</div>}{sizeInvalid && <Banner status="warning" title="Check the output dimensions" description="Enter both dimensions as multiples of 8, from 64 to 7680 pixels." collapsible={false}/>}{vsrUnavailable && <Banner status="warning" title="RTX Video settings are unavailable" description="Your choices are kept. Choose a compatible worker or change the enhancement settings." collapsible={false}/>}</VStack>}
       <Collapsible trigger="More options" defaultIsOpen={false}><VStack gap={4} paddingBlockStart={4}>
         <Selector label="Processing device" value={worker} onChange={v=>change('worker',v)} width="100%" options={[{value:'',label:'Any compatible worker'},...active.map(w=>({value:w.id,label:w.name+(workerStatus(w)==='Connected'?'':` (${workerStatus(w).toLowerCase()})`)}))]} description={candidates.length?'Jobs start when a compatible device is connected.':checking?'Support checks are running. Options become available when they finish.':failed?'Support checks failed. Open Devices & storage for the reason.':'Connect a device in Devices & storage to start jobs.'}/>
@@ -253,7 +292,7 @@ function Recipe({paths,state,onCreated,compareJob}) {
       </VStack></Collapsible>
       {error && <Banner status="error" title={error} collapsible={false}/>}
       {engineUnavailable && <Banner status="warning" title="Selected enhancement is unavailable" description="Your settings are kept. Choose a compatible device or another enhancement." collapsible={false}/>}
-      {!codecs.length && !engineUnavailable && <Copy type="supporting">{checking?'Your device is checking support. Processing becomes available when it is ready.':'Connect a compatible device in Devices & storage to start.'}</Copy>}
+      {!codecs.length && !engineUnavailable && <Copy type="supporting">{checking?'Your device is checking support. Processing becomes available when it is ready.':rulesEnabled?'Update or connect a worker that supports resolution rules in Devices & storage.':'Connect a compatible device in Devices & storage to start.'}</Copy>}
       <div className="recipe-actions"><Copy type="supporting">{path?`Selected: ${path.split('/').pop()}`:'Choose an input above.'}{path && engine!=='resize'?' · Experimental AI; compare a short preview first.':''}</Copy><HStack gap={3} wrap="wrap"><Button label="Preview 5 seconds" onClick={()=>submit(5)} isDisabled={!path || busy || !codecs.length || engineUnavailable || sizeInvalid || !desired.output_directory.trim()}/><Button label={paths.length>1?`Add ${paths.length} videos to queue`:'Add to queue'} type="submit" variant={review?'secondary':'primary'} isLoading={busy} isDisabled={!path || !codecs.length || engineUnavailable || sizeInvalid || !desired.output_directory.trim()}/></HStack></div>
 
     </VStack></form>
@@ -264,13 +303,13 @@ function Workspace({state,onNotice,refresh,onAction}) {
   useEffect(()=>{let live=true;setListing(null);setError('');api(`/api/library?directory=${encodeURIComponent(directory)}&offset=${offset}`).then(data=>{if(live)setListing(data);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[directory,offset,revision]);
   function folder(path){setDirectory(path);setOffset(0);setSelected([]);setCompareJob(null);}
   async function created(preview,clear=true,queuedPath=null){if(queuedPath)setSelected(current=>current.filter(p=>p!==queuedPath));if(clear){setSelected([]);setCompareJob(null);}await refresh();onNotice({text:preview?'Preview queued.':'Video queued. Your original is preserved.'});}
-  return <VStack gap={8}>
-    <div><Heading level={1}>Upscale your videos</Heading><Copy>Choose an input. Make a better copy. Keep the original.</Copy></div>
+  return <VStack gap={6}>
+    <div className="workspace-title"><Heading level={1}>Videos</Heading><Copy>Select videos, compare a frame, then queue your copies.</Copy></div>
     <div className="io-grid">
       <section className="panel io-pane" aria-label="Input"><HStack className="pane-heading" hAlign="between" gap={3}><Heading level={2}>Input</Heading><Button label="Refresh" variant="ghost" onClick={()=>setRevision(v=>v+1)}/></HStack>
-        <HStack className="folder-bar" hAlign="between" gap={3} wrap="wrap"><Text type="supporting" color="secondary" className="path min-w-0">{directory==='.'?'Your library':directory}</Text>{directory!=='.' && <Button label="Up a folder" variant="ghost" onClick={()=>folder(directory.split('/').slice(0,-1).join('/') || '.')}/>}</HStack>
+        <HStack className="folder-bar" hAlign="between" gap={3} wrap="wrap"><Text type="supporting" color="secondary" className="path min-w-0">{directory==='.'?'Your library':directory}</Text><HStack gap={2}>{listing?.items.filter(item=>!item.directory).length>1 && <Button label={listing.items.filter(item=>!item.directory).every(item=>selected.includes(item.path))?'Clear page':'Select page'} variant="ghost" onClick={()=>{const files=listing.items.filter(item=>!item.directory).map(item=>item.path);setSelected(current=>files.every(file=>current.includes(file))?current.filter(file=>!files.includes(file)):[...new Set([...current,...files])]);}}/>}{directory!=='.' && <Button label="Up a folder" variant="ghost" onClick={()=>folder(directory.split('/').slice(0,-1).join('/') || '.')}/>}</HStack></HStack>
         <div className="pane-content">
-          {error?<Empty title="Library unavailable" copy={error}/>:!listing?<Empty title="Loading your library…" copy="Reading your videos."/>:!listing.items.length?<Empty title="No videos here" copy="Choose another folder, or check your library mount in Devices & storage."/>:listing.items.map(item=><div className={`row file-row ${selected.includes(item.path)?'selected-file':''}`} key={item.path}><Button label={item.name} variant="ghost" aria-pressed={!item.directory?selected.includes(item.path):undefined} onClick={()=>item.directory?folder(item.path):setSelected(current=>current.includes(item.path)?current.filter(p=>p!==item.path):[...current,item.path])}><VStack gap={1} hAlign="start" className="min-w-0"><Text weight="medium" className="path">{item.name}</Text><Copy type="supporting">{item.directory?'Open folder':bytes(item.size)}</Copy></VStack></Button>{selected.includes(item.path) && <Text type="supporting">Selected</Text>}</div>)}
+          {error?<Empty title="Library unavailable" copy={error}/>:!listing?<Empty title="Loading your library…" copy="Reading your videos."/>:!listing.items.length?<Empty title="No videos here" copy="Choose another folder, or check your library mount in Devices & storage."/>:listing.items.map(item=><InputRow key={`${item.path}:${revision}`} item={item} selected={selected.includes(item.path)} onChoose={()=>item.directory?folder(item.path):setSelected(current=>current.includes(item.path)?current.filter(p=>p!==item.path):[...current,item.path])}/>)}
         </div>
         {listing?.total>100 && <HStack className="row" gap={3} hAlign="between" wrap="wrap"><Button label="Previous" variant="ghost" isDisabled={!offset} onClick={()=>setOffset(v=>Math.max(0,v-100))}/><Copy type="supporting">{offset+1}–{Math.min(offset+100,listing.total)} of {listing.total}</Copy><Button label="Next" variant="ghost" isDisabled={offset+100>=listing.total} onClick={()=>setOffset(v=>v+100)}/></HStack>}
       </section>
@@ -348,11 +387,10 @@ function App() {
   if(loading)return <div className="login-wrap"><Text>Opening Popcorn SR…</Text></div>;
   if(!state)return <Login key={loginError} onLogin={refresh} initialError={loginError}/>;
   const workers=state.workers.filter(w=>!w.revoked);
-  const ready=workers.filter(w=>w.online && workerReady(w));
-  const checking=workers.some(w=>w.online && w.capabilities.initialization==='checking');
-  const updating=workers.some(w=>w.online && w.capabilities.updates?.draining);
-  const connection=interrupted?'Connection interrupted':ready.length===1?`${ready[0].name} · Connected`:ready.length?`${ready.length} devices connected`:updating?'Updating worker':checking?'Checking support':workers.length?'Device offline':'No processing device';
-  return <><a className="skip-link" href="#workspace">Skip to workspace</a><header className="app-header"><div className="header-inner"><Brand/><HStack gap={4} wrap="wrap" hAlign="end"><Status id="connection" online={interrupted?false:ready.length?true:undefined}>{connection}</Status><Button label={view==='workspace'?'Devices & storage':'Back to videos'} variant="ghost" onClick={()=>navigate(view==='workspace'?'setup':'workspace')}/></HStack></div></header>
+  const connected=workers.filter(w=>w.online);
+  const connection=interrupted?'Connection interrupted':connected.length===1?`${connected[0].name} · Connected`:connected.length?`${connected.length} devices connected`:workers.length?'Device offline':'No processing device';
+  const connectionTone=interrupted?'warning':connected.length?'success':'neutral';
+  return <><a className="skip-link" href="#workspace">Skip to workspace</a><header className="app-header"><div className="header-inner"><Brand/><div className="header-actions"><Badge id="connection" className="connection-chip" variant={connectionTone} label={connection} icon={<span className={`status-dot ${connectionTone==='success'?'online':connectionTone==='warning'?'warning':''}`} aria-hidden="true"/>}/><Button label={view==='workspace'?'Devices & storage':'Back to videos'} variant="ghost" onClick={()=>navigate(view==='workspace'?'setup':'workspace')}/></div></div></header>
     <main className="workspace" id="workspace" ref={surface} tabIndex={-1}><VStack gap={6}>
       <Feedback message={notice}/>
       {interrupted && <Banner status="warning" title="Connection interrupted" description="Reconnecting automatically. Your saved jobs remain on the manager." collapsible={false}/>}

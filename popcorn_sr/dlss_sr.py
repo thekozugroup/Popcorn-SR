@@ -151,6 +151,13 @@ def render(args):
     import av
 
     info = probe(Path(args.input))
+    fit_width, fit_height = getattr(args, "fit_width", None), getattr(args, "fit_height", None)
+    if (fit_width is None) != (fit_height is None):
+        raise ValueError("Both final output dimensions are required.")
+    if fit_width is not None and (not 2 <= fit_width <= args.width or not 2 <= fit_height <= args.height
+                                  or fit_width % 2 or fit_height % 2
+                                  or abs(Fraction(fit_width, fit_height) - Fraction(args.width, args.height)) > Fraction(1, 100)):
+        raise ValueError("DLSS final fit must preserve aspect ratio and cannot enlarge the enhanced picture.")
     if info["hdr"] or info["bit_depth"] != 8:
         raise ValueError("Native DLSS video currently accepts 8-bit SDR only.")
     color = SDRColor.read(args.input)
@@ -173,7 +180,7 @@ def render(args):
                 motion = MotionEstimator(args.temporal_quality)
                 first, count, resets = None, 0, 0
                 with encoded_video(
-                    args.output, args.width, args.height, video.average_rate, video.time_base,
+                    args.output, fit_width or args.width, fit_height or args.height, video.average_rate, video.time_base,
                     encoding_options(args.codec, args.quality),
                     sdr_color=color,
                 ) as (output, encoded):
@@ -184,7 +191,12 @@ def render(args):
                         first = timestamp if first is None else first
                         rgb = color.rgb(frame)
                         flow, reset = motion.estimate(rgb, timestamp, 1 / video.average_rate)
-                        result = av.VideoFrame.from_ndarray(dlss.process(rgb, flow, reset), format="rgb24")
+                        enhanced = dlss.process(rgb, flow, reset)
+                        if fit_width is not None and (fit_width, fit_height) != (args.width, args.height):
+                            import cv2
+
+                            enhanced = cv2.resize(enhanced, (fit_width, fit_height), interpolation=cv2.INTER_AREA)
+                        result = av.VideoFrame.from_ndarray(enhanced, format="rgb24")
                         result.pts = frame.pts - int(first / frame.time_base)
                         result.time_base = Fraction(frame.time_base)
                         for packet in encoded.encode(result):
@@ -273,6 +285,8 @@ def main():
         parser.add_argument(f"--{key}", required=True)
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--height", type=int, required=True)
+    parser.add_argument("--fit-width", type=int)
+    parser.add_argument("--fit-height", type=int)
     parser.add_argument("--mode", choices=MODES, default="performance")
     parser.add_argument("--preset", choices=PRESETS, default="default")
     parser.add_argument("--temporal-quality", choices=["low", "medium", "high"], default="high")

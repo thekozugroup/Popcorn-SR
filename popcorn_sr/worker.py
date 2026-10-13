@@ -379,15 +379,13 @@ class Worker:
             await self.process(
                 [interpreter, "-m", "popcorn_sr.preview_sample", "--input", str(source),
                  "--output", str(engine_source), "--start", str(recipe.get("preview_frame_time") or 0),
-                 "--seconds", str(recipe["preview_seconds"])],
+                 "--seconds", str(recipe["preview_seconds"]), "--clock", "video" if frame_preview else "container"],
                 folder, recipe["preview_seconds"], progress_start=10, progress_end=15,
             )
         self.status["stage"] = "Enhancing video" if recipe["engine"] != "resize" else "Encoding video"
-        duration = (
-            min(info["duration"] - (recipe.get("preview_frame_time") or 0), recipe["preview_seconds"])
-            if recipe["preview_seconds"]
-            else info["duration"]
-        )
+        from .media import preview_duration
+
+        duration = preview_duration(info, recipe)
         generation = recipe.get("frame_generation", False)
         hdr = recipe.get("hdr", False)
         source_end = None

@@ -45,6 +45,49 @@ test.afterEach(async ({page}) => {
   await page.unrouteAll({behavior:'wait'});
 });
 
+test('resolution rules preserve mixed-batch intent, previews and original/final row dimensions', async ({page}) => {
+  await signIn(page);
+  const input=page.getByRole('region',{name:'Input',exact:true});
+  await expect(input.getByText('320 × 180',{exact:true})).toHaveCount(2);
+  await input.getByRole('button',{name:'Select page',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Add 2 videos to queue',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Resolution rules',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Set output by input resolution',exact:true}).check();
+  await expect(page.getByRole('combobox',{name:'720p output',exact:true})).toContainText('1080p');
+  await expect(page.getByRole('combobox',{name:'1080p output',exact:true})).toContainText('4K');
+  await expect(page.getByRole('combobox',{name:'4K output',exact:true})).toContainText('Keep resolution');
+  // Tiny generated inputs use Keep resolution here; the backend/media tests
+  // exercise true target fitting. This is a real CPU preview and batch run.
+  await page.getByRole('combobox',{name:'480p output',exact:true}).click();
+  await expect(page.getByRole('option',{name:'480p',exact:true})).toHaveCount(0);
+  await page.getByRole('option',{name:'Keep resolution',exact:true}).click();
+  await page.getByRole('button',{name:'Preview frame',exact:true}).click();
+  await expect(page.locator('.frame-pair img')).toHaveCount(2,{timeout:30000});
+  await expect.poll(()=>page.locator('.frame-pair img').evaluateAll(images=>images.every(image=>image.complete && image.naturalWidth))).toBeTruthy();
+  const preview=(await (await page.request.get('/api/state')).json()).jobs.find(job=>job.recipe.resolution_rules);
+  expect(preview.recipe).toMatchObject({scale:1,resolution_rules:{'480':'keep','720':'1080','1080':'2160'}});
+  const output=page.getByRole('region',{name:'Output queue',exact:true});
+  await expect(output.locator(`[data-job-id="${preview.id}"] .media-spec`)).toContainText('320 × 180');
+  await expect(output.locator(`[data-job-id="${preview.id}"] .media-spec`)).toContainText('H.264');
+  await navigate(page,'Processing');await page.getByRole('button',{name:'Back to videos',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'480p output',exact:true})).toContainText('Keep resolution');
+  await page.getByRole('button',{name:'Run full batch',exact:true}).click();
+  await expect.poll(async()=>{
+    const state=await (await page.request.get('/api/state')).json();
+    return state.jobs.filter(job=>job.recipe.resolution_rules && !job.recipe.preview_seconds && job.status==='completed').length;
+  },{timeout:30000}).toBe(2);
+  const full=(await (await page.request.get('/api/state')).json()).jobs.filter(job=>job.recipe.resolution_rules && !job.recipe.preview_seconds);
+  expect(full.every(job=>job.recipe.scale===1 && job.recipe.resolution_rules['720']==='1080')).toBeTruthy();
+  await expect(output.getByRole('link',{name:'Download copy',exact:true})).toHaveCount(2,{timeout:10000});
+  for(const [width,height,mode] of [[1440,1100,'light'],[768,1024,'dark'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    expect((await accessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    await page.locator('main').focus();await page.evaluate(()=>scrollTo(0,0));
+    await page.screenshot({path:`evidence/final-install-20261013/refined-cpu-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+  }
+});
+
 async function accessibility(page) {
   // This app has no frames. Scan the actual page directly so a separate
   // analysis page cannot use a different system theme than emulateMedia.
@@ -55,6 +98,14 @@ async function accessibility(page) {
 test('one workspace selects input, keeps settings across setup, and returns a real queued copy', async ({page}) => {
   await signIn(page);
   await expect.poll(async()=>page.locator('#connection').textContent()).toMatch(/connected/i);
+  await expect(page.locator('#connection')).toHaveClass(/connection-chip/);
+  await expect(page.locator('#connection')).toHaveAttribute('data-variant','success');
+  const alignment=await page.evaluate(()=>{
+    const chip=document.querySelector('#connection').getBoundingClientRect();
+    const button=document.querySelector('.header-actions button').getBoundingClientRect();
+    return Math.abs(chip.y+chip.height/2-button.y-button.height/2);
+  });
+  expect(alignment).toBeLessThan(1);
   await expect(page.getByRole('navigation')).toHaveCount(0);
   await expect(page.getByRole('combobox')).toHaveCount(3);
   await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeDisabled();
@@ -402,7 +453,7 @@ async function signIn(page) {
   await page.goto('/');
   await page.getByLabel('Access key').fill('local-test-only-access-key-12345');
   await page.getByRole('button',{name:'Open Popcorn SR'}).click();
-  await expect(page.getByRole('heading',{name:'Upscale your videos'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Videos',exact:true})).toBeVisible();
 }
 
 test('paired device shows checking, ready and failure without exposing stale support (UI fixture)', async ({page}) => {

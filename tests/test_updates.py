@@ -170,11 +170,15 @@ def test_controller_failed_candidate_restores_exact_previous_image(updater, monk
 
 def test_feature_gate_rejects_lost_encoder_sr_and_frame_generation():
     caps = {"initialization": "ready", "engines": ["dlss-sr"], "encoders": ["av1_nvidia"],
-            "dlss_sr": {"settings": [["performance", "default"]]},
+            "resolution_rules": True,
+            "dlss_sr": {"settings": [["performance", "default"]], "resolution_targets": True, "temporal_qualities": ["high"]},
             "dlss_frame_generation": {"settings": [["cascade", "high"]], "maximum_factor": 6}}
     assert host.retains_features(caps, caps)
     for key in ("encoders", "engines", "dlss_sr", "dlss_frame_generation"):
         assert not host.retains_features(caps, caps | {key: [] if key in {"encoders", "engines"} else {}})
+    assert not host.retains_features(caps, caps | {"resolution_rules": False})
+    for field in ("resolution_targets", "temporal_qualities"):
+        assert not host.retains_features(caps, caps | {"dlss_sr": caps["dlss_sr"] | {field: False if field == "resolution_targets" else []}})
 
 
 def test_controller_rejects_worker_writable_configuration(updater):

@@ -11,6 +11,20 @@ from .dlss import scale_for_recipe
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".mov", ".avi", ".webm", ".m4v", ".ts", ".m2ts", ".mpg", ".mpeg"}
 
 
+def picture_metadata(path: Path):
+    """Read only a video header for visible library rows; never hash/decode media."""
+    result = subprocess.run([
+        "ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe", "-select_streams", "V:0",
+        "-show_entries", "stream=width,height,codec_name", "-of", "json", str(path.resolve()),
+    ], capture_output=True, text=True, timeout=15, check=False)
+    if result.returncode:
+        raise ValueError("Video details unavailable. Check that the file has finished copying.")
+    video = next(iter(json.loads(result.stdout).get("streams", [])), None)
+    if not video or not 0 < video.get("width", 0) <= 16384 or not 0 < video.get("height", 0) <= 16384:
+        raise ValueError("No supported video header was found.")
+    return {"width": video["width"], "height": video["height"], "codec": video.get("codec_name")}
+
+
 def sha256(path: Path) -> str:
     value = hashlib.sha256()
     with path.open("rb") as stream:
@@ -89,10 +103,27 @@ def probe(path: Path) -> dict:
     width, height = int(video["width"]), int(video["height"])
     if width <= 0 or height <= 0 or width > 16384 or height > 16384:
         raise ValueError("Video dimensions are outside the supported range.")
+    # Matroska's stream DURATION tag is an end timestamp. Audio preroll can
+    # make format.duration much longer than the playable picture sequence.
+    picture_duration = video.get("duration")
+    if picture_duration is None and video.get("tags", {}).get("DURATION"):
+        try:
+            hours, minutes, seconds = video["tags"]["DURATION"].split(":")
+            picture_duration = float(int(hours) * 3600 + int(minutes) * 60 + Fraction(seconds)
+                                     - Fraction(video.get("start_time") or "0"))
+        except (ValueError, ZeroDivisionError):
+            picture_duration = None
+    if picture_duration is None:
+        picture_duration = duration - max(0, float(Fraction(video.get("start_time") or "0")
+                                                   - Fraction(data.get("format", {}).get("start_time") or "0")))
+    picture_duration = float(picture_duration)
+    if not math.isfinite(picture_duration) or picture_duration <= 0:
+        raise ValueError("Picture duration is missing or invalid.")
     return {
         "width": width,
         "height": height,
         "duration": duration,
+        "video_duration": picture_duration,
         "frame_rate": video.get("avg_frame_rate", "0/0"),
         "video_start_time": video.get("start_time"),
         "start_time": data.get("format", {}).get("start_time"),
@@ -139,6 +170,10 @@ def inspect_source(path: Path):
 
 
 def dimensions(source, recipe):
+    if recipe.get("target_resolution") is not None:
+        from .resolution import target_dimensions
+
+        return target_dimensions(source, recipe["target_resolution"], 8 if recipe["engine"] == "rtx-vsr" else 2)
     if recipe["engine"] == "rtx-vsr" and recipe.get("output_width") is not None:
         return recipe["output_width"], recipe["output_height"]
     alignment = 8 if recipe["engine"] == "rtx-vsr" else 2
@@ -147,15 +182,25 @@ def dimensions(source, recipe):
 
 
 def preview_duration(source, recipe):
-    remaining = source["duration"] - (recipe.get("preview_frame_time") or 0)
+    duration = video_duration(source) if recipe.get("preview_frame_time") is not None else source["duration"]
+    remaining = duration - (recipe.get("preview_frame_time") or 0)
     return min(remaining, recipe["preview_seconds"]) if recipe["preview_seconds"] else source["duration"]
+
+
+def video_duration(source):
+    """Support earlier stored jobs without confusing audio preroll with pictures."""
+    return source.get("video_duration", source["duration"] - max(
+        0, float(Fraction(source.get("video_start_time") or "0") - Fraction(source.get("start_time") or "0"))
+    ))
 
 
 def frame_image(path: Path, seconds: float) -> bytes:
     """Accurately seek and decode one display-sized frame without cached files."""
+    info = probe(path)
+    offset = max(0, float(Fraction(info.get("video_start_time") or "0") - Fraction(info.get("start_time") or "0")))
     result = subprocess.run([
         "ffmpeg", "-nostdin", "-v", "error", "-threads", "2", "-filter_threads", "1",
-        "-protocol_whitelist", "file,pipe", "-ss", str(seconds), "-i", str(path.resolve()),
+        "-protocol_whitelist", "file,pipe", "-ss", str(seconds + offset), "-i", str(path.resolve()),
         "-map", "0:V:0", "-frames:v", "1", "-an", "-sn",
         "-vf", "scale=w='min(1920,iw)':h='min(1920,ih)':force_original_aspect_ratio=decrease",
         "-threads", "1", "-c:v", "png", "-f", "image2pipe", "pipe:1",

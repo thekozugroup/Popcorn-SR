@@ -10,9 +10,9 @@ The workspace puts input on the left, the output queue on the right and settings
 
 Still comparisons process a video-only sample of up to five seconds, then display its first picture. Review the downloadable video sample for motion. Full runs restore the normal audio/subtitle/attachment/chapter checks and verify the saved source again.
 
-## Install the 0.4.0 Docker preview
+## Install the published Docker preview
 
-Download the kit matching each computer from [Releases](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.4.0): **AMD64** for Unraid/x86 Linux, **ARM64** for DGX Spark. Each kit includes prebuilt manager/base-worker and native-worker images. No build on the NAS is required.
+Download the kit matching each computer from [Releases](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.3.1): **AMD64** for Unraid/x86 Linux, **ARM64** for DGX Spark. Each kit includes prebuilt manager/base-worker and native-worker images. No build on the NAS is required.
 
 1. Verify the archive and load the selected image using [release-kit instructions](docs/releases.md).
 2. Set your existing library, output and state folders, ownership IDs and private access key.
@@ -20,11 +20,13 @@ Download the kit matching each computer from [Releases](https://github.com/theko
 4. On the processing computer, configure and initialize its mounted scratch folder, then pair with the one-use code.
 5. Preview one frame or a short sample before running a batch.
 
-Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The public registry supplies **0.4.0** as `ghcr.io/thekozugroup/popcorn-sr:0.4.0` and the native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.0`; published channels require anonymous verification. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
+Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The public registry supplies **0.3.1** as `ghcr.io/thekozugroup/popcorn-sr:0.3.1` and the native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.3.1`; published channels require anonymous verification. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
 
 ## Processing options
 
 Choose **H.264**, **H.265 / HEVC** or **AV1** independently of the enhancement. Upscaling changes frames; encoding compresses those frames into the finished Matroska (`.mkv`) copy. H.264 offers broad player compatibility; check HEVC/AV1 support on your players. Available codecs and enhancement controls require real worker processing checks.
+
+Development 0.4.1 adds **Resolution rules** for mixed batches: for example, 720p→1080p and 1080p→4K. Each file keeps its aspect ratio; input rows show original dimensions/format, and output rows show final dimensions/format. Saved previews use the same rule for the full run. Both manager and worker must support the feature. [How resolution rules work](docs/resolution-rules.md).
 
 | Option | Current support | Additional installation |
 |---|---|---|

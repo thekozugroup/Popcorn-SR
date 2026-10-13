@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Engine = Literal["resize", "realesrgan", "rtx-vsr", "dlss-sr", "dlss5"]
 Codec = Literal["h264", "hevc", "av1"]
+Resolution = Literal[480, 720, 1080, 1440, 2160, 4320]
+InputResolution = Literal["480", "720", "1080", "1440", "2160", "4320", "other"]
 
 
 class StrictModel(BaseModel):
@@ -15,6 +17,8 @@ class Recipe(StrictModel):
     codec: Codec = "h264"
     encoder: Literal["cpu", "nvidia"] = "cpu"
     scale: Literal[1, 2, 3, 4] = 2
+    target_resolution: Resolution | None = None
+    resolution_rules: dict[InputResolution, Literal["keep", "480", "720", "1080", "1440", "2160", "4320"]] | None = None
     vsr_quality: Literal[1, 2, 3, 4] | None = None
     vsr_strength: float | None = Field(default=None, ge=0, le=1)
     output_width: int | None = Field(default=None, ge=64, le=7680)
@@ -46,6 +50,14 @@ class Recipe(StrictModel):
 
     @model_validator(mode="after")
     def vsr_controls(self):
+        if (self.target_resolution is not None or self.resolution_rules is not None) and self.engine == "dlss5":
+            raise ValueError("Neural rendering currently keeps source resolution.")
+        if (self.target_resolution is not None or self.resolution_rules is not None) and self.output_width is not None:
+            raise ValueError("Choose resolution rules or custom dimensions, not both.")
+        if self.resolution_rules is not None:
+            for original, output in self.resolution_rules.items():
+                if output != "keep" and (original == "other" or int(output) < int(original)):
+                    raise ValueError("Resolution rules only upscale or keep source size. Unmatched resolutions keep source size.")
         if self.preview_frame_time is not None and self.preview_seconds != 5:
             raise ValueError("Frame comparisons require a five-second preview sample.")
         controls = (self.vsr_quality, self.vsr_strength, self.output_width, self.output_height)

@@ -30,6 +30,13 @@ def compatible_recipe(recipe, capabilities, source=None):
         return False
     if f"{recipe['codec']}_{recipe['encoder']}" not in capabilities.get("encoders", []):
         return False
+    if recipe.get("resolution_rules") is not None or recipe.get("target_resolution") is not None:
+        if not capabilities.get("resolution_rules"):
+            return False
+        if recipe["engine"] == "dlss-sr" and not capabilities.get("dlss_sr", {}).get("resolution_targets"):
+            return False
+        if recipe["engine"] == "rtx-vsr" and not capabilities.get("rtx_vsr", {}).get("custom_size"):
+            return False
     if recipe["engine"] == "rtx-vsr":
         checked = capabilities.get("rtx_vsr", {})
         if (recipe.get("frame_generation") or recipe.get("hdr")) and not checked.get("lossless"):

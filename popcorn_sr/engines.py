@@ -16,6 +16,11 @@ from .media import dimensions, ffmpeg_command
 
 def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info: dict):
     width, height = dimensions(info, recipe)
+    fit = []
+    if engine == "dlss-sr" and recipe.get("target_resolution") is not None:
+        width, height = dimensions(info, recipe | {"target_resolution": None})
+        final_width, final_height = dimensions(info, recipe)
+        fit = ["--fit-width", str(final_width), "--fit-height", str(final_height)]
     if engine == "realesrgan":
         return [
             os.environ.get("POPCORN_AI_PYTHON", sys.executable),
@@ -64,7 +69,7 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             "--codec", recipe["codec"], "--quality", str(recipe["quality"]),
             "--mode", mode_for_recipe(recipe), "--preset", recipe.get("dlss_preset", "default"),
             "--temporal-quality", recipe.get("temporal_quality", "high"),
-            "--library", os.environ["POPCORN_NGX_LIBRARY"], "--runtime", os.environ["POPCORN_NGX_RUNTIME"],
+            "--library", os.environ["POPCORN_NGX_LIBRARY"], "--runtime", os.environ["POPCORN_NGX_RUNTIME"], *fit,
         ]
     if engine == "rtx-vsr" and os.environ.get("POPCORN_NVIDIA_VFX") == "1":
         return [
@@ -393,6 +398,14 @@ def detect_capabilities(scratch: Path, stopped=None):
                     timeout=420, scratch=scratch, stopped=stopped,
                 ):
                     dlss_settings = json.loads(report.read_text())
+                    # Verify the final aspect-preserving fit on actual NGX
+                    # pixels before advertising arbitrary resolution targets.
+                    output.unlink(missing_ok=True)
+                    fitted = adapter_command(engine, source, output, recipe, info) + ["--fit-width", "384", "--fit-height", "216"]
+                    if run_check(fitted, timeout=180, scratch=scratch, stopped=stopped):
+                        fitted_info = probe(output)
+                        if (fitted_info["width"], fitted_info["height"]) == (384, 216) and abs(fitted_info["duration"] - 1) < 0.1:
+                            dlss_settings["resolution_targets"] = True
                 else:
                     notes[engine] = "Default DLSS works; advanced settings failed verification."
         except (ValueError, OSError, KeyError) as exc:
@@ -526,4 +539,5 @@ def detect_capabilities(scratch: Path, stopped=None):
         "rtx_vsr": vsr_settings,
         "dlss_frame_generation": frame_generation,
         "rtx_hdr": hdr,
+        "resolution_rules": True,
     }
