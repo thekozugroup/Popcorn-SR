@@ -1,13 +1,13 @@
 # Popcorn SR — iteration 1
 
 ## Objective
-Ship a usable standalone Docker manager and paired worker, with a guided web interface, single-host mode, configurable external scratch storage, Linux NVIDIA/AI adapters, optional Windows RTX/DLSS CLI adapters, and a public repository with clean main history.
+Complete a standalone Docker NAS manager and paired or single-host Linux worker, with a guided Astryx interface, configurable scratch/output storage, and parity for DLSS neural rendering, DLSS Super Resolution, RTX Video Super Resolution, RTX Video HDR and DLSS frame generation. Publish verified milestones on clean main. All five NVIDIA stages are mandatory completion gates; the 0.2.0 preview is not full completion.
 
 ## Acceptance
 - Authenticated one-use pairing, durable queue, worker leases, cancel/retry, streaming transfers.
 - Original library read-only; independently validated output, collision-safe publishing.
 - CPU encode and conventional enhancement tested on actual media end to end.
-- NVIDIA codecs and optional AI engines enabled by runtime smoke checks only.
+- NVIDIA codecs and enhancement stages enabled by real processing checks only. All five stages must have usable controls, previews and compatible combinations; see [parity requirements](docs/nvidia-parity.md).
 - NAS, worker, single-host and NVIDIA Docker examples with ARM64/AMD64 builds.
 - Browser desktop/mobile flows and error states verified.
 - CI tests, Docker smoke, public commits on main as thekozugroup@gmail.com.
@@ -47,3 +47,39 @@ Migrated the workspace to official Astryx 0.6.8 components on React 19, with a c
 Current local evidence: both Chromium workflows pass real preview/full processing, 390/768/1440 light/dark accessibility and overflow checks, heartbeat edit retention, mobile drawer navigation, zero JavaScript/CSP violations, and 44px activation targets. Ten Python tests pass, including manager availability when the UI build is missing. The selector’s fixed runtime stylesheet is permitted by its exact build-generated hash; arbitrary inline code remains blocked. A built wheel includes UI assets and policy. The built ARM64 container passed a real paired source → encode → return roundtrip with complete UI assets and security policy. The independent reviewer scored all three material fixes resolved: tablet/control readability, complete path wrapping, and manager availability without generated UI. DESIGN.md and its sidecar record the Astryx system. Public release publication runs only after the exact tagged source passes CI; see the repository’s Actions and Releases for that status.
 
 Public 0.1.1 was anonymously pulled and passed a paired ARM64 Docker roundtrip. Its release includes the physical Spark and publication verification receipts. This iteration changes the UI and packaging; hardware limits above remain.
+
+## Completion goal — iteration 3
+
+User requested full completion on 2026-10-12. Goal active. Expanded at the user's request to feature parity with the five main NVIDIA video enhancements in [Visual Enhancer](https://github.com/Merserk/dlss5-visual-enhancer):
+
+1. DLSS neural rendering, including its video controls and temporal settings.
+2. DLSS super resolution, including DLAA, Quality, Balanced, Performance and Ultra Performance modes.
+3. RTX video super resolution, including quality and sizing controls.
+4. RTX Video HDR conversion, with real 10-bit HDR output and color/metadata validation.
+5. DLSS frame generation, with genuine DLSSG processing and target-FPS validation.
+
+These must be usable stages, with previews and compatible combinations, not labels or substitutions using conventional FFmpeg filters. Completion requires executable implementation and honest real-engine evidence for supported platform/hardware combinations. Architecture or licensing constraints must be documented as unresolved requirements until a supported backend is available. Core software and the Astryx 0.2.0 preview are published; deployment/failure recovery and NVIDIA feature parity remain active work.
+
+Acceptance for this iteration:
+- Reproducible, pinned Linux AMD64/ARM64 CUDA AI worker packaging, with a physical Spark render using the packaged runtime.
+- Real Unraid manager → Spark worker → Unraid output across the LAN. Preserve existing services and remove owned test containers/images/files; all Spark job/model/cache/state data stays in RAM during acceptance.
+- Scratch filesystem identity persists across worker restarts; missing/replaced drives fail closed. Graceful worker shutdown terminates processing and removes job files. Safe recovery handles only files owned by Popcorn SR.
+- Failure tests cover cancellation, disconnection, restart and scratch replacement; single-host CPU and GPU contracts remain supported.
+- Unraid instructions work without Compose, which is absent on the user's NAS.
+- Final software checks, tagged publication and public-image verification; clean pushed main using the requested identity.
+
+User supplied `atlas` for NAS acceptance and explicitly deferred the RTX 5080 desktop. No external Optane mount is currently visible on Spark. Physical Optane acceptance and representative library image-quality approval require the actual drive/media; filesystem-loss tests can still be performed. Native Linux DLSS/VFX support is constrained by separately licensed compatible runtimes and architecture availability; unavailable engines remain disabled. Windows remains future work per the user's scope, but Windows-only reference implementation behavior informs the five-feature parity requirements above. Deferring desktop acceptance does not waive any of the five feature requirements.
+
+### Current iteration progress
+
+- Expanded the completion requirements to all five requested NVIDIA stages; no conventional substitute or external-template-only implementation can close those gates.
+- Pinned Linux AMD64/ARM64 PyTorch 2.13.0 + CUDA 13.0, PyAV and NumPy in uv.lock. The optional AI image built locally and imported its locked CUDA runtime; GPU execution of this exact package is still pending.
+- Added persisted scratch filesystem identity, private atomic markers/state, inherited active-job locks, scoped restart recovery and graceful process-group shutdown. Eight new tests cover replacement, old marker migration, unknown-folder preservation, inherited child locks, real FFmpeg cancellation and capability timeout descendants and real AI-encoder lock inheritance and immediate cancellation while failure reporting is stalled. Processing stops before the worker waits for a disconnected manager. Eighteen tests and Ruff pass locally.
+- Spark NGX initialization, capability discovery and a small Super Resolution feature creation passed with NVIDIA ARM64 SDK 310.9.1. A static-frame CUDA pixel evaluation also passed after using a writable CUDA surface for output: all 196,608 channel values were finite. This proves native SDK execution, not decoded-video/temporal quality or a production adapter. Video Super Resolution and Frame Generation were unavailable through this CUDA query; other APIs remain to investigate. All owned probe artifacts were in RAM and removed.
+- Next: integrate native SR video decoding, temporal inputs and encoding; investigate native Vulkan DLSSG and compatible neural/HDR runtimes; finish packaged GPU and Unraid delivery acceptance. Desktop and physical Optane checks remain deferred/unavailable as recorded above.
+
+User reinforced NAS preservation: isolate test resources, keep temporary files in RAM, avoid changes to existing services or data, remove only owned test resources, and verify cleanup. Do not prune shared Docker caches or erase ordinary system/audit logs.
+
+Cleanup verification: read-only NAS inspection found the same 15 existing service names and no Popcorn test folder in /dev/shm. No NAS container, image or file was created during this iteration. Spark inspection found the same four existing service names and no owned NGX probe folder remaining in /dev/shm; no Docker image/container was created there.
+
+Final local checks for this milestone: 18 Python tests, Ruff, frozen-lock validation, UI production build, zero npm vulnerabilities, both Chromium workflows, default Docker build and an actual ARM64 paired Docker processing/return roundtrip passed. The Docker result was 320×192 with audio, matching transfer checksums, unchanged original and cleaned scratch. The optional AI image also rebuilt successfully with the final worker source; physical execution of this exact package remains pending.

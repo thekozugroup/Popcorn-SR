@@ -4,7 +4,7 @@
 
 Popcorn Super Resolution is a self-hosted video manager and processing worker. Pair an Unraid NAS with a DGX Spark or NVIDIA Linux desktop, or run both services on one computer. Finished copies return to a chosen output folder. Originals remain untouched.
 
-## What works in 0.1
+## What works in the 0.2.0 preview
 
 - Lightweight authenticated web manager, persistent SQLite queue, one-use worker pairing.
 - Network transfers with SHA-256 checks, worker leases, cancel/retry and validated output.
@@ -17,6 +17,10 @@ Popcorn Super Resolution is a self-hosted video manager and processing worker. P
 - Matroska copies with original audio, subtitles, attachments, metadata and chapters; rejects missing streams or wrong duration/size/codec.
 
 **Tested on a physical DGX Spark.** GB10 passed H.264/HEVC/AV1 NVIDIA encoding checks and completed separate two-computer resizing and Real-ESRGAN CUDA/NVENC jobs with intact sources and retained audio. These were short generated SDR clips in an existing CUDA runtime, not a whole-library benchmark or validation of the optional AI image. RTX 5080 and external Optane testing remain pending. GPU codecs and AI engines stay disabled until a real startup smoke check passes. Assess quality and speed on your own previews. HDR and high-bit-depth sources are rejected in this release to prevent destructive color/precision loss.
+
+## Completion goal
+
+Development remains active. Full completion requires **DLSS neural rendering, DLSS Super Resolution, RTX Video Super Resolution, RTX Video HDR and DLSS frame generation**, with real processing, usable controls, previews and compatible combinations. [Acceptance and current gaps](docs/nvidia-parity.md). The preview features below do not establish five-stage parity.
 
 ## Start on your NAS
 
