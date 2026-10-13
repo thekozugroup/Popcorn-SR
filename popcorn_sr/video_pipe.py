@@ -27,6 +27,10 @@ def encoded_video(path, width, height, rate, time_base, options, *, end_time=Non
     """NUT carries original PTS through a bounded OS pipe, including variable timing."""
     import av
 
+    if input_pix_fmt not in {"rgb24", "gbrp10le"}:
+        raise ValueError("Frame pipe requires verified RGB8 or planar RGB10; packed HDR is unsupported.")
+    if set(color_metadata or {}) - {"color_range", "colorspace", "color_trc", "color_primaries"}:
+        raise ValueError("Unsupported video color metadata field.")
     inherited = {}
     if os.name == "posix" and (active_fd := os.environ.get("POPCORN_ACTIVE_JOB_FD")):
         # Keep job ownership alive even if the AI process exits before FFmpeg.
@@ -74,8 +78,6 @@ def encoded_video(path, width, height, rate, time_base, options, *, end_time=Non
                 video.time_base = time_base
                 video.codec_context.time_base = time_base
                 for field, value in (color_metadata or {}).items():
-                    if field not in {"color_range", "colorspace", "color_trc", "color_primaries"}:
-                        raise ValueError("Unsupported video color metadata field.")
                     setattr(video.codec_context, field, value)
                 for_frame = (output, video)
                 yield for_frame

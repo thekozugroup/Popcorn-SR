@@ -47,6 +47,12 @@ def test_all_1024_rgb_levels_survive_packed_pipe_with_padding(tmp_path):
                 np.testing.assert_array_equal(pixels, (expected >> shift) & 1023)
             assert len(np.unique(pixels)) == 1024
     assert set(tmp_path.iterdir()) == {path}
+    rejected = tmp_path / "unsupported-packed.mkv"
+    with pytest.raises(ValueError, match="packed HDR is unsupported"):
+        with encoded_video(rejected, 1026, 64, Fraction(25), Fraction(1, 1000),
+                           ["-c:v", "ffv1"], input_pix_fmt="x2bgr10le"):
+            pytest.fail("Packed HDR must be rejected before encoder startup.")
+    assert not rejected.exists()
 
 
 @pytest.mark.parametrize("codec", ["hevc", "av1"])
