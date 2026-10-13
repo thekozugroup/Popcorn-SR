@@ -1,5 +1,7 @@
 # Installation
 
+For prebuilt manager/native-worker archives, follow [Docker release kits](releases.md). Kit images use explicit local selections and `--pull never`; the default registry template still identifies the published 0.2.0 image.
+
 The manager needs no GPU. A worker needs FFmpeg and a usable encoder. Network workers download from the manager and return results; they do not need an SMB/NFS share or an inbound port.
 
 ## Unraid manager

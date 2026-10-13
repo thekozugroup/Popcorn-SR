@@ -2,7 +2,7 @@
 # Requires Docker Compose 2.30+. SDK/driver paths are operator-provisioned.
 services:
   worker:
-    image: popcorn-sr-ngx:dev
+    image: "${POPCORN_NGX_IMAGE:-popcorn-sr-ngx:dev}"
     build:
       context: .
       dockerfile: Dockerfile.ngx
