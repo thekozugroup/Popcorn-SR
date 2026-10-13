@@ -66,16 +66,12 @@ DLSS 5 is appearance-changing neural rendering, distinct from restoration/upscal
 ## Development
 
 ```sh
-uv sync --extra dev
-npm ci
-npm run build
-uv run ruff check .
-uv run pytest
-npx playwright install chromium
-npm run test:browser
-docker build -t popcorn-sr:dev .
-uv run python scripts/docker-smoke.py
+uv run python scripts/verify-local.py
 ```
+
+Build and test on your own machine by default. The command checks locked dependencies, media/API tests, native source, all Compose layouts, UI, browser workflows, manager/NGX images and real paired Docker delivery. Install `uv`, Node.js, FFmpeg, a C++17 compiler and Docker first; Linux may also need Chromium's system dependencies. It writes a new receipt under gitignored `evidence/` and uses unique image tags. `--software-only` omits Docker checks and is partial verification; `--include-ai` also builds the larger CUDA image. GPU execution still requires an actual device test. [Local device packages](docs/deployment.md#development-device-packages).
+
+GitHub workflows are manual fallbacks. Pushes, pull requests and version tags do not launch them automatically. A manual publishing run requires an existing `v*` tag; it verifies that tagged source before publishing.
 
 The web UI uses the official [Astryx](https://astryx.atmeta.com/) React components, a compiled zinc/blue theme, and system fonts. Vite builds static assets into the Python package and Docker image. There is no runtime Node server or CDN dependency. Rebuild with `npm run build` after changing the UI. The manager uses FastAPI and SQLite; workers use FFmpeg and optional independently installed GPU engines. [Architecture](docs/architecture.md) and [current verification](working.md).
 

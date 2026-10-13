@@ -16,7 +16,7 @@ RTX VSR, RTX HDR and neural rendering remain mandatory unfinished stages requiri
 - NVIDIA codecs and enhancement stages enabled by real processing checks only. All five stages must have usable controls, previews and compatible combinations; see [parity requirements](docs/nvidia-parity.md).
 - NAS, worker, single-host and NVIDIA Docker examples with ARM64/AMD64 builds.
 - Browser desktop/mobile flows and error states verified.
-- CI tests, Docker smoke, public commits on main as thekozugroup@gmail.com.
+- Local verification, Docker smoke, public commits on main as thekozugroup@gmail.com. GitHub Actions are a manual fallback, not routine development.
 
 ## Historical evidence and limits — 0.1.1
 Version 0.1.1 software implementation is complete, including the ARM64 AI encoding fix. Public repository: https://github.com/thekozugroup/Popcorn-SR. All development commits use main and thekozugroup@gmail.com, with no AI co-author tags.
@@ -45,6 +45,12 @@ Physical RTX 5080 encode/inference, the optional AI image, representative librar
 - fast-rtxvsr is MIT wrapper code with separately licensed NVIDIA runtimes; Windows requirements.
 - Merserk Visual Enhancer is Windows/D3D12, source-available proprietary; reference and separately installed CLI only.
 - Ordinary host USB-C ports do not provide a standard host-to-host network. Use Ethernet or an OS-supported bridge adapter.
+
+### Local development preference — 2026-10-13
+
+The user requested avoiding GitHub Actions and performing work directly where possible. Verification and publication workflows now require manual invocation; pushes, pull requests and tags no longer trigger builds. Local development uses `scripts/verify-local.py`, which runs the same media/API/browser/native/Compose checks, builds manager/NGX images and proves paired Docker video delivery, with optional AI image build and a new ignored receipt per run. Device archives can be built/exported locally with the existing platform/revision/checksum gates. Earlier Actions receipts remain historical evidence; no new workflow was dispatched for this iteration.
+
+The resumed NAS/Spark trial uses already prepared packages with independently matched runtime hashes. Tailscale authentication is verified. The Mac's existing Docker data disk is full, so local image acceptance uses a separate owned Colima profile with its own disk and explicit Docker context. The existing Docker context, services and images are preserved; the temporary profile will be removed after verification. Local checks and the physical trial are in progress.
 
 ## Iteration 2 — Astryx Web UI
 

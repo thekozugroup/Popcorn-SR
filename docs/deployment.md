@@ -113,8 +113,19 @@ Stop the manager before backing up its state directory (including SQLite WAL fil
 
 ## Development device packages
 
-For development acceptance without compiling on a NAS or GPU host, run **Actions → Build device packages → Run workflow** at the intended commit. The workflow first runs the full verification suite, then builds on native AMD64/ARM64 runners. Each architecture's artifact contains separate manager and NGX archives, SHA-256 checksums, exact source commit/file hashes, image filesystem layers and environment, plus a real paired CPU-container processing receipt. Download the artifact matching the device architecture. These are temporary development artifacts, separate from the public release image.
+Build on your development machine, then transfer a verified archive to the NAS or worker. This avoids compiling on either device. Run `uv run python scripts/verify-local.py` first, commit the intended runtime source, and build/export for the target architecture:
 
-For the larger Real-ESRGAN worker, **Build AI device packages** builds locked AMD64/ARM64 AI archives after the same verification gate. Each archive has the same source, build-file, layer and checksum provenance. Build/import success on a runner without a GPU does not verify CUDA processing; perform the isolated GPU acceptance before using it for a library.
+```sh
+# Example: ARM64 worker. Use linux/amd64 and --architecture amd64 for Unraid.
+docker build --platform linux/arm64 \
+  --label "org.opencontainers.image.revision=$(git rev-parse HEAD)" \
+  -f Dockerfile.ngx -t popcorn-sr-ngx:device .
+uv run python scripts/export-device-package.py --image popcorn-sr-ngx:device \
+  --architecture arm64 --output evidence/device-package-arm64/ngx
+```
+
+Use `Dockerfile` for the manager, or `Dockerfile.ai` for the locked Real-ESRGAN CUDA worker, with distinct tags/output directories. Docker needs emulation when the build machine and target architectures differ; a native build is preferable. Each export records archive SHA-256, source commit/file hashes, filesystem layers and environment. The exporter rejects uncommitted runtime changes or a mismatched image revision/platform. Build/import success without a GPU does not verify CUDA or NVIDIA features; perform isolated device acceptance before using a library. These are development packages, separate from the public release image.
+
+The manual **Build device packages** and **Build AI device packages** workflows remain optional fallbacks if a local builder cannot support the required platform. They run full verification before building native AMD64/ARM64 archives. Routine development uses local commands; no workflow runs automatically on pushes or tags.
 
 Check each archive against `package.json` before importing it. The `org.opencontainers.image.revision` label must match the intended commit. Docker can convert configuration IDs during archive import; compare filesystem layers, architecture and environment rather than assuming daemon image IDs will be identical. Use a dedicated test tag and remove only test resources you created. NVIDIA components are provisioned separately; an NGX package build/import does not establish GPU processing or feature availability.
