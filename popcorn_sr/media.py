@@ -44,6 +44,9 @@ def probe(path: Path) -> dict:
             "file,pipe",
             "-show_format",
             "-show_streams",
+            "-show_chapters",
+            "-show_data_hash",
+            "sha256",
             "-of",
             "json",
             str(path.resolve()),
@@ -89,6 +92,21 @@ def probe(path: Path) -> dict:
         "audio_streams": sum(s.get("codec_type") == "audio" for s in streams),
         "subtitle_streams": sum(s.get("codec_type") == "subtitle" for s in streams),
         "attachment_streams": sum(s.get("codec_type") == "attachment" for s in streams),
+        "preservation": {
+            "audio": [
+                {"codec": s.get("codec_name"), "start_time": s.get("start_time")}
+                for s in streams if s.get("codec_type") == "audio"
+            ],
+            "chapters": [
+                {k: c.get(k) for k in ("start_time", "end_time", "tags")}
+                for c in data.get("chapters", [])
+            ],
+            "attachments": [
+                {"sha256": s.get("extradata_hash"), "tags": s.get("tags", {})}
+                for s in streams if s.get("codec_type") == "attachment"
+            ],
+            "title": data.get("format", {}).get("tags", {}).get("title"),
+        },
         "size": path.stat().st_size,
     }
 
@@ -143,6 +161,7 @@ def validate_output(path: Path, source: dict, recipe: dict):
     for key in ("audio_streams", "subtitle_streams", "attachment_streams"):
         if info[key] != source[key]:
             raise ValueError(f"Output lost {key.replace('_', ' ')}. Original preserved; result rejected.")
+    verify_preservation(source, info, recipe)
     result = subprocess.run(
         [
             "ffmpeg",
@@ -167,6 +186,45 @@ def validate_output(path: Path, source: dict, recipe: dict):
         raise ValueError("Output failed its playback check. Original preserved; result rejected.")
     info["sha256"] = sha256(path)
     return info
+
+
+def verify_preservation(source, result, recipe):
+    """Compare copied media against the picture, allowing a common mux offset."""
+    # Existing persisted jobs predate this signature. Newly inspected sources
+    # carry it, so both the worker and the NAS independently enforce it.
+    if "preservation" not in source:
+        return
+    before, after = source["preservation"], result["preservation"]
+    if before["attachments"] != after["attachments"] or before["title"] != after["title"]:
+        raise ValueError("Output changed copied attachments or title. Original preserved; result rejected.")
+    if not before["audio"] and not before["chapters"]:
+        return
+    try:
+        shift = Fraction(result["video_start_time"]) - Fraction(source["video_start_time"])
+        tolerance = Fraction(1, 1000)
+        for original, returned in zip(before["audio"], after["audio"], strict=True):
+            if original["codec"] != returned["codec"]:
+                raise ValueError("Copied audio codec changed")
+            if original["start_time"] is not None and abs(
+                Fraction(returned["start_time"]) - Fraction(original["start_time"]) - shift
+            ) > tolerance:
+                raise ValueError("Audio synchronization changed")
+        preview = recipe["preview_seconds"]
+        cut = Fraction(source["start_time"]) + preview if preview else None
+        chapters = [c for c in before["chapters"] if cut is None or Fraction(c["start_time"]) < cut]
+        if len(chapters) != len(after["chapters"]):
+            raise ValueError("Chapter count changed")
+        for original, returned in zip(chapters, after["chapters"], strict=True):
+            if original["tags"] != returned["tags"]:
+                raise ValueError("Chapter titles changed")
+            for field in ("start_time", "end_time"):
+                expected = Fraction(original[field])
+                if field == "end_time" and cut is not None:
+                    expected = min(expected, cut)
+                if abs(Fraction(returned[field]) - expected - shift) > tolerance:
+                    raise ValueError("Chapter synchronization changed")
+    except (ValueError, TypeError, KeyError, ZeroDivisionError):
+        raise ValueError("Output changed audio or chapter timing. Original preserved; result rejected.") from None
 
 
 def verify_packet_cadence(path, info, rate):
@@ -257,13 +315,19 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict, *, vide
 
 
 def preserved_command(rendered, source, output, recipe, info, timing=None):
-    timing_options, duration_options = [], []
+    if info.get("video_start_time") is None or info.get("start_time") is None:
+        raise ValueError("Original stream offsets are unavailable; refusing to guess synchronization.")
+    rendered_info = probe(rendered)
+    if rendered_info.get("video_start_time") is None or rendered_info.get("start_time") is None:
+        raise ValueError("Enhanced stream offsets are unavailable; refusing to guess synchronization.")
+    # Enhancement engines normally reset video PTS to zero. External engines
+    # may keep an offset, so align both actual timelines before copying media.
+    original_offset = Fraction(info["video_start_time"]) - Fraction(info["start_time"])
+    rendered_offset = Fraction(rendered_info["video_start_time"]) - Fraction(rendered_info["start_time"])
+    timing_options = ["-copyts", "-start_at_zero", "-itsoffset", str(float(original_offset - rendered_offset))]
+    duration_options = []
     if timing is not None:
-        if info.get("video_start_time") is None or info.get("start_time") is None:
-            raise ValueError("Original stream offsets are unavailable; refusing to guess synchronization.")
-        offset = Fraction(info["video_start_time"]) - Fraction(info["start_time"])
-        timing_options = ["-copyts", "-start_at_zero", "-itsoffset", str(float(offset))]
-        end = Fraction(timing["source_video_duration"]) + offset
+        end = Fraction(timing["source_video_duration"]) + original_offset
         duration_options = ["-bsf:v", f"setts=duration='max(ceil(0.001/TB),min(DURATION,max(0,({end.numerator}/{end.denominator})/TB-PTS)))'"]
     command = [
         "ffmpeg", "-v", "error", "-nostdin", *timing_options, "-i", str(rendered), "-i", str(source),

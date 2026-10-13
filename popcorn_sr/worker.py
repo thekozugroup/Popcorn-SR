@@ -402,7 +402,8 @@ class Worker:
         if recipe["engine"] != "resize" or generation:
             # Remux original streams ourselves: third-party exporters may discard subtitles or re-encode audio.
             remuxed = folder / "preserved.mkv"
-            await self.process(preserved_command(rendered, source, remuxed, recipe, info, timing), folder, duration)
+            command = await asyncio.to_thread(preserved_command, rendered, source, remuxed, recipe, info, timing)
+            await self.process(command, folder, duration)
             rendered = remuxed
         self.status.update(progress=86, stage="Checking result")
         result = await asyncio.to_thread(validate_output, rendered, job["source"], recipe)

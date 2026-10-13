@@ -68,13 +68,15 @@ def test_lossless_rgb_pipe_preserves_submillisecond_pts_for_dense_intermediates(
 
 
 @pytest.mark.parametrize("audio_codec", ["pcm_s16le", "aac"])
-def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_path, audio_codec):
+@pytest.mark.parametrize("generation", [False, True])
+@pytest.mark.parametrize("rendered_offset", [False, True])
+def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_path, audio_codec, generation, rendered_offset):
     import json
     import subprocess
 
     import av
 
-    from popcorn_sr.media import preserved_command, probe
+    from popcorn_sr.media import preserved_command, probe, validate_output
     from popcorn_sr.models import Recipe
 
     source, rendered, returned = [tmp_path / name for name in ("source.mkv", "generated.mkv", "returned.mkv")]
@@ -82,23 +84,39 @@ def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_pa
     metadata.write_text(";FFMETADATA1\ntitle=Timing fixture\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1000\ntitle=Opening\n")
     attachment = tmp_path / "notes.txt"
     attachment.write_text("Preserve this attachment.")
+    subtitle = tmp_path / "caption.srt"
+    subtitle.write_text("1\n00:00:00,400 --> 00:00:00,700\nKeep this caption in sync.\n")
     subprocess.run([
         "ffmpeg", "-v", "error", "-itsoffset", "0.25", "-f", "lavfi", "-i", "testsrc2=size=32x16:rate=24",
         "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-f", "ffmetadata", "-i", str(metadata),
-        "-map", "0:v", "-map", "1:a", "-map_metadata", "2", "-map_chapters", "2", "-t", "1",
-        "-c:v", "libx264", "-bf", "0", "-c:a", audio_codec, "-attach", str(attachment),
+        "-i", str(subtitle),
+        "-map", "0:v", "-map", "1:a", "-map", "3:s", "-map_metadata", "2", "-map_chapters", "2", "-t", "1",
+        "-c:v", "libx264", "-bf", "0", "-c:a", audio_codec, "-c:s", "srt", "-attach", str(attachment),
         "-metadata:s:t", "mimetype=text/plain", str(source),
     ], check=True)
-    end, rate = Fraction(751, 1000), Fraction(60)
+    end, rate = Fraction(751, 1000), Fraction(60 if generation else 24)
     with encoded_video(rendered, 32, 16, rate, Fraction(1, 60000), ["-c:v", "libx264", "-bf", "0", "-pix_fmt", "yuv420p"], end_time=end) as (container, video):
         for index in range(math.ceil(end * rate)):
             frame = av.VideoFrame.from_ndarray(np.full((16, 32, 3), index, dtype=np.uint8), format="rgb24")
-            frame.pts, frame.time_base = index * 1000, Fraction(1, 60000)
+            frame.pts, frame.time_base = int(index / rate * 60000), Fraction(1, 60000)
             for packet in video.encode(frame):
                 container.mux(packet)
     assert abs(probe(rendered)["duration"] - float(end)) <= .001
-    recipe = Recipe(frame_generation=True, scale=1, encoder="nvidia").model_dump()
-    subprocess.run(preserved_command(rendered, source, returned, recipe, probe(source), {"source_video_duration": str(end)}), check=True)
+    if rendered_offset:
+        # Third-party exporters can retain a leading audio stream. Only their
+        # video is used, and its measured offset must not be applied twice.
+        offset_file = tmp_path / "offset-rendered.mkv"
+        subprocess.run([
+            "ffmpeg", "-v", "error", "-itsoffset", "0.125", "-i", str(rendered),
+            "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-map", "0:v", "-map", "1:a",
+            "-c:v", "copy", "-c:a", "pcm_s16le", "-t", "1", str(offset_file),
+        ], check=True)
+        rendered = offset_file
+    # CPU-rendered pictures exercise remux timing, not NVIDIA execution.
+    recipe = Recipe(frame_generation=generation, scale=1, encoder="nvidia").model_dump()
+    timing = {"source_video_duration": str(end)} if generation else None
+    subprocess.run(preserved_command(rendered, source, returned, recipe, probe(source), timing), check=True)
+    validate_output(returned, probe(source), recipe)
 
     def streams(path):
         return json.loads(subprocess.check_output([
@@ -115,7 +133,7 @@ def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_pa
     assert [p["data_hash"] for p in original["packets"] if p["stream_index"] == 1] == [
         p["data_hash"] for p in result["packets"] if p["stream_index"] == 1
     ]
-    assert result["streams"][2]["extradata_hash"] == original["streams"][2]["extradata_hash"]
+    assert result["streams"][3]["extradata_hash"] == original["streams"][3]["extradata_hash"]
     # AAC priming may start before zero. Remux can shift the whole timeline;
     # chapters and copied packets must retain their relationship to the picture.
     shift = Fraction(result_video["start_time"]) - Fraction(original_video["start_time"])
@@ -128,6 +146,11 @@ def test_final_interval_and_preserved_media_keep_original_synchronization(tmp_pa
     after_audio = [p for p in result["packets"] if p["stream_index"] == 1]
     for before, after in zip(before_audio, after_audio, strict=True):
         assert abs(Fraction(after["pts_time"]) - Fraction(before["pts_time"]) - shift) <= Fraction(1, 1000)
+    before_subtitle = [p for p in original["packets"] if p["stream_index"] == 2]
+    after_subtitle = [p for p in result["packets"] if p["stream_index"] == 2]
+    assert len(before_subtitle) == len(after_subtitle) == 1
+    assert before_subtitle[0]["data_hash"] == after_subtitle[0]["data_hash"]
+    assert abs(Fraction(after_subtitle[0]["pts_time"]) - Fraction(before_subtitle[0]["pts_time"]) - shift) <= Fraction(1, 1000)
     assert result["format"]["tags"]["title"] == "Timing fixture"
     assert abs(float(result_video["tags"]["DURATION"].split(":")[-1]) - (
         float(end) + float(result_video["start_time"])
