@@ -308,6 +308,9 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict, *, vide
         *encoding,
         "-pix_fmt", "bgr0" if recipe["codec"] == "ffv1" else "yuv420p",
         "-fps_mode", "passthrough",
+        # Keep input timestamp precision instead of rounding a leading audio
+        # offset to the encoder's nominal frame period (notably FFmpeg 6).
+        "-enc_time_base:v", "-1",
     ]
     if recipe["preview_seconds"]:
         cmd += ["-t", str(recipe["preview_seconds"])]

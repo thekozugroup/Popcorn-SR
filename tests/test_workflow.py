@@ -3,8 +3,11 @@ import hashlib
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
+from fractions import Fraction
 
+import av
 import httpx
+import pytest
 
 from popcorn_sr.media import ffmpeg_command, inspect_source, sha256
 from popcorn_sr.models import Recipe
@@ -93,11 +96,12 @@ def test_paths_and_hdr_fail_closed(setup, auth):
     assert response.status_code == 400 and "8-bit" in response.json()["detail"]
 
 
-def test_real_media_roundtrip_and_checksum_rejection(setup, auth, tmp_path):
+@pytest.mark.parametrize("codec", ["h264", "hevc", "av1"])
+def test_real_media_roundtrip_and_checksum_rejection(setup, auth, tmp_path, codec):
     client, store, cfg, clip = setup
     original = sha256(clip)
-    credentials, _ = pair_worker(client)
-    recipe = Recipe(scale=2).model_dump()
+    credentials, _ = pair_worker(client, {"engines": ["resize"], "encoders": [codec + "_cpu"]})
+    recipe = Recipe(scale=2, codec=codec).model_dump()
     queued = client.post("/api/jobs", json={"path": clip.name, "recipe": recipe}).json()
     headers = {"Authorization": f"Bearer {credentials['token']}"}
     claim = client.post("/api/worker/claim", headers=headers).json()["job"]
@@ -120,6 +124,14 @@ def test_real_media_roundtrip_and_checksum_rejection(setup, auth, tmp_path):
     assert completed["status"] == "completed"
     assert completed["result"]["audio_streams"] == 1
     assert completed["result"]["width"] == 256
+    assert completed["result"]["codec"] == codec
+    def picture_times(path):
+        with av.open(str(path)) as video:
+            return [Fraction(frame.pts) * frame.time_base for frame in video.decode(video=0)]
+    before, after = picture_times(clip), picture_times(encoded)
+    assert len(before) == len(after) == 24
+    shift = after[0] - before[0]
+    assert all(abs(right - left - shift) <= Fraction(1, 1000) for left, right in zip(before, after, strict=True))
     assert sha256(clip) == original
     assert client.get(f"/api/jobs/{claim['id']}/download").content == data
     assert (
