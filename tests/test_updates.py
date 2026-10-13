@@ -182,3 +182,10 @@ def test_controller_rejects_worker_writable_configuration(updater):
     path.chmod(0o666)
     with pytest.raises(ValueError, match="another user"):
         host.Updater(updater.config_path)
+
+
+@pytest.mark.parametrize("value", [0, 1201, "1200", True])
+def test_controller_rejects_invalid_validation_budget(updater, value):
+    host.write(updater.config_path, updater.config | {"validation_seconds": value})
+    with pytest.raises(ValueError, match="validation timeout"):
+        host.Updater(updater.config_path)

@@ -21,7 +21,9 @@ spec.loader.exec_module(host)
 
 
 def docker(*args):
-    result = subprocess.run(["docker", *args], capture_output=True, text=True, check=True)
+    result = subprocess.run(["docker", *args], capture_output=True, text=True)
+    if result.returncode:
+        raise RuntimeError("Owned Docker operation failed; command parameters are not logged.")
     return result.stdout.strip()
 
 
@@ -78,7 +80,7 @@ def main():
     key = secrets.token_urlsafe(40)
     created_images, created_containers = [], []
     report = {"source_commit": source["Config"]["Labels"]["org.opencontainers.image.revision"],
-              "status": "running", "actual_docker_replacement": True, "actual_worker_processing": True,
+              "status": "running", "actual_docker_replacement": False, "actual_worker_processing": False,
               "registry_staging": "explicit local fixture; not a published release pull", "gpu_verified": False,
               "baseline": "same processing source with explicit 0.3.9 version fixture", "candidate": "unmodified 0.4.0 committed image",
               "bad_candidate": "explicit 0.4.1 version fixture with impossible scratch reserve"}
@@ -178,8 +180,10 @@ def main():
                 wait(upgraded)
                 after = updater.container()["Id"]
                 assert before != after
+                report["actual_docker_replacement"] = True
                 assert hashlib.sha256((root / "worker-state/worker.json").read_bytes()).hexdigest() == credentials_hash
                 assert job()["status"] == "completed"
+                report["actual_worker_processing"] = True
                 download = client.get(f"/api/jobs/{job_id}/download")
                 download.raise_for_status()
                 assert hashlib.sha256(download.content).hexdigest() == job()["result"]["sha256"]

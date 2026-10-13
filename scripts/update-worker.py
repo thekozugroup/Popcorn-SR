@@ -75,6 +75,9 @@ class Updater:
         self.state = self.config_path.parent / "update-state.json"
         self.repository = REPOSITORIES[self.config["role"]]
         self.channel = {"ngx": "ngx-stable", "ai": "ai-stable", "cpu": "stable"}[self.config["role"]]
+        seconds = self.config.get("validation_seconds", 1200)
+        if type(seconds) is not int or not 1 <= seconds <= 1200:
+            raise ValueError("Worker validation timeout must be between 1 and 1200 seconds.")
         self.variable = {"ngx": "POPCORN_NGX_IMAGE", "ai": "POPCORN_AI_IMAGE", "cpu": "POPCORN_IMAGE"}[self.config["role"]]
         if not self.control.is_absolute() or not self.control.is_dir():
             raise ValueError("Update control folder is missing.")
@@ -89,7 +92,7 @@ class Updater:
         self.compose = ["docker", "compose", "--project-name", self.config["project"],
                         "--env-file", self.config["environment"], "-f", self.config["compose"]]
 
-    def command(self, *args, image=None, timeout=900):
+    def command(self, *args, image=None, timeout=30):
         env = os.environ.copy()
         if image:
             env[self.variable] = image
@@ -137,7 +140,7 @@ class Updater:
         return value
 
     def recreate(self, image):
-        self.command(*self.compose, "up", "--detach", "--no-deps", "--no-build", "--pull", "never", "--force-recreate", "worker", image=image)
+        self.command(*self.compose, "up", "--detach", "--no-deps", "--no-build", "--pull", "never", "--force-recreate", "worker", image=image, timeout=120)
 
     def validate(self, image, target, previous):
         started = time.monotonic()
@@ -178,7 +181,7 @@ class Updater:
             self.status("checking")
             current = self.container()
             old, old_version, _ = self.image(current["Image"])
-            self.command("docker", "pull", self.repository + ":" + self.channel)
+            self.command("docker", "pull", self.repository + ":" + self.channel, timeout=900)
             candidate, target, revision = self.image(self.repository + ":" + self.channel)
             if candidate["Architecture"] != old["Architecture"] or candidate["Os"] != "linux":
                 raise ValueError("Release architecture does not match the installed worker.")

@@ -7,11 +7,10 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/python3 /opt/popcorn-sr/update-worker.py --config /opt/popcorn-sr/update.json
-TimeoutStartSec=45min
+TimeoutStartSec=65min
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=/opt/popcorn-sr /var/lib/popcorn-sr/updates
 ProtectHome=read-only
-
