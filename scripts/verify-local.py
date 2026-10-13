@@ -49,6 +49,8 @@ def main():
             ("Manager image", ["docker", "build", "--label", label, "-t", image, "."]),
             ("Paired Docker video delivery", ["uv", "run", "python", "scripts/docker-smoke.py",
                                              "--image", image, "--report", str(receipt.with_suffix(".docker.json"))]),
+            ("Compose restart and storage recovery", ["uv", "run", "python", "scripts/docker-lifecycle.py",
+                                                      "--image", image, "--report", str(receipt.with_suffix(".lifecycle.json"))]),
             ("NGX image", ["docker", "build", "--label", label, "-f", "Dockerfile.ngx", "-t", image + "-ngx", "."]),
             ("Paired NGX Docker delivery", ["uv", "run", "python", "scripts/docker-smoke.py",
                                           "--image", image, "--worker-image", image + "-ngx",
