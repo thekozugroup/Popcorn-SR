@@ -13,6 +13,7 @@ TRANSFERS = {1: "bt709", 2: "unknown", 4: "gamma22", 5: "gamma28", 6: "smpte170m
              8: "linear", 9: "log", 10: "log_sqrt", 11: "iec61966-2-4", 12: "bt1361e",
              13: "iec61966-2-1", 14: "bt2020-10", 15: "bt2020-12"}
 RANGES = {0: "unknown", 1: "tv", 2: "pc"}
+SCALE_MATRICES = {1: "bt709", 4: "fcc", 5: "bt601", 6: "bt601", 7: "smpte240m"}
 FIELDS = {"colorspace": MATRICES, "color_range": RANGES, "color_trc": TRANSFERS, "color_primaries": PRIMARIES}
 INFO_FIELDS = {"colorspace": "color_space", "color_range": "color_range",
                "color_trc": "color_transfer", "color_primaries": "color_primaries"}
@@ -109,7 +110,9 @@ class SDRColor:
         # Convert RGB pixels with the requested matrix before labeling them.
         # Missing labels remain unspecified; the historical 601/limited
         # conversion remains the fallback, never a newly invented BT.709 tag.
-        matrix = MATRICES[self.colorspace] if self.colorspace not in {0, 2} else "bt470bg"
+        # FFmpeg 7 uses the common scale-filter name bt601 for both matrices;
+        # keep the distinct original 525/625 signaling in setparams/encoder.
+        matrix = SCALE_MATRICES.get(self.colorspace, "bt601")
         range_name = "full" if self.color_range == 2 else "limited"
         labels = {"colorspace": MATRICES[self.colorspace] if self.colorspace != 0 else "unknown",
                   "range": RANGES[self.color_range], "color_trc": TRANSFERS[self.color_trc],

@@ -17,9 +17,10 @@ from popcorn_sr.video_pipe import encoded_video, encoding_options
 
 
 def read_rgb(path, matrix, range_name):
+    scale_matrix = "bt601" if matrix == "smpte170m" else matrix
     raw = subprocess.check_output([
         "ffmpeg", "-v", "error", "-i", str(path), "-frames:v", "1", "-vf",
-        f"scale=in_color_matrix={matrix}:in_range={range_name}:out_range=full:flags=bilinear",
+        f"scale=in_color_matrix={scale_matrix}:in_range={range_name}:out_range=full:flags=bilinear",
         "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1",
     ])
     return np.frombuffer(raw, np.uint8).reshape(96, 256, 3)
@@ -33,10 +34,11 @@ def source_clip(path, matrix, range_name):
                         [35, 65, 190], [180, 155, 40], [45, 45, 45], [205, 205, 205]], np.uint8)
     rgb = np.broadcast_to(np.repeat(patches, 32, axis=0)[None], (96, 256, 3)).copy()
     params = f"range={range_name}:colorspace={matrix}:color_trc={matrix}:color_primaries={matrix}"
+    scale_matrix = "bt601" if matrix == "smpte170m" else matrix
     subprocess.run([
         "ffmpeg", "-v", "error", "-f", "rawvideo", "-pixel_format", "rgb24", "-video_size", "256x96",
         "-framerate", "25", "-i", "pipe:0", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono",
-        "-t", "0.16", "-vf", f"scale=in_range=full:out_range={range_name}:out_color_matrix={matrix},setparams={params}",
+        "-t", "0.16", "-vf", f"scale=in_range=full:out_range={range_name}:out_color_matrix={scale_matrix},setparams={params}",
         "-c:v", "libx264", "-crf", "0", "-pix_fmt", "yuv420p", "-colorspace", matrix,
         "-color_range", "pc" if range_name == "full" else "tv", "-color_trc", matrix,
         "-color_primaries", matrix, "-c:a", "pcm_s16le", "-n", str(path),
