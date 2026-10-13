@@ -369,33 +369,12 @@ class Worker:
         if frame_preview or (recipe["engine"] != "resize" and recipe["preview_seconds"]):
             # Clip before invoking external engines; the heavy engine never reads the full preview source.
             engine_source = folder / "preview-source.mkv"
+            interpreter = os.environ.get("POPCORN_AI_PYTHON" if recipe["engine"] in {"rtx-vsr", "realesrgan"} else "POPCORN_NGX_PYTHON", sys.executable)
             await self.process(
-                [
-                    "ffmpeg",
-                    "-v",
-                    "error",
-                    "-nostdin", "-threads", "2", "-filter_threads", "1",
-                    "-protocol_whitelist", "file,pipe",
-                    *(["-ss", str(recipe["preview_frame_time"])] if frame_preview else []),
-                    "-i",
-                    str(source),
-                    "-t",
-                    str(recipe["preview_seconds"]),
-                    "-map",
-                    "0:V:0",
-                    "-an",
-                    "-sn",
-                    "-map_metadata", "-1", "-map_chapters", "-1",
-                    "-vf", "setpts=PTS-STARTPTS",
-                    "-c:v",
-                    "ffv1",
-                    "-threads", "2", "-fps_mode", "passthrough",
-                    "-n",
-                    str(engine_source),
-                ],
-                folder,
-                recipe["preview_seconds"],
-                progress_start=10, progress_end=15,
+                [interpreter, "-m", "popcorn_sr.preview_sample", "--input", str(source),
+                 "--output", str(engine_source), "--start", str(recipe.get("preview_frame_time") or 0),
+                 "--seconds", str(recipe["preview_seconds"])],
+                folder, recipe["preview_seconds"], progress_start=10, progress_end=15,
             )
         self.status["stage"] = "Enhancing video" if recipe["engine"] != "resize" else "Encoding video"
         duration = (

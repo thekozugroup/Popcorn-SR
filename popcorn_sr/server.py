@@ -302,6 +302,14 @@ def create_app(settings: Settings | None = None):
                 )
             source = await asyncio.to_thread(inspect_source, path)
             if body.recipe.preview_frame_time is not None:
+                from fractions import Fraction
+
+                try:
+                    rate = Fraction(source["frame_rate"])
+                    if rate <= 0:
+                        raise ValueError
+                except (ValueError, ZeroDivisionError):
+                    raise ValueError("This source has no declared frame rate. Use a full conventional resize or another video.") from None
                 remaining = source["duration"] - body.recipe.preview_frame_time
                 if remaining <= 0 or (body.recipe.frame_generation and remaining < 0.5):
                     raise ValueError("Choose an earlier frame. Motion previews need at least half a second remaining.")

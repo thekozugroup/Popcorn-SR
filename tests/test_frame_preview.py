@@ -4,15 +4,18 @@ import asyncio
 import io
 import struct
 import sys
+from fractions import Fraction
 
 import av
 import httpx
 import numpy as np
 
-from popcorn_sr.frame_generation import adapter_process
+from popcorn_sr.frame_generation import adapter_process, source_timeline
 from popcorn_sr.media import frame_image, sha256
 from popcorn_sr.models import Recipe
+from popcorn_sr.preview_sample import sample
 from popcorn_sr.scratch import initialize
+from popcorn_sr.video_pipe import encoded_video, encoding_options
 from popcorn_sr.worker import Worker
 from tests.conftest import pair_worker
 
@@ -133,3 +136,21 @@ def test_multistage_progress_maps_each_native_pass_instead_of_resetting(tmp_path
     asyncio.run(worker.process([sys.executable, "-c", "print('pipeline_progress=0.5')"], tmp_path, 1,
                               progress_start=55, progress_end=83))
     assert worker.status["progress"] == 69
+
+
+def test_selected_vfr_sample_keeps_rate_pts_pixels_and_long_final_interval(tmp_path):
+    source, output = tmp_path / "variable.mkv", tmp_path / "sample.mkv"
+    with encoded_video(source, 128, 96, Fraction(25), Fraction(1, 1000), encoding_options("ffv1", 23),
+                       end_time=Fraction(36, 100), final_frame_time=Fraction(1, 5)) as (container, stream):
+        for pts in (0, 40, 120, 200):
+            frame = av.VideoFrame.from_ndarray(np.full((96, 128, 3), pts, dtype=np.uint8), format="rgb24")
+            frame.pts, frame.time_base = pts, Fraction(1, 1000)
+            for packet in stream.encode(frame):
+                container.mux(packet)
+    assert sample(source, output, Fraction(8, 100), 5) == 2
+    timing = source_timeline(output)
+    assert timing["rate"] == 25 and timing["duration"] == Fraction(24, 100)
+    with av.open(str(output)) as video:
+        frames = list(video.decode(video=0))
+        assert [f.pts * f.time_base for f in frames] == [0, Fraction(8, 100)]
+        assert [int(f.to_ndarray(format="rgb24")[0, 0, 0]) for f in frames] == [120, 200]
