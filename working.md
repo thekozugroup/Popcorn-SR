@@ -9,6 +9,8 @@ Goal active. Native experimental SDR DLSS SR/DLAA and DLSSG previously passed pa
 
 RTX VSR, RTX HDR and neural rendering remain mandatory unfinished stages requiring compatible authorized runtimes and implementation. Representative/large/long jobs, production deployment lifecycle, physical Optane checks and final publication remain open. RTX 5080 acceptance is deferred at the user's request; Windows is future work. Published 0.2.0 is unchanged. Pairing precedes GPU checks; physical acceptance passed with immediate pairing and continuous startup heartbeats. Earlier iteration notes below are historical evidence, not current completion claims.
 
+Latest HDR progress: the optional TrueHDR CLI adapter and exact ten-bit frame/export path are implemented. All 1,024 RGB levels, actual CPU H.265/AV1 signaling/timing, 71 Linux tests, five browser workflows and rebuilt paired Docker delivery passed locally. The owned builder was removed; no Actions ran and NAS/Spark were untouched. Genuine NVIDIA HDR execution, worker/UI integration, metadata/quality and combination acceptance are still open, so HDR is not offered in paired jobs.
+
 ## Acceptance
 - Authenticated one-use pairing, durable queue, worker leases, cancel/retry, streaming transfers.
 - Original library read-only; independently validated output, collision-safe publishing.
