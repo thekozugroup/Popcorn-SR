@@ -16,6 +16,7 @@ import httpx
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image", default="popcorn-sr:dev")
+parser.add_argument("--worker-image", help="Worker image; defaults to the manager image.")
 parser.add_argument("--report", type=Path, default=Path("evidence/docker-smoke.json"))
 args = parser.parse_args()
 identity = "popcorn-check-" + secrets.token_hex(4)
@@ -94,6 +95,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
             "-v",
             f"{root / 'output'}:/output",
             args.image,
+            "serve",
         )
         mapped = docker("port", manager, "8787/tcp").splitlines()[0]
         address = "http://" + mapped
@@ -144,7 +146,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 f"{root / 'worker-state'}:/state",
                 "-v",
                 f"{root / 'scratch'}:/scratch",
-                args.image,
+                args.worker_image or args.image,
                 "worker",
             )
             for _ in range(120):
@@ -183,6 +185,8 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 "image": args.image,
                 "image_id": docker("image", "inspect", "--format", "{{.Id}}", args.image),
                 "architecture": docker("image", "inspect", "--format", "{{.Architecture}}", args.image),
+                "worker_image": args.worker_image or args.image,
+                "worker_image_id": docker("image", "inspect", "--format", "{{.Id}}", args.worker_image or args.image),
                 "worker_capabilities": state["workers"][0]["capabilities"],
                 "result": job["result"],
                 "original_unchanged": True,

@@ -50,6 +50,9 @@ def main():
             ("Paired Docker video delivery", ["uv", "run", "python", "scripts/docker-smoke.py",
                                              "--image", image, "--report", str(receipt.with_suffix(".docker.json"))]),
             ("NGX image", ["docker", "build", "--label", label, "-f", "Dockerfile.ngx", "-t", image + "-ngx", "."]),
+            ("Paired NGX Docker delivery", ["uv", "run", "python", "scripts/docker-smoke.py",
+                                          "--image", image, "--worker-image", image + "-ngx",
+                                          "--report", str(receipt.with_suffix(".ngx-docker.json"))]),
         ]
         if args.include_ai:
             commands.append(("AI image", ["docker", "build", "--label", label,

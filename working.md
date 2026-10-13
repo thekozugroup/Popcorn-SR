@@ -17,6 +17,8 @@ CPU contract/lifecycle/timing diagnostics and paired VSR/FG/HDR delivery fixture
 
 HDR receipts remain at `evidence/hdr-flow-verification/committed-local.json`, `linux.log` and `acceptance.json`. Current VSR receipts: `evidence/vsr-flow-verification/committed-local.json`, its paired Docker receipt, `linux.log`, `acceptance.json` and before/after inventories. These prove packaging, integration and transport, not real VFX inference. Actual UI previews were opened for the user; hardware states are explicitly simulated. Share rendered UI previews periodically at frontend milestones. All five completion gates stay active. Next: revalidate the current native SR/FG package on Spark, complete representative/large/long and lifecycle checks, and obtain compatible authorized VFX/neural runtimes for genuine acceptance; physical Optane remains unavailable.
 
+Native-scale acceptance preparation: the NGX image is worker-only and intentionally has no web assets. The Docker smoke helper now selects the manager role explicitly and accepts a separate worker image; the local verifier also performs paired manager/NGX delivery after building both. A real ARM64 manager/NGX CPU roundtrip passed with audio, source/download checksums and scratch cleanup. Ruff, the production UI build and all 100 Mac tests passed after reinstalling the stale local development package (the normal verifier already refreshes it). This is verification-tool progress, not new GPU acceptance. Larger/longer native Spark checks are next; no NAS changes or GitHub Actions.
+
 ## Acceptance
 - Authenticated one-use pairing, durable queue, worker leases, cancel/retry, streaming transfers.
 - Original library read-only; independently validated output, collision-safe publishing.
