@@ -30,7 +30,11 @@ Popcorn SR verifies each transfer's checksum. Temporary outputs remain separate.
 
 Mount the enclosure on the processing host, create a scratch subfolder there and initialize it. Bind that exact directory to `/scratch`. Source copies, intermediate videos, AI caches, optional model checkpoint and outgoing copies live there. Keep originals on the read-only NAS library mount and completed copies on its separate output mount.
 
-The worker reserves at least four times the source size plus 1 GiB before processing a job. Output-size estimates are conservative but cannot guarantee space for every upscale; use a larger drive for high-resolution/long media. Transfers continuously check space; failures preserve the original. NVENC streams frames rather than storing image sequences, reducing temporary writes.
+The worker requires at least four times the compressed source size plus its configured reserve (1 GiB by default) before starting. This is a baseline check, not a reliable estimate for every enhancement. Transfers and running jobs continue checking space; failures preserve the original.
+
+Native frame generation currently stores whole-video lossless intermediates on the scratch drive. Cascaded passes briefly retain both the incoming and outgoing intermediate; the worker also retains its initial upscaled video until generation finishes. Higher resolution, longer duration and higher frame rates can therefore require far more space than the four-times baseline. For example, 24 → 480 fps produces twenty times as many final frames. Lossless compression and final codec sizes depend on the content. Start with short previews; full-length and high-resolution generation still require capacity/performance acceptance. Choosing AV1 for the finished copy does not reduce the lossless intermediate requirement.
+
+NVENC receives a frame stream rather than an on-disk image sequence. Temporary lossless video files are still needed for the current multi-stage pipeline. Set the scratch directory to the mounted external drive and allow enough capacity for those files as well as source/result copies.
 
 Configure Linux systemd mount dependencies (`RequiresMountsFor`) or the host's equivalent. Compose uses `create_host_path: false`, and the worker requires a drive marker. This guards a missing path but is not a physical mount detector; do not initialize a placeholder directory while the drive is absent.
 

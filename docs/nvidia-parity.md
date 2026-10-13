@@ -5,10 +5,10 @@ Popcorn SR's completion goal includes all five primary NVIDIA video enhancements
 | Required stage | User controls to support | Current implementation gap |
 |---|---|---|
 | DLSS neural rendering | Style, intensity, passes, tone/structure, masks, temporal quality | No native Linux video renderer or verified compatible neural runtime |
-| DLSS Super Resolution | DLAA, Quality, Balanced, Performance, Ultra Performance; preset and temporal quality | Native CUDA SDR video backend, controls and packaged paired delivery verified on Spark; representative quality and NAS delivery remain unverified |
+| DLSS Super Resolution | DLAA, Quality, Balanced, Performance, Ultra Performance; preset and temporal quality | Native CUDA SDR video backend, controls and packaged Unraid → Spark → Unraid delivery verified in three codecs; representative quality and large/long jobs remain unverified |
 | RTX Video Super Resolution | Quality 1–4, scale or custom dimensions | Linux x86 VFX adapter; no verified Spark backend |
 | RTX Video HDR | Contrast, saturation, middle gray, peak luminance, precision | SDR-to-HDR processing, 10-bit encoding and validation remain unfinished |
-| DLSS frame generation | Target FPS, engine mode, optical-flow quality | Native Vulkan SDR backend, target FPS/cascade controls and rebuilt ARM64 Docker paired delivery passed on Spark in three codecs, including native SR/DLAA combinations and full-video continuation; representative quality, long jobs and NAS delivery remain pending |
+| DLSS frame generation | Target FPS, engine mode, optical-flow quality | Native Vulkan SDR backend, target FPS/cascade controls and packaged Unraid → Spark → Unraid delivery passed in three codecs, including native SR/DLAA combinations and full-video continuation; representative quality and large/long jobs remain pending |
 
 Stages must be independently selectable, with compatible combinations and ordering. A preview must exercise the same settings and backend as the full job. Each enabled stage must pass its own real processing check on the selected worker. Unsupported stages stay unavailable with an actionable reason; availability does not count as completion.
 
