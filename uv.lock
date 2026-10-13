@@ -588,8 +588,10 @@ name = "popcorn-sr"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [
+    { name = "av" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "numpy" },
     { name = "uvicorn" },
 ]
 
@@ -614,11 +616,13 @@ ngx = [
 
 [package.metadata]
 requires-dist = [
+    { name = "av", specifier = "==17.0.0" },
     { name = "av", marker = "extra == 'ai'", specifier = "==17.0.0" },
     { name = "av", marker = "extra == 'dev'", specifier = ">=14,<18" },
     { name = "av", marker = "extra == 'ngx'", specifier = "==17.0.0" },
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "numpy", specifier = "==2.3.3" },
     { name = "numpy", marker = "extra == 'ai'", specifier = "==2.3.3" },
     { name = "numpy", marker = "extra == 'dev'", specifier = "==2.3.3" },
     { name = "numpy", marker = "extra == 'ngx'", specifier = "==2.3.3" },
