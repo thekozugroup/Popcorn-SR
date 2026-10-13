@@ -1,5 +1,6 @@
 """Send timestamped frames to system FFmpeg without PyAV's optional GPU codecs."""
 
+import os
 import subprocess
 import threading
 from contextlib import contextmanager
@@ -17,6 +18,12 @@ def encoded_video(path, width, height, rate, time_base, options):
     """NUT carries original PTS through a bounded OS pipe, including variable timing."""
     import av
 
+    inherited = {}
+    if os.name == "posix" and (active_fd := os.environ.get("POPCORN_ACTIVE_JOB_FD")):
+        # Keep job ownership alive even if the AI process exits before FFmpeg.
+        fd = int(active_fd)
+        os.fstat(fd)
+        inherited["pass_fds"] = (fd,)
     process = subprocess.Popen(
         [
             "ffmpeg", "-v", "error", "-nostdin", "-f", "nut", "-i", "pipe:0",
@@ -26,6 +33,7 @@ def encoded_video(path, width, height, rate, time_base, options):
         stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
+        **inherited,
     )
     tail = bytearray()
 

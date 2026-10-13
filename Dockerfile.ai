@@ -1,18 +1,27 @@
-# Optional, larger AI worker. NVIDIA's base supplies CUDA PyTorch for AMD64/ARM64.
-# NVIDIA runtime licensing remains separate from Popcorn SR.
-ARG NVIDIA_BASE=nvcr.io/nvidia/pytorch:26.09-py3
-FROM ${NVIDIA_BASE}
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tini \
-    && rm -rf /var/lib/apt/lists/*
+# Linux AMD64/ARM64 AI worker. CUDA libraries come from pinned PyTorch wheels;
+# only the host NVIDIA driver is provided by NVIDIA Container Toolkit.
+FROM python:3.12-slim-trixie
+LABEL org.opencontainers.image.title="Popcorn SR AI Worker" \
+      org.opencontainers.image.source="https://github.com/thekozugroup/Popcorn-SR" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 UV_NO_CACHE=1
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -u 1000 -m popcorn \
+    && mkdir /state /scratch && chown popcorn:popcorn /state /scratch
 WORKDIR /app
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
+RUN pip install uv==0.8.22 \
+    && uv sync --frozen --extra ai --no-dev --no-install-project --python /usr/local/bin/python \
+    && /app/.venv/bin/python -c "import av, numpy, torch; assert torch.__version__ == '2.13.0+cu130'; assert torch.version.cuda == '13.0'"
 COPY LICENSE THIRD-PARTY-NOTICES.md ./
 COPY licenses ./licenses
 COPY popcorn_sr ./popcorn_sr
-RUN python -m pip install --no-cache-dir . 'av>=14,<18' 'numpy>=2,<3'
-RUN mkdir -p /state /scratch && chmod 777 /state /scratch
-ENV POPCORN_ESRGAN_MODEL=/scratch/models/RealESRGAN_x4plus.pth \
-    XDG_CACHE_HOME=/scratch/cache TORCH_HOME=/scratch/cache/torch CUDA_CACHE_PATH=/scratch/cache/cuda
+RUN uv sync --frozen --extra ai --no-dev --no-editable --python /usr/local/bin/python
+ENV PATH="/app/.venv/bin:$PATH" \
+    POPCORN_ESRGAN_MODEL=/scratch/models/RealESRGAN_x4plus.pth \
+    XDG_CACHE_HOME=/scratch/cache TORCH_HOME=/scratch/cache/torch CUDA_CACHE_PATH=/scratch/cache/cuda \
+    NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+USER 1000:1000
 ENTRYPOINT ["/usr/bin/tini", "--", "popcorn-sr"]
 CMD ["worker"]

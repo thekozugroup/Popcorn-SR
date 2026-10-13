@@ -6,7 +6,9 @@ import shutil
 import signal
 import socket
 import subprocess
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -14,6 +16,20 @@ import httpx
 
 from .engines import detect_capabilities, engine_result, processing_command
 from .media import probe, validate_output
+from .scratch import atomic_private_json, read_marker
+
+
+@contextmanager
+def exclusive_file(path):
+    """Linux locks also survive in the processing child if the parent crashes."""
+    import fcntl
+
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield fd
+    finally:
+        os.close(fd)
 
 
 class Worker:
@@ -39,30 +55,54 @@ class Worker:
         self.credential_file = state / "worker.json"
         self.status = {"progress": 0, "stage": "Receiving source"}
         self.drive_id = None
+        self.worker_id = None
+        self.active_fd = None
+        self.scratch_identity_file = state / "scratch.json"
+        self.expected_scratch = (
+            json.loads(self.scratch_identity_file.read_text())
+            if self.scratch_identity_file.exists()
+            else None
+        )
 
     def storage(self):
-        marker = self.scratch / ".popcorn-scratch"
-        if not marker.is_file() or not marker.read_text().strip():
-            raise ValueError("Scratch drive is not ready. Mount the drive and run init-scratch on that path.")
-        identity = marker.read_text().strip()
+        marker = read_marker(self.scratch)
+        identity = marker["drive_id"]
         if self.drive_id is not None and identity != self.drive_id:
             raise ValueError("Scratch drive identity changed. Stop and verify the intended mounted drive.")
         self.drive_id = identity
+        observed = {key: marker[key] for key in ("drive_id", "filesystem_id")}
+        if self.expected_scratch is not None and observed != self.expected_scratch:
+            raise ValueError(
+                "Scratch drive changed since pairing. Mount the original drive or use a new worker state folder."
+            )
+        if self.expected_scratch is None:
+            atomic_private_json(self.scratch_identity_file, observed)
+            self.expected_scratch = observed
         usage = shutil.disk_usage(self.scratch)
         return {
             "path": str(self.scratch),
             "free_bytes": usage.free,
             "total_bytes": usage.total,
-            "drive_id": marker.read_text().strip(),
+            **observed,
             "reserve_bytes": self.reserve,
         }
 
     async def connect(self, pair_code=None):
         self.storage()
-        check = self.scratch / "capability-check"
-        check.mkdir(exist_ok=True)
+        import tempfile
+
+        check = Path(tempfile.mkdtemp(prefix="capability-check-", dir=self.scratch))
+        stopped = threading.Event()
+        detection = asyncio.create_task(asyncio.to_thread(detect_capabilities, check, stopped))
         try:
-            self.capabilities = await asyncio.to_thread(detect_capabilities, check)
+            self.capabilities = await asyncio.shield(detection)
+        except asyncio.CancelledError:
+            stopped.set()
+            try:
+                await detection
+            except ValueError:
+                pass
+            raise
         finally:
             shutil.rmtree(check, ignore_errors=True)
         if not self.capabilities["encoders"]:
@@ -74,6 +114,7 @@ class Worker:
                     "Saved pairing belongs to another manager. Use a separate worker state folder."
                 )
             self.token = saved["token"]
+            self.worker_id = saved["worker_id"]
             return
         if not pair_code:
             raise ValueError(
@@ -92,13 +133,8 @@ class Worker:
             response.raise_for_status()
             data = response.json()
         self.token = data["token"]
-        temporary = self.state / "worker.json.tmp"
-        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w") as stream:
-            json.dump(data | {"manager": self.manager}, stream)
-            stream.flush()
-            os.fsync(stream.fileno())
-        temporary.replace(self.credential_file)
+        self.worker_id = data["worker_id"]
+        atomic_private_json(self.credential_file, data | {"manager": self.manager})
 
     def client(self):
         return httpx.AsyncClient(
@@ -147,6 +183,11 @@ class Worker:
             if os.name == "nt"
             else {"start_new_session": True}
         )
+        if os.name == "posix" and self.active_fd is not None:
+            extra["pass_fds"] = (self.active_fd,)
+            env["POPCORN_ACTIVE_JOB_FD"] = str(self.active_fd)
+        else:
+            env.pop("POPCORN_ACTIVE_JOB_FD", None)
         process = await asyncio.create_subprocess_exec(
             *command,
             stdout=asyncio.subprocess.PIPE,
@@ -179,7 +220,15 @@ class Worker:
             if code:
                 raise ValueError("Processing engine failed: " + tail.decode(errors="replace")[-1500:])
         finally:
-            if process.returncode is None:
+            if os.name == "posix":
+                # The engine may have exited while a descendant still holds its
+                # pipes or scratch lock. Terminate the entire owned group.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                await process.wait()
+            elif process.returncode is None:
                 if os.name == "nt":
                     killer = await asyncio.create_subprocess_exec(
                         "taskkill",
@@ -191,8 +240,6 @@ class Worker:
                         stderr=asyncio.subprocess.DEVNULL,
                     )
                     await killer.wait()
-                else:
-                    os.killpg(process.pid, signal.SIGKILL)
                 await process.wait()
             for task in readers:
                 task.cancel()
@@ -314,6 +361,26 @@ class Worker:
         folder = self.scratch / f"job-{job['id']}-{job['lease'][:8]}"
         self.status = {"progress": 0, "stage": "Receiving source"}
         tasks = []
+        job_lock = None
+        created = False
+
+        async def stop_processing():
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            tasks.clear()
+
+        async def report_failure(message):
+            # A disconnected manager must not delay GPU shutdown or scratch cleanup.
+            try:
+                async with asyncio.timeout(2):
+                    await client.post(
+                        f"/api/worker/jobs/{job['id']}/fail",
+                        json={"lease": job["lease"], "error": message[:2000]},
+                    )
+            except (httpx.HTTPError, TimeoutError):
+                pass
+
         try:
             storage = self.storage()
             # Conservative estimate, with continuous checks while transferring.
@@ -322,6 +389,20 @@ class Worker:
                     "Scratch drive has too little space. Free at least 4× the source size plus the reserve."
                 )
             folder.mkdir(exist_ok=False)
+            created = True
+            atomic_private_json(
+                folder / ".popcorn-job.json",
+                {
+                    "version": 1,
+                    "worker_id": job["worker_id"],
+                    "job_id": job["id"],
+                    "lease": job["lease"],
+                    "drive_id": self.drive_id,
+                },
+            )
+            if os.name == "posix":
+                job_lock = exclusive_file(folder / ".popcorn-active.lock")
+                self.active_fd = job_lock.__enter__()
             tasks = [
                 asyncio.create_task(self.perform(client, job, folder)),
                 asyncio.create_task(self.heartbeat(client, job, interval)),
@@ -330,29 +411,76 @@ class Worker:
             for task in done:
                 task.result()
         except asyncio.CancelledError:
+            await stop_processing()
+            await report_failure("Worker stopped. Review and retry when it is online.")
             raise
         except (ValueError, OSError, httpx.HTTPError) as exc:
+            await stop_processing()
             message = str(exc)
             if isinstance(exc, httpx.HTTPError):
                 message = "Manager rejected the request or the connection was interrupted. Check pairing and network, then retry."
-            try:
-                await client.post(
-                    f"/api/worker/jobs/{job['id']}/fail",
-                    json={"lease": job["lease"], "error": message[:2000]},
-                )
-            except httpx.HTTPError:
-                pass
+            await report_failure(message)
             print(f"Job {job['id']} stopped. {message[:200]}", flush=True)
         finally:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            shutil.rmtree(folder, ignore_errors=True)
+            await stop_processing()
+            self.active_fd = None
+            if job_lock is not None:
+                job_lock.__exit__(None, None, None)
+            if created:
+                try:
+                    self.storage()
+                    shutil.rmtree(folder, ignore_errors=True)
+                except (ValueError, OSError):
+                    print(
+                        "Scratch drive unavailable; owned job files will be recovered after it returns.",
+                        flush=True,
+                    )
 
-    async def run(self, pair_code=None):
+    async def recover_scratch(self, client):
+        """Remove only this worker's inactive scratch jobs, never unknown folders."""
+        self.storage()
+        if os.name != "posix":
+            return
+        for folder in self.scratch.glob("job-*"):
+            marker = folder / ".popcorn-job.json"
+            if (
+                folder.is_symlink()
+                or marker.is_symlink()
+                or not marker.is_file()
+                or marker.stat().st_size > 4096
+            ):
+                continue
+            try:
+                data = json.loads(marker.read_text())
+                if (
+                    not isinstance(data, dict)
+                    or data.get("version") != 1
+                    or data.get("worker_id") != self.worker_id
+                    or data.get("drive_id") != self.drive_id
+                    or not isinstance(data.get("lease"), str)
+                    or folder.name != f"job-{data.get('job_id')}-{data['lease'][:8]}"
+                ):
+                    continue
+                with exclusive_file(folder / ".popcorn-active.lock"):
+                    response = await client.post(
+                        f"/api/worker/jobs/{data['job_id']}/fail",
+                        json={
+                            "lease": data["lease"],
+                            "error": "Worker restarted. Review and retry this job.",
+                        },
+                    )
+                    if response.status_code not in {200, 409}:
+                        response.raise_for_status()
+                    self.storage()
+                    shutil.rmtree(folder)
+            except (OSError, json.JSONDecodeError):
+                continue
+
+    async def _run(self, pair_code=None):
         await self.connect(pair_code)
         print(f"Worker ready: {self.name}. Engines: {', '.join(self.capabilities['engines'])}.", flush=True)
         async with self.client() as client:
+            recover_at = 0
             while True:
                 try:
                     response = await client.post(
@@ -360,6 +488,9 @@ class Worker:
                         json={"capabilities": self.capabilities, "scratch": self.storage()},
                     )
                     response.raise_for_status()
+                    if time.monotonic() >= recover_at:
+                        await self.recover_scratch(client)
+                        recover_at = time.monotonic() + 60
                     response = await client.post("/api/worker/claim")
                     response.raise_for_status()
                     data = response.json()
@@ -374,3 +505,15 @@ class Worker:
                         ) from None
                     print("Manager unreachable. Reconnecting in 5 seconds.", flush=True)
                     await asyncio.sleep(5)
+
+    async def run(self, pair_code=None):
+        if os.name == "posix":
+            try:
+                with exclusive_file(self.state / "worker.lock"):
+                    await self._run(pair_code)
+            except BlockingIOError:
+                raise ValueError(
+                    "Another worker is using this state folder. Stop it or choose a separate folder."
+                ) from None
+        else:
+            await self._run(pair_code)

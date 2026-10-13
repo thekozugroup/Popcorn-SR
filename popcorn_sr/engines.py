@@ -4,8 +4,10 @@ import json
 import os
 import platform
 import shutil
+import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from .media import dimensions, ffmpeg_command
@@ -146,9 +148,12 @@ def processing_command(source: Path, output: Path, recipe: dict, info: dict):
     return adapter_command(recipe["engine"], source, output, recipe, info)
 
 
-def run_check(command, *, timeout=60, scratch=None):
+def run_check(command, *, timeout=60, scratch=None, stopped=None):
     try:
         env = os.environ.copy()
+        for key in list(env):
+            if key.startswith("POPCORN_ADMIN") or key in {"POPCORN_PAIR_CODE", "POPCORN_ACTIVE_JOB_FD"}:
+                env.pop(key, None)
         if scratch is not None:
             env.update(
                 {
@@ -159,13 +164,37 @@ def run_check(command, *, timeout=60, scratch=None):
                     "CUDA_CACHE_PATH": str(scratch.parent / "cache" / "cuda"),
                 }
             )
-        done = subprocess.run(command, capture_output=True, timeout=timeout, check=False, env=env)
-        return done.returncode == 0
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            start_new_session=os.name == "posix",
+        )
+        try:
+            deadline = time.monotonic() + timeout
+            while process.poll() is None:
+                if time.monotonic() >= deadline or (stopped is not None and stopped.is_set()):
+                    return False
+                time.sleep(0.1)
+            return process.returncode == 0
+        finally:
+            if os.name == "posix":
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+            elif process.poll() is None:
+                subprocess.run(
+                    ["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True, timeout=10
+                )
+                process.wait()
     except (OSError, subprocess.TimeoutExpired):
         return False
 
 
-def detect_capabilities(scratch: Path):
+def detect_capabilities(scratch: Path, stopped=None):
     """Require an actual encode, and an actual AI render, before advertising support."""
     from .media import probe
     from .models import Recipe
@@ -194,6 +223,8 @@ def detect_capabilities(scratch: Path):
         "hevc_nvidia": "hevc_nvenc",
         "av1_nvidia": "av1_nvenc",
     }.items():
+        if stopped is not None and stopped.is_set():
+            raise ValueError("Worker initialization stopped.")
         target = scratch / f"check-{name}.mkv"
         command = [
             "ffmpeg",
@@ -212,7 +243,7 @@ def detect_capabilities(scratch: Path):
             "-y",
             str(target),
         ]
-        if run_check(command, scratch=scratch):
+        if run_check(command, scratch=scratch, stopped=stopped):
             encoders.append(name)
         target.unlink(missing_ok=True)
     configured = {}
@@ -231,6 +262,8 @@ def detect_capabilities(scratch: Path):
     if os.environ.get("POPCORN_VISUAL_ENHANCER") and platform.system() == "Windows":
         configured.update({"rtx-vsr": True, "dlss-sr": True, "dlss5": True})
     for engine in configured:
+        if stopped is not None and stopped.is_set():
+            raise ValueError("Worker initialization stopped.")
         folder = scratch / f"check-{engine}"
         folder.mkdir(exist_ok=True)
         source, output = folder / "input.mkv", folder / "result.mkv"
@@ -254,12 +287,16 @@ def detect_capabilities(scratch: Path):
                     str(source),
                 ],
                 scratch=scratch,
+                stopped=stopped,
             ):
                 raise ValueError("Could not prepare an engine test clip.")
             recipe = Recipe(engine=engine, encoder="nvidia", scale=1 if engine == "dlss5" else 2).model_dump()
             info = probe(source)
             if not run_check(
-                adapter_command(engine, source, output, recipe, info), timeout=180, scratch=scratch
+                adapter_command(engine, source, output, recipe, info),
+                timeout=180,
+                scratch=scratch,
+                stopped=stopped,
             ):
                 raise ValueError("Engine processing check failed. Verify runtime, driver and hardware.")
             processed = engine_result(engine, output)
@@ -268,7 +305,9 @@ def detect_capabilities(scratch: Path):
             if (result["width"], result["height"]) != expected or abs(result["duration"] - 1) > 0.5:
                 raise ValueError("Engine test produced unexpected dimensions or duration.")
             if not run_check(
-                ["ffmpeg", "-v", "error", "-i", str(processed), "-f", "null", "-"], scratch=scratch
+                ["ffmpeg", "-v", "error", "-i", str(processed), "-f", "null", "-"],
+                scratch=scratch,
+                stopped=stopped,
             ):
                 raise ValueError("Engine test output failed decoding.")
             engines.append(engine)

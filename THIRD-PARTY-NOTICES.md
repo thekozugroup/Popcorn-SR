@@ -12,7 +12,7 @@ The optional official RealESRGAN_x4plus checkpoint is downloaded from [Real-ESRG
 
 ## NVIDIA runtimes
 
-NVIDIA VFX/RTX Video, DLSS, PyTorch NGC images, CUDA and NVENC APIs retain NVIDIA's licenses. Popcorn SR does not bundle their proprietary models/DLLs/shared libraries in its source or default image. `Dockerfile.ai` uses the operator-selected NVIDIA container base, subject to that image's own terms. Operators install VFX separately and must review the applicable SDK terms before redistribution.
+NVIDIA VFX/RTX Video, DLSS, PyTorch NGC images, CUDA and NVENC APIs retain NVIDIA's licenses. Popcorn SR does not bundle their proprietary models/DLLs/shared libraries in its source or default image. `Dockerfile.ai` installs pinned CUDA PyTorch wheels and their dependencies, which retain their respective terms. Operators install VFX separately and must review the applicable SDK terms before redistribution.
 
 ## Reference projects
 
@@ -25,3 +25,7 @@ FFmpeg is installed from the base distribution's packages, under those build-spe
 ## Web interface
 
 Astryx Core, Neutral theme and CLI 0.6.8 are MIT-licensed, copyright Meta Platforms, Inc. and affiliates. React/React DOM 19 are MIT-licensed, copyright Meta Platforms, Inc. and affiliates. StyleX is MIT-licensed; Lucide icons are ISC-licensed. Their licenses remain with the bundled dependencies; see `licenses/astryx-MIT.txt`, `licenses/react-MIT.txt`, `licenses/stylex-MIT.txt` and `licenses/lucide-ISC.txt`. Tailwind CSS and Vite retain their MIT licenses.
+
+## Independent native diagnostic
+
+`native/ngx_probe.cpp` is independently written Popcorn SR source under `native/LICENSE` (MIT). It builds against operator-provisioned NVIDIA SDK headers and dynamically uses the separately installed driver/runtime. The NVIDIA SDK is not relicensed or included in the public source.

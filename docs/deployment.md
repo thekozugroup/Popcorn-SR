@@ -40,7 +40,7 @@ docker run --rm --user "$(id -u):$(id -g)" \
 docker compose -f compose.worker.yaml -f compose.nvidia.yaml up -d --no-build --pull always
 ```
 
-The marker identifies the scratch folder. Docker Compose refuses to create a missing host folder, and the worker refuses to run without the marker. The marker is not proof that the parent is a real mount: configure the host's mount/service dependencies too. After successful pairing, clear `POPCORN_PAIR_CODE` from `.env` and recreate the worker. Its small credential file survives in `WORKER_STATE_PATH`.
+The marker identifies the scratch folder and filesystem; worker state retains that identity across restarts. A missing or replaced filesystem stops processing. Graceful shutdown terminates processing; restart recovery removes only this worker’s marked jobs after their active child locks are released. Docker Compose refuses to create a missing host folder, and the worker refuses to run without the marker. The marker is not proof that the parent is a real mount: configure the host's mount/service dependencies too. After successful pairing, clear `POPCORN_PAIR_CODE` from `.env` and recreate the worker. Its small credential file survives in `WORKER_STATE_PATH`.
 
 The worker tests each codec with a real encode before appearing ready. Spark and desktop driver/library differences may disable individual codecs; no NVIDIA fallback to CPU occurs when a GPU job is requested.
 
@@ -48,7 +48,7 @@ In **Library**, choose a video and select **Preview 5 seconds**. Download and re
 
 ## Add open-source AI on Spark or desktop
 
-The larger AI image uses NVIDIA's CUDA PyTorch base. This image targets Linux AMD64 and ARM64. The application adapter passed short physical DGX Spark CUDA/NVENC jobs in an existing PyTorch runtime; **this larger image recipe and RTX 5080 execution are still unverified**. Check the base image and GPU support on the target device before a library run.
+The larger AI image uses pinned PyTorch CUDA 13.0 wheels on Python 3.12. The local build/import check passed. This image targets Linux AMD64 and ARM64. The application adapter passed short physical DGX Spark CUDA/NVENC jobs in an existing PyTorch runtime; **this larger image recipe and RTX 5080 execution are still unverified**. Check the base image and GPU support on the target device before a library run.
 
 Download the official model onto the initialized scratch drive:
 
@@ -57,7 +57,7 @@ python3 scripts/fetch-model.py /mnt/optane/popcorn-scratch
 docker compose -f compose.worker.yaml -f compose.ai.yaml up -d --build
 ```
 
-The NVIDIA base is several GB. Docker image layers live in the host's Docker data directory, so move that directory to the external drive too if you want to avoid built-in disk writes. AI model/inference smoke tests happen during startup; pairing can take several minutes. Choose **Real-ESRGAN AI upscaling** only after it appears on the worker. Preview for flicker or changed detail. This is frame-based AI restoration, not temporal NVIDIA RTX VSR.
+The AI worker image is approximately 3.4 GB in the current local ARM64 build. Docker image layers live in the host's Docker data directory, so move that directory to the external drive too if you want to avoid built-in disk writes. AI model/inference smoke tests happen during startup; pairing can take several minutes. Choose **Real-ESRGAN AI upscaling** only after it appears on the worker. Preview for flicker or changed detail. This is frame-based AI restoration, not temporal NVIDIA RTX VSR.
 
 RTX Video uses a separate VFX runtime on Linux x86. See [engines](engines.md); no current public Linux ARM64 VFX Python wheel was found.
 

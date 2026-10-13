@@ -13,6 +13,19 @@ dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1", "av>=14,<18"]
+ai = [
+    "torch==2.13.0+cu130; sys_platform == 'linux' and (platform_machine == 'aarch64' or platform_machine == 'x86_64')",
+    "av==17.0.0",
+    "numpy==2.3.3",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [project.scripts]
 popcorn-sr = "popcorn_sr.__main__:main"

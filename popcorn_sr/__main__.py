@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import os
 import secrets
+import signal
 from pathlib import Path
 
 import uvicorn
@@ -29,20 +30,28 @@ def main():
     elif args.mode == "worker":
         from .worker import Worker
 
-        try:
-            asyncio.run(
-                Worker(args.manager, args.state, args.scratch, args.name).run(
+        async def run_worker():
+            task = asyncio.current_task()
+            if os.name == "posix":
+                asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, task.cancel)
+            try:
+                await Worker(args.manager, args.state, args.scratch, args.name).run(
                     os.environ.get("POPCORN_PAIR_CODE")
                 )
-            )
+            except asyncio.CancelledError:
+                print("Worker stopped; active processing terminated and scratch cleanup checked.", flush=True)
+
+        try:
+            asyncio.run(run_worker())
         except (ValueError, OSError) as exc:
             parser.exit(1, f"Worker stopped: {exc}\n")
     elif args.mode == "init-scratch":
-        if not args.path.is_dir():
-            parser.error("Scratch folder must already exist. Mount the intended drive first.")
-        marker = args.path / ".popcorn-scratch"
-        if not marker.exists():
-            marker.write_text(secrets.token_hex(16) + "\n")
+        from .scratch import initialize
+
+        try:
+            initialize(args.path)
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
         print(f"Scratch ready: {args.path.resolve()}")
     else:
         print(secrets.token_urlsafe(32))
