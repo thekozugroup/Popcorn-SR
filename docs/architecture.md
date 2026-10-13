@@ -50,7 +50,7 @@ Default images build for Linux AMD64/ARM64. NVIDIA encoders need driver librarie
 
 ## Integration direction
 
-The HTTP API and versioned recipe schema are independent of the UI. Future Popcorn family tools can submit jobs and observe results using authenticated endpoints. Automatic folder policies, resumable transfers, verified HDR/color pipelines, schedules, multi-GPU concurrency, metrics and a first-party Linux DLSS renderer remain future extensions.
+The HTTP API and versioned recipe schema are independent of the UI. Future Popcorn family tools can submit jobs and observe results using authenticated endpoints. Automatic folder policies, resumable transfers, verified HDR/color pipelines, schedules, multi-GPU concurrency and metrics remain future extensions. Experimental native Linux DLSS SR/frame-generation adapters now exist; they require separate runtimes and further quality/color hardening.
 
 ## Web interface
 

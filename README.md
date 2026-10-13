@@ -1,94 +1,66 @@
 # Popcorn SR
 
-**Your library stays on the NAS. The heavy lifting goes where you have the power.**
+**Keep your library on the NAS. Process videos on the computer with the power.**
 
-Popcorn Super Resolution is a self-hosted video manager and processing worker. Pair an Unraid NAS with a DGX Spark or NVIDIA Linux desktop, or run both services on one computer. Finished copies return to a chosen output folder. Originals remain untouched.
+Popcorn Super Resolution runs as a lightweight Docker manager plus a processing worker. Pair an Unraid NAS with a DGX Spark or NVIDIA Linux desktop, or run both services on one computer. Finished copies return to your chosen output folder. Originals remain untouched.
 
-## What works in the 0.2.0 preview
+## Preview before a batch
 
-- Lightweight authenticated web manager, persistent SQLite queue, one-use worker pairing.
-- Network transfers with SHA-256 checks, worker leases, cancel/retry and validated output.
-- H.264, HEVC and AV1 when the worker passes a real encoder check; CPU or NVIDIA NVENC.
-- Conventional Lanczos resizing, noise reduction, deinterlacing, light sharpening and 60 fps motion interpolation.
-- Optional Real-ESRGAN AI restoration on CUDA, with bounded tiles and an official verified checkpoint.
-- Optional NVIDIA RTX Video Super Resolution through separately installed VFX on Linux x86.
-- Experimental DLSS Super Resolution and DLSS 5 adapter contract; requires a separately installed, working video CLI. **No built-in Linux DLSS renderer ships in this release.**
-- Short preview jobs, separate output folders, configurable scratch drive, single-host and paired Docker configurations.
-- Matroska copies with original audio, subtitles, attachments, metadata and chapters; rejects missing streams or wrong duration/size/codec.
+The workspace puts input on the left, the output queue on the right and settings underneath. Select a video or batch, choose a video and time, then **Preview frame**. Compare large Original/Enhanced images or **Expand preview**, then choose **Run full video** or **Run full batch**. Changing the frame or processing settings requires a fresh comparison. Completed previews reopen from the queue.
 
-**Tested on a physical DGX Spark.** GB10 passed H.264/HEVC/AV1 NVIDIA encoding checks and completed separate two-computer resizing and Real-ESRGAN CUDA/NVENC jobs with intact sources and retained audio. These were short generated SDR clips in an existing CUDA runtime, not a whole-library benchmark or validation of the optional AI image. RTX 5080 and external Optane testing remain pending. GPU codecs and AI engines stay disabled until a real startup smoke check passes. Assess quality and speed on your own previews. HDR and high-bit-depth sources are rejected in this release to prevent destructive color/precision loss.
+Still comparisons process a video-only sample of up to five seconds, then display its first picture. Review the downloadable video sample for motion. Full runs restore the normal audio/subtitle/attachment/chapter checks and verify the saved source again.
 
-## Completion goal
+## Install the 0.3.0 Docker preview
 
-Development remains active. The immediate interface is one workspace: input on the left, output queue on the right, and upscaling settings underneath. Available verified DLSS Super Resolution and frame generation are the current NVIDIA focus. Neural rendering is deferred until authorized compatible SDK access exists; VSR/HDR integrations remain gated by real processing checks. [Roadmap and current evidence](docs/nvidia-parity.md). This does not claim five-stage parity.
+Download the kit matching each computer from [Releases](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.3.0): **AMD64** for Unraid/x86 Linux, **ARM64** for DGX Spark. Each kit includes prebuilt manager/base-worker and native-worker images. No build on the NAS is required.
 
-Development `main` adds a large original/enhanced frame comparison. Select one or more inputs, choose a video and time, then **Preview frame**. Expand the comparison before **Run full video** or **Run full batch**. Changing the frame or settings invalidates the comparison; completed previews can be reopened from the queue. Frame comparisons process a video-only sample of up to five seconds using the selected engine, then display its first frame. Full runs keep the original audio/subtitles/attachments and verify the saved source again. HDR appearance and generated motion must be reviewed in the downloadable video sample. The committed ARM64/AMD64 packages passed paired CPU delivery; Spark passed actual DLSS SR/FG frame comparison and full AV1 continuation with source timing and retained audio verified. These generated clips do not establish movie quality. This feature is not in the published 0.2.0 image.
+1. Verify the archive and load the selected image using [release-kit instructions](docs/releases.md).
+2. Set your existing library, output and state folders, ownership IDs and private access key.
+3. Start the manager, open its Web UI and choose **Devices & storage → Connect a worker**.
+4. On the processing computer, configure and initialize its mounted scratch folder, then pair with the one-use code.
+5. Preview one frame or a short sample before running a batch.
 
-Current development can also be packaged into prebuilt AMD64/ARM64 Docker release kits with verified import and delivery. [Release kits and installation](docs/releases.md) explains the archive loader and local image selection. The older registry default stays separate from these packages.
+Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The ordinary GHCR image and registry template still point to **0.2.0**, which lacks the new comparison/native pipeline. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
 
-Development `main` now has an experimental native Linux CUDA DLSS Super Resolution video backend. Physical Spark tests passed all five SR modes, preset hints, three motion settings and H.264/H.265/AV1 video encoding with preserved frame timestamps. The dedicated NGX Docker worker also returned paired previews in all three codecs with audio and intact originals. It needs separately provisioned NVIDIA components and is **not in the published 0.2.0 image**. [Setup and evidence](native/README.md). Representative quality and the other NVIDIA stages remain unfinished.
+## Processing options
 
-Development `main` also has experimental native Vulkan DLSS frame generation. Spark passed native 2×–6× and variable-rate video tests in the dedicated ARM64 Docker package. Worker/UI controls add target frame rates from 23.976 to 480, Auto/Native/Cascade modes and motion quality, gated by real startup renders. Upscaling and generation use lossless intermediates before a single H.264/H.265/AV1 export. The cadence controller passed all mode/motion pairs, fractional 59.94 fps and Auto/Cascade480 fps. The rebuilt worker returned paired H.264/60, HEVC/59.94 and AV1/120 previews plus an H.264 full-video continuation, both with conventional resizing and with native DLSS SR/DLAA. The combined full export retained audio/subtitle packet bytes, attachments and chapter timing, with intact originals. Representative quality and long frame-generation jobs remain pending. This backend is **not in the published 0.2.0 image**.
+Choose **H.264**, **H.265 / HEVC** or **AV1** independently of the enhancement. Upscaling changes frames; encoding compresses those frames into the finished Matroska (`.mkv`) copy. H.264 offers broad player compatibility; check HEVC/AV1 support on your players. Available codecs and enhancement controls require real worker processing checks.
 
-The actual Unraid manager → Spark worker → Unraid output path also passed over the LAN using verified native AMD64/ARM64 development packages. Generated five-second SDR previews passed in all three codecs with native SR/DLAA plus DLSSG; a six-second H.264 full continuation preserved media bytes/timing and the original checksum. All owned device test resources were removed with existing service/image inventories preserved. This is functional short-clip acceptance, not a network-throughput or whole-library benchmark. [Package workflow and device evidence](working.md).
+| Option | Current support | Additional installation |
+|---|---|---|
+| Conventional resizing, noise reduction, deinterlacing and sharpening | CPU or NVIDIA encoding | FFmpeg is included |
+| Real-ESRGAN AI restoration | Optional CUDA worker, verified Spark execution | Larger AI image and official checksum-verified model |
+| DLSS Super Resolution | Experimental native Linux CUDA adapter; Spark execution verified | Separately licensed NVIDIA runtime and native bridge |
+| DLSS frame generation | Experimental native Linux Vulkan adapter; Spark execution verified | Separately licensed NVIDIA runtime and native bridge |
+| RTX Video Super Resolution / HDR | Implemented adapters and controls; enabled only after genuine runtime checks | Compatible additional VFX runtime; current public Python wheels lack Linux ARM64 |
+| DLSS neural rendering | Deferred | Authorized compatible beta SDK/runtime unavailable |
 
-The current locally built ARM64 package also passed a six-second 1080p AV1 SR+FG export and a three-minute 720p H.264 SR export on Spark, with every picture timestamp and copied/decoded audio verified. Active-job cancellation and connection loss cleaned up processing without publishing a partial file. This generated-media trial used a Mac manager through SSH, limited resources and a shorter test lease; it does not establish movie quality or long frame-generation performance. Cross-version AAC timing checks now compare copied packet timestamps. [Current acceptance evidence](working.md#current-native-package-acceptance--2026-10-13).
+No proprietary NVIDIA runtime or AI model is bundled. Follow [native setup](native/README.md), [AI setup](docs/deployment.md#add-open-source-ai-on-spark-or-desktop), and [engine integration](docs/engines.md). Windows and physical RTX 5080 testing are deferred.
 
-The optional packaged Real-ESRGAN worker now also passed actual Unraid → Spark → Unraid previews in H.264/H.265/AV1 and full H.264 continuation. Conventional NVENC exports passed the same three-codec path. Development `main` fixes enhanced-video synchronization and independently checks audio/chapter timing and attachments before publishing returned files. Originals and copied media were preserved. These were short generated SDR clips; representative quality and long jobs remain pending. The public 0.2.0 image is unchanged.
+Video DLSS uses estimated motion, flat depth and zero jitter because films lack game-engine inputs. It can soften or alter detail; a successful processing check does not mean it improves every title. Short animation, effects and live-action trials provide bounded review evidence, not a library-wide quality guarantee. Current DLSS/AI exports can lose SDR color signaling; color accuracy and generated motion need further work. Review on the intended player before a library batch. HDR/high-bit-depth input safety gates remain; selecting a codec does not create HDR or enable an unavailable enhancement. [Roadmap and evidence](docs/nvidia-parity.md).
 
-## Choose the output codec
+## Storage and connections
 
-Upscaling improves video frames; encoding compresses those frames into the finished file. Popcorn SR performs both within one job: **decode → enhance → encode → save**. Choose **H.264**, **H.265 / HEVC** or **AV1** in the web UI's **Video format** selector, independently of the enhancement. Available options depend on the worker's real encoder checks. NVIDIA workers use NVENC for supported codecs; CPU workers use software encoders. NVIDIA's [encoding guide](https://docs.nvidia.com/video-technologies/video-codec-sdk/13.0/nvenc-video-encoder-api-prog-guide/index.html) describes this frame-to-codec step.
+Scratch files and model/cache folders can live on a mounted external Optane drive. The worker retains the scratch filesystem identity and stops if it disappears or changes. Configure the host's mount dependencies too. Docker image layers use Docker's own data directory; move that storage separately if built-in drive endurance matters. Physical Optane acceptance remains pending.
 
-H.264 offers broad player compatibility. HEVC and AV1 offer newer compression formats; confirm support on your playback devices and compare previews at the desired quality. Finished copies use Matroska (`.mkv`). Codec, resolution, frame rate and HDR are separate properties. Choosing HEVC or AV1 does not enable an unavailable enhancement or create HDR by itself.
+Ethernet through a router/switch or reachable direct Ethernet works. 1 GbE is usable; 10 GbE shortens large transfers when both ends support it. Wi-Fi works, but connection loss can stop a job and require retry. Ordinary host USB-C ports do not establish a network through a plain cable. A USB-C enclosure can provide scratch storage. [Hardware and networking](docs/hardware.md).
 
-## Start on your NAS
+## Verification and development
 
-1. Copy `.env.example` to `.env`. Set existing library, output and state directories. Generate a random key with `openssl rand -hex 32`; put it in `POPCORN_ADMIN_TOKEN`.
-2. Run `docker compose up -d --no-build --pull always manager`.
-3. Open `http://YOUR-NAS:8787`, sign in with your key, and choose **Processing → Connect a worker**.
-4. On the processing computer, configure `compose.worker.yaml`, mount and initialize its scratch drive, and enter the pairing code.
-5. Choose a video and run a five-second preview before processing the full file.
-
-Use `PUID=99` and `PGID=100` for the usual Unraid share ownership. [Detailed installation](docs/deployment.md) includes the Unraid template, external Optane drive, single-host RTX desktop, native Linux AI runtime and Docker AI worker.
-
-## Connections
-
-Ethernet through a router/switch works. Direct Ethernet works with reachable static IP addresses. 1 GbE is usable; 10 GbE shortens large transfers when both ports support it. Wi-Fi is supported, but interrupted connections stop the job safely and may require retry. A plain USB-C cable between normal host ports does not establish a network. Attach an Optane enclosure to USB-C as storage instead. [Networking and drive guide](docs/hardware.md).
-
-## Engines and compatibility
-
-This table describes the published 0.2.0 preview. Native DLSS development on `main` is described above.
-
-| Engine | Linux x86 desktop | Linux ARM64 / Spark | Bundled? |
-|---|---|---|---|
-| FFmpeg resizing + encoding | Runtime-tested | Runtime-tested | Yes |
-| Real-ESRGAN AI | Compatible CUDA PyTorch required | Spark-compatible CUDA PyTorch required | Adapter/network code; model installed separately |
-| RTX Video / NVIDIA VFX | Separate SDK; runtime-tested | Current public Python wheels lack Linux ARM64 | Adapter only |
-| DLSS Super Resolution (4 / 4.5 runtime) | External video adapter; experimental | No verified ARM64 video backend | No renderer |
-| DLSS 5 neural rendering | External video adapter; experimental | No verified ARM64 video backend | No renderer |
-| Windows CLI engines | Future-focused adapters included | N/A | User installs engine |
-
-DLSS 5 is appearance-changing neural rendering, distinct from restoration/upscaling. GPU memory capacity does not determine codec or SDK support. Every engine needs working drivers, APIs and architecture-compatible runtime. [Engine integration](docs/engines.md).
-
-## Development
+The 0.3.0 release kits are built locally from their recorded commit, checksum-verified, reloaded and exercised through paired CPU delivery on native ARM64 and emulated AMD64. Verification includes selected-frame/full continuation, copied audio, intact originals and concurrent 4K frames within a 512-MiB manager limit. All 111 Python tests, ten browser workflows, nine Compose configurations, native syntax, UI build and dependency audit pass. GPU device receipts distinguish current short film checks from earlier full paired/lifecycle acceptance. These are preview acceptance results, not unrestricted speed or whole-library benchmarks. [Current work and exact evidence](working.md).
 
 ```sh
 uv run python scripts/verify-local.py
 ```
 
-Build and test on your own machine by default. The command checks locked dependencies, media/API tests, native source, all Compose layouts, UI, browser workflows, manager/NGX images and real paired Docker delivery. It also executes the shipped CPU Compose layouts, including saved pairing, manager restart, active worker shutdown/crash, drive-loss recovery and revoked credentials. Install `uv`, Node.js, FFmpeg, a C++17 compiler and Docker first; Linux may also need Chromium's system dependencies. It writes a new receipt under gitignored `evidence/` and uses unique image tags. `--software-only` omits Docker checks and is partial verification; `--include-ai` also builds the larger CUDA image. GPU execution still requires an actual device test. [Local device packages](docs/deployment.md#development-device-packages).
+Install `uv`, Node.js, FFmpeg, a C++17 compiler and Docker. Linux may also need Chromium's system dependencies. The command checks source, UI/browser flows, images and real Docker processing/lifecycle behavior; it writes an ignored receipt and uses unique image tags. `--software-only` is partial verification; `--include-ai` also builds the larger CUDA image. Actual GPU acceptance needs a device. [Local packaging](docs/releases.md#local-packaging).
 
-GitHub workflows are manual fallbacks. Pushes, pull requests and version tags do not launch them automatically. A manual publishing run requires an existing `v*` tag; it verifies that tagged source before publishing.
+GitHub workflows are manual fallbacks; pushes, PRs and version tags do not launch them. Current releases use local builds and GitHub release files.
 
-The web UI uses the official [Astryx](https://astryx.atmeta.com/) React components, a compiled zinc/blue theme, and system fonts. Vite builds static assets into the Python package and Docker image. There is no runtime Node server or CDN dependency. Rebuild with `npm run build` after changing the UI. The manager uses FastAPI and SQLite; workers use FFmpeg and optional independently installed GPU engines. [Architecture](docs/architecture.md) and [current verification](working.md).
+The UI uses official [Astryx](https://astryx.atmeta.com/) React components, zinc surfaces, blue-500 actions and system fonts. Vite builds static assets served by the Python manager, with no Node server or CDN at runtime. Rebuild with `npm run build` after UI changes. [Architecture](docs/architecture.md) · [Rust assessment](docs/rust-assessment.md).
 
-## License and credits
+## License and family
 
-Popcorn SR is AGPL-3.0-or-later. NVIDIA SDKs, models, containers and third-party engines retain their own terms; no proprietary engine binaries are vendored. BasicSR network code and Real-ESRGAN model attribution are recorded in [third-party notices](THIRD-PARTY-NOTICES.md). [fast-rtxvsr](https://github.com/glarsson/fast-rtxvsr) and [Visual Enhancer](https://github.com/Merserk/dlss5-visual-enhancer) informed the engine interface; Visual Enhancer is separately licensed and not redistributed. Design uses [Taste](https://tasteskill.dev) and [Impeccable](https://impeccable.style).
+Popcorn SR is AGPL-3.0-or-later. NVIDIA SDKs and third-party engines retain their own terms. [Third-party notices](THIRD-PARTY-NOTICES.md) record BasicSR, Real-ESRGAN, Astryx and brand attribution. [fast-rtxvsr](https://github.com/glarsson/fast-rtxvsr) and [Visual Enhancer](https://github.com/Merserk/dlss5-visual-enhancer) informed the engine interface; their separately licensed runtimes are not redistributed. Design uses [Taste](https://tasteskill.dev) and [Impeccable](https://impeccable.style).
 
-## Popcorn family identity
-
-SR uses the three-circle mark from [Popcorn Batch](https://github.com/thekozugroup/Popcorn-Batch/blob/54170f2684f734712b6159ccc7592f3237fa6b71/web/src/app/icon.svg), with its lower-right circle in Tailwind teal-500. Batch uses blue-500 on the top circle. The mark appears in the header, sign-in and browser favicon; action colors stay blue.
-
-[Rust assessment](docs/rust-assessment.md): favor a small worker/frame-handling component when profiling justifies it; no rewrite or unmeasured speedup is claimed.
+SR uses [Popcorn Batch's three-circle mark](https://github.com/thekozugroup/Popcorn-Batch/blob/54170f2684f734712b6159ccc7592f3237fa6b71/web/src/app/icon.svg), highlighting the lower-right circle in Tailwind teal-500. Action colors stay blue. Rust remains a candidate for measured worker/frame-handling improvements; no rewrite or unmeasured speedup is claimed.
