@@ -12,6 +12,9 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#ifdef POPCORN_VULKAN_SMOKE
+#include "dlssg_smoke.hpp"
+#endif
 
 namespace {
 constexpr const char* project_id = "fb597f3f-5797-44d5-a4e6-59b757758233";
@@ -78,13 +81,14 @@ struct Session {
 
 int main(int argc, char** argv) {
     std::setlocale(LC_ALL, "");
-    if ((argc != 4 && argc != 5) || (std::string(argv[3]) != "sr" && std::string(argv[3]) != "fg") || (argc == 5 && (std::string(argv[3]) != "fg" || std::string(argv[4]) != "--create"))) {
-        std::fprintf(stderr, "Usage: ngx-vulkan-probe SDK-library-folder scratch-folder sr|fg [--create (fg only)]\n");
+    if ((argc != 4 && argc != 5) || (std::string(argv[3]) != "sr" && std::string(argv[3]) != "fg") || (argc == 5 && (std::string(argv[3]) != "fg" || (std::string(argv[4]) != "--create" && std::string(argv[4]) != "--render")))) {
+        std::fprintf(stderr, "Usage: ngx-vulkan-probe SDK-library-folder scratch-folder sr|fg [--create|--render (fg only)]\n");
         return 2;
     }
     std::printf("{\"api\":\"Vulkan\",\"feature\":\"%s\",\"video_render_verified\":false", argv[3]);
     bool capability_completed = false;
     bool fg_created = false;
+    bool pixels_verified = false;
     try {
         Session session;
         auto sdk_path = wide(argv[1]), scratch = wide(argv[2]);
@@ -231,11 +235,19 @@ int main(int argc, char** argv) {
             vk_check(vkQueueSubmit(gpu_queue, 1, &submit, VK_NULL_HANDLE), "Submit creation");
             vk_check(vkQueueWaitIdle(gpu_queue), "Wait for creation");
             fg_created = true;
+            if (std::string(argv[4]) == "--render") {
+#ifdef POPCORN_VULKAN_SMOKE
+                pixels_verified = popcorn_dlssg::smoke(physical, session.device, family, session.feature, session.parameters);
+                if (!pixels_verified) throw std::runtime_error("Generated-frame pixel check failed");
+#else
+                throw std::runtime_error("Rebuild with POPCORN_VULKAN_SMOKE for pixel evaluation");
+#endif
+            }
         }
-        std::printf(",\"capability_check_completed\":true,\"fg_creation_verified\":%s}\n", fg_created ? "true" : "false");
+        std::printf(",\"capability_check_completed\":true,\"fg_creation_verified\":%s,\"pixel_render_verified\":%s}\n", fg_created ? "true" : "false", pixels_verified ? "true" : "false");
         return 0;
     } catch (const std::exception& error) {
-        std::printf(",\"error\":\"%s\",\"capability_check_completed\":%s,\"fg_creation_verified\":false}\n", error.what(), capability_completed ? "true" : "false");
+        std::printf(",\"error\":\"%s\",\"capability_check_completed\":%s,\"fg_creation_verified\":%s,\"pixel_render_verified\":false}\n", error.what(), capability_completed ? "true" : "false", fg_created ? "true" : "false");
         return 1;
     }
 }
