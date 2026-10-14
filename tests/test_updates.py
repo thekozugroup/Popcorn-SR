@@ -35,6 +35,7 @@ def test_authenticated_request_blocks_next_claim_and_ack_is_scoped(auth, setup):
     assert auth.post("/api/worker/status", json={"capabilities": caps, "scratch": {}}).json()["update_request"] is None
     assert auth.post("/api/worker/claim").json()["job"] is not None
     auth.headers.pop("Authorization")
+    auth.cookies.clear()
     assert auth.post(f"/api/workers/{identity}/update").status_code == 401
 
 

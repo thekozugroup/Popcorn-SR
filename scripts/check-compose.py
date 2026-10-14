@@ -11,7 +11,6 @@ def main():
     env = {key: value for key, value in os.environ.items() if not key.startswith("POPCORN_")}
     fixtures = root / "evidence" / "compose-validation"
     env.update({
-        "POPCORN_ADMIN_TOKEN": "compose-validation-only-not-an-access-key",
         "POPCORN_MANAGER": "http://manager.example:8787",
         "PUID": "1000", "PGID": "1000",
         "STATE_PATH": str(fixtures / "state"),

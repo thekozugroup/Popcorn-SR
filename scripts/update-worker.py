@@ -134,7 +134,7 @@ class Updater:
     def runtime(self, container, *, drain=None):
         value = read(self.control / "runtime.json")
         updated = value.get("updated_at", 0)
-        if not isinstance(updated, (int, float)) or not 0 <= time.time() - updated < 30:
+        if not isinstance(updated, int | float) or not 0 <= time.time() - updated < 30:
             return {}
         if value.get("container") != container["Config"]["Hostname"] or not container["State"]["Running"]:
             return {}

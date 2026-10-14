@@ -7,7 +7,7 @@ services:
     ports:
       - "${POPCORN_BIND:-0.0.0.0}:${POPCORN_PORT:-8787}:8787"
     environment:
-      POPCORN_ADMIN_TOKEN: "${POPCORN_ADMIN_TOKEN:?Generate an access key first}"
+      POPCORN_PUBLIC_URL: "${POPCORN_PUBLIC_URL:-}"
     volumes:
       - type: bind
         source: "${STATE_PATH:?Set STATE_PATH}"

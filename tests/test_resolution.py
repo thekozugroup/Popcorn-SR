@@ -77,7 +77,7 @@ def test_metadata_cache_is_authenticated_bounded_read_only_and_invalidated(setup
     link = cfg.library / "escape.mkv"
     link.symlink_to(cfg.output / "outside.mkv")
     assert client.get("/api/library/metadata", params={"path": link.name}).status_code == 400
-    client.headers.pop("Authorization")
+    client.cookies.clear()
     assert client.get("/api/library/metadata", params={"path": source.name}).status_code == 401
     assert len(calls) == 2
 

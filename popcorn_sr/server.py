@@ -13,13 +13,14 @@ from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
 
 from . import __version__
+from .auth import Authentication
 from .config import Settings, beneath
-from .db import Store, digest
+from .db import Store
 from .dlss import compatible_recipe
 from .media import (
     VIDEO_EXTENSIONS,
@@ -43,7 +44,7 @@ def create_app(settings: Settings | None = None):
         cfg.library.resolve()
     ):
         raise RuntimeError("Library and output must be separate folders. Mount originals read-only.")
-    attempts = {}
+    authentication = Authentication(store, cfg.public_url)
     media_slots = asyncio.Semaphore(1)
     metadata_cache = OrderedDict()
 
@@ -78,6 +79,14 @@ def create_app(settings: Settings | None = None):
     app = FastAPI(title="Popcorn SR", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.store, app.state.settings = store, cfg
 
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request, exc):
+        # Validation responses must not echo passwords or passkey payloads.
+        return JSONResponse(status_code=422, content={"detail": [
+            {"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
+            for error in exc.errors()
+        ]})
+
     # Built UI policy permits only Astryx's exact static selector-placement sheet.
     policy_file = Path(__file__).parent / "static" / "ui-policy.json"
     style_hashes = []
@@ -93,6 +102,14 @@ def create_app(settings: Settings | None = None):
         if request.method not in {"GET", "HEAD", "OPTIONS"} and origin:
             if urlparse(origin).netloc != request.headers.get("host"):
                 return Response("Cross-site requests are blocked.", status_code=403)
+        if request.method == "POST" and (request.url.path.startswith(("/api/auth/", "/api/account/"))
+                                         or request.url.path == "/api/login"):
+            body = bytearray()
+            async for chunk in request.stream():
+                body.extend(chunk)
+                if len(body) > 65536:
+                    return Response("Sign-in request is too large.", status_code=413)
+            request._body = bytes(body)
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -109,16 +126,7 @@ def create_app(settings: Settings | None = None):
         return auth[7:] if auth.startswith("Bearer ") else ""
 
     def admin(request: Request):
-        token = bearer(request)
-        if token and secrets.compare_digest(token.encode(), cfg.admin_token.encode()):
-            return
-        session = request.cookies.get("popcorn_session", "")
-        with store.connect() as db:
-            row = db.execute(
-                "SELECT 1 FROM sessions WHERE hash=? AND expires>?", (digest(session), time.time())
-            ).fetchone()
-        if not session or not row:
-            raise HTTPException(401, "Sign in to manage your library.")
+        authentication.session(request)
 
     def worker(request: Request):
         item = store.worker(bearer(request))
@@ -144,41 +152,8 @@ def create_app(settings: Settings | None = None):
     def health():
         return {"status": "ok", "version": __version__}
 
-    class Login(BaseModel):
-        token: str = Field(max_length=512)
-
-    @app.post("/api/login")
-    def login(body: Login, request: Request, response: Response):
-        address = request.client.host if request.client else "unknown"
-        now = time.time()
-        recent = [t for t in attempts.get(address, []) if t > now - 60]
-        if len(recent) >= 10:
-            raise HTTPException(429, "Too many attempts. Wait a minute and try again.")
-        if not secrets.compare_digest(body.token.encode(), cfg.admin_token.encode()):
-            attempts[address] = [*recent, now]
-            raise HTTPException(401, "Access key is incorrect.")
-        attempts.pop(address, None)
-        token = secrets.token_urlsafe(32)
-        with store.connect() as db:
-            db.execute("INSERT INTO sessions VALUES (?,?)", (digest(token), now + 86400))
-        response.set_cookie(
-            "popcorn_session",
-            token,
-            httponly=True,
-            samesite="strict",
-            secure=request.url.scheme == "https",
-            max_age=86400,
-        )
-        return {"ok": True}
-
-    @app.post("/api/logout")
-    def logout(request: Request, response: Response):
-        with store.connect() as db:
-            db.execute(
-                "DELETE FROM sessions WHERE hash=?", (digest(request.cookies.get("popcorn_session", "")),)
-            )
-        response.delete_cookie("popcorn_session")
-        return {"ok": True}
+    app.state.auth = authentication
+    app.include_router(authentication.router())
 
     @app.get("/api/state", dependencies=[Depends(admin)])
     def state():

@@ -118,7 +118,7 @@ def main():
                 f"Popcorn SR {version} preview — Linux {architecture}\nSource: {commit}\n\n"
                 "Run ./load.sh manager on the NAS, ./load.sh ngx on the NVIDIA worker, or ./load.sh all on one host.\n"
                 "The loader verifies checksums and image identity. It only loads images; it does not create host folders, start services or edit your configuration.\n"
-                "Copy .env.example to a private .env and set your actual library/output/state/scratch paths and access key.\n"
+                "Copy .env.example to a private .env and set your actual library/output/state/scratch paths. Sign in with admin/admin and change the password.\n"
                 "Append the two image selections from images.env to .env. Set PUID/PGID to the host user's IDs (99/100 on Unraid).\n"
                 "Follow docs/deployment.md. With this kit use --no-build --pull never instead of --pull always.\n"
                 "Manager: docker compose up -d --no-build --pull never manager\n"
@@ -158,7 +158,6 @@ def main():
                         raise ValueError("Imported image does not match the built package.")
                 configuration = {
                     "POPCORN_IMAGE": packages["manager"]["image"], "POPCORN_NGX_IMAGE": packages["ngx"]["image"],
-                    "POPCORN_ADMIN_TOKEN": "release-configuration-check-not-a-secret",
                     "POPCORN_MANAGER": "http://manager.example:8787", "POPCORN_NGX_BUNDLE": str(loaded / "runtime"),
                     "POPCORN_NGX_DRIVER": str(loaded / "driver.so"),
                     "UPDATE_CONTROL_PATH": str(loaded / "updates"),

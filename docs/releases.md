@@ -1,6 +1,10 @@
-# Verified Docker release kits
+# Releases
 
-The published [0.4.1 release](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.4.1) contains the simple input/queue workspace, large frame comparison, per-resolution rules and experimental native DLSS SR/frame generation worker. The multi-architecture registry supplies `ghcr.io/thekozugroup/popcorn-sr:0.4.1` and `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.1`; `stable` and `ngx-stable` identify the same accepted release. Both kits passed import/delivery checks, and the installed Unraid/Spark pair passed genuine GPU returns. Full anonymous archive checks and anonymous registry pulls verify public distribution. A kit provides prebuilt images without requiring registry credentials or a build on your NAS. NVIDIA SDK libraries and AI weights are not included.
+Manager 0.4.2 adds owner login, mandatory replacement of the initial **admin / admin** password and optional passkeys. It is compatible with the accepted native worker 0.4.1. This manager update is being verified locally; public stable promotion follows installed acceptance. Follow [login setup](deployment.md#login-and-passkeys) for HTTPS and recovery. The archive instructions below describe the prior 0.4.1 kit, which retains its earlier access-key login.
+
+## Prior verified Docker release kits
+
+The published [0.4.1 release](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.4.1) contains the simple input/queue workspace, large frame comparison, per-resolution rules and experimental native DLSS SR/frame generation worker. The multi-architecture registry supplies `ghcr.io/thekozugroup/popcorn-sr:0.4.1` and `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.1`; `ngx-stable` identifies this native worker; `stable` also receives compatible manager updates. Both kits passed import/delivery checks, and the installed Unraid/Spark pair passed genuine GPU returns. Full anonymous archive checks and anonymous registry pulls verify public distribution. A kit provides prebuilt images without requiring registry credentials or a build on your NAS. NVIDIA SDK libraries and AI weights are not included.
 
 Download the kit matching the host and its `.sha256` file from the [GitHub releases](https://github.com/thekozugroup/Popcorn-SR/releases). Use AMD64 for an ordinary Unraid/x86 desktop and ARM64 for DGX Spark. Verify that one archive before extracting it. The release also supplies a combined SHA256SUMS, exact source commit and build/delivery evidence.
 
@@ -13,7 +17,7 @@ cd popcorn-sr-0.4.1-linux-amd64
 
 Use `./load.sh ngx` on the NVIDIA worker or `./load.sh all` on a single host. The loader checks the kit's file hashes, host architecture, immutable image revision and filesystem layers. It refuses to replace an existing different image with the same version tag. It only loads the selected images: it does not start services, create media/state/scratch folders, mount drives or change configuration. Images consume space in Docker's own data store.
 
-Copy `.env.example` to a private `.env`, fill in the actual paths/access key/UID/GID, then append the image selections:
+Copy `.env.example` to a private `.env`, fill in the actual paths/UID/GID, then append the image selections:
 
 ```sh
 cat images.env >> .env

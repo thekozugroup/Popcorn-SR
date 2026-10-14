@@ -8,11 +8,11 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/thekozugroup/Popcorn-SR/issues</Support>
   <Project>https://github.com/thekozugroup/Popcorn-SR</Project>
-  <Overview>Lightweight video-library manager. Pair a Linux worker on a DGX Spark or NVIDIA desktop to create enhanced copies. Mount originals read-only. Enter a random access key of at least 24 characters.</Overview>
+  <Overview>Lightweight video-library manager. Pair a Linux worker on a DGX Spark or NVIDIA desktop to create enhanced copies. Mount originals read-only. Sign in with admin/admin and replace the initial password. Configure an HTTPS address to use passkeys.</Overview>
   <WebUI>http://[IP]:[PORT:8787]/</WebUI>
   <ExtraParams>--user=99:100 --read-only --tmpfs /tmp:rw,size=64m --cap-drop=ALL --security-opt=no-new-privileges:true</ExtraParams>
   <Config Name="Web interface" Target="8787" Default="8787" Mode="tcp" Description="Web interface and worker API" Type="Port" Display="always" Required="true" Mask="false">8787</Config>
-  <Config Name="Access key" Target="POPCORN_ADMIN_TOKEN" Default="" Mode="" Description="Random secret, at least 24 characters. Generate with openssl rand -hex 32." Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="HTTPS address" Target="POPCORN_PUBLIC_URL" Default="" Mode="" Description="Optional full HTTPS address for passkeys, including port if needed. Configure your reverse proxy separately." Type="Variable" Display="always" Required="false" Mask="false"></Config>
   <Config Name="App data" Target="/state" Default="/mnt/user/appdata/popcorn-sr" Mode="rw" Description="Small persistent database" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/popcorn-sr</Config>
   <Config Name="Original library" Target="/library" Default="/mnt/user/media" Mode="ro" Description="Original videos; read-only" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/media</Config>
   <Config Name="Finished copies" Target="/output" Default="/mnt/user/popcorn-output" Mode="rw" Description="Separate destination for finished copies" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/popcorn-output</Config>

@@ -105,7 +105,7 @@ def test_frame_paths_ranges_and_auth_fail_closed(setup, auth):
     response = client.post("/api/jobs", json={"path": source.name,
                            "recipe": Recipe(preview_seconds=5, preview_frame_time=100).model_dump()})
     assert response.status_code == 400
-    client.headers.pop("Authorization")
+    client.cookies.clear()
     for url in (f"/api/library/info?path={source.name}", f"/api/library/frame?path={source.name}",
                 "/api/jobs/missing/frame?side=original"):
         assert client.get(url).status_code == 401

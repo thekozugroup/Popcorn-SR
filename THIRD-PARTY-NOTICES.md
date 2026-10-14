@@ -37,3 +37,7 @@ The C++ sources and resource helpers under `native/` are independently written P
 ## Popcorn family mark
 
 The three-circle mark in `web/main.jsx` and `web/public/popcorn-sr.svg` adapts [Popcorn Batch's icon](https://github.com/thekozugroup/Popcorn-Batch/blob/54170f2684f734712b6159ccc7592f3237fa6b71/web/src/app/icon.svg), from the same Kozu Group family. Popcorn Batch source is Apache-2.0; its license is included in `licenses/Popcorn-Batch-Apache-2.0.txt`. SR changes the highlighted circle from top to lower-right and its color from blue-500 to teal-500, and applies the SR name and theme colors.
+
+## Password and passkey authentication
+
+The py-webauthn package validates WebAuthn challenges, relying-party IDs, origins, user verification and signatures. Copyright 2017-2021 Duo Security, Inc. BSD-3-Clause terms are included in `licenses/py-webauthn-BSD-3-Clause.txt`. Cryptographic dependencies retain their bundled licenses. The browser integration uses the native WebAuthn API; no external authentication service is required.

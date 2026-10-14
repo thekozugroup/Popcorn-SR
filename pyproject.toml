@@ -4,12 +4,19 @@ build-backend = "hatchling.build"
 
 [project]
 name = "popcorn-sr"
-version = "0.4.1"
+version = "0.4.2"
 description = "Pair your library with your processing power. Self-hosted video transcoding and enhancement."
 requires-python = ">=3.12"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE", "licenses/*.txt", "THIRD-PARTY-NOTICES.md"]
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "av==17.0.0", "numpy==2.3.3"]
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.34,<1",
+    "httpx>=0.28,<1",
+    "av==17.0.0",
+    "numpy==2.3.3",
+    "webauthn>=2.7,<3",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1", "av>=14,<18", "numpy==2.3.3", "opencv-python-headless==4.13.0.92"]

@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
+from auth_fixture import sign_in
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image", default="popcorn-sr:dev")
@@ -194,7 +195,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
         )
         mapped = docker("port", manager, "8787/tcp").splitlines()[0]
         address = "http://" + mapped
-        with httpx.Client(base_url=address, headers={"Authorization": f"Bearer {key}"}, timeout=20) as client:
+        with httpx.Client(base_url=address, timeout=20) as client:
             for _ in range(60):
                 try:
                     if client.get("/health").status_code == 200:
@@ -204,6 +205,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 time.sleep(1)
             else:
                 raise RuntimeError("Manager did not start: " + docker("logs", manager)[-1200:])
+            sign_in(client, key)
             page = client.get("/")
             page.raise_for_status()
             assets = re.findall(r'(?:src|href)="(/assets/bundles/[^" ]+)"', page.text)

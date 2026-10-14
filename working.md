@@ -1,5 +1,8 @@
 # Popcorn SR — completion work
 
+Current iteration: manager 0.4.2 replaces access-key management login with a salted password, expiring cookie sessions and cryptographically verified WebAuthn passkeys. Fresh installs must change admin/admin; the requested Atlas owner is provisioned privately. HTTPS will use a separate existing Tailscale Serve port without changing other routes. Spark's accepted 0.4.1 processing worker remains compatible and is not restarted for this login-only update. Local checks passed 163 Python cases, all twelve existing browser workflows and the new genuine WebAuthn browser flow, 17 Compose layouts, production UI, dependency audit, Taste/Impeccable review and lint. Five additional auth expiry/origin cases and concurrency guards were added during final review. Linux/container and installed migration checks are next; publication remains gated on those results.
+
+
 ## Objective
 Complete a standalone Docker NAS manager and paired or single-host Linux worker, with one simple Astryx workspace, configurable scratch/output storage and verified available NVIDIA processing. Input on the left, output queue on the right, settings underneath. Publish verified milestones on clean main. On 2026-10-13 the user deferred neural rendering and accepted previous available DLSS versions; the historical five-stage mandatory gate is superseded. VSR/HDR remain optional, genuinely checked integrations rather than advertised support without a runtime. The accepted 0.4.1 Docker kits and public manager/native-worker stable channels are published.
 

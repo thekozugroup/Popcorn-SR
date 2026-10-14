@@ -48,9 +48,10 @@ with tempfile.TemporaryDirectory(prefix="popcorn-browser-") as temp:
     shutil.copyfile(library / "A clearer picture.mkv", library / "Another moment.mkv")
     app = create_app(
         Settings(
-            root / "state", library, root / "output", "local-test-only-access-key-12345", reserve_bytes=0
+            root / "state", library, root / "output", "local-test-only-access-key-12345", reserve_bytes=0, public_url="http://localhost:18877"
         )
     )
+    app.state.auth.provision("admin", "local-test-only-password-12345")
     credentials = app.state.store.pair(
         app.state.store.pair_code(),
         "Local CPU worker",

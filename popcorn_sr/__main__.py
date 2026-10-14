@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import os
-import secrets
 import signal
 from pathlib import Path
 
@@ -21,7 +20,9 @@ def main():
     worker.add_argument("--name", default=os.environ.get("POPCORN_WORKER_NAME"))
     initialize = subs.add_parser("init-scratch", help="Mark an existing mounted scratch directory as ready.")
     initialize.add_argument("path", type=Path)
-    subs.add_parser("access-key", help="Generate a random manager access key.")
+    login = subs.add_parser("set-login", help="Set the owner login without changing workers or media.")
+    login.add_argument("--username", required=True)
+    login.add_argument("--password-stdin", action="store_true")
     subs.add_parser("request-update", help="Ask the configured host service to update this worker when idle.")
     args = parser.parse_args()
     if args.mode == "serve":
@@ -62,8 +63,19 @@ def main():
         except (ValueError, OSError) as exc:
             parser.exit(1, f"Update not requested: {exc}\n")
         print("Update requested. The host service waits for the current job before replacing the container.")
-    else:
-        print(secrets.token_urlsafe(32))
+    elif args.mode == "set-login":
+        import getpass
+        import sys
+
+        from .auth import Authentication
+        from .db import Store
+
+        password = sys.stdin.readline().rstrip("\r\n") if args.password_stdin else getpass.getpass("New password: ")
+        try:
+            Authentication(Store(Path(os.environ.get("POPCORN_STATE", "/state")))).provision(args.username, password)
+        except (ValueError, OSError) as exc:
+            parser.exit(1, f"Login not changed: {exc}\n")
+        print("Owner login configured. Worker pairing and media are unchanged.")
 
 
 if __name__ == "__main__":

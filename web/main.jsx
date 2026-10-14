@@ -17,6 +17,7 @@ import {Icon} from '@astryxdesign/core/Icon';
 import {Badge} from '@astryxdesign/core/Badge';
 import {popcornTheme} from './themes/popcorn.js';
 import './styles.css';
+import {passkeysSupported, usePasskey} from './passkeys.js';
 
 const engines = {resize: 'Conventional resizing', realesrgan: 'Real-ESRGAN AI upscaling', 'rtx-vsr': 'RTX Video Super Resolution', 'dlss-sr': 'DLSS video upscaling · experimental', dlss5: 'DLSS 5 neural rendering · experimental'};
 const dlssModes = {dlaa:'DLAA · keep source size',quality:'Quality · 1.5×',balanced:'Balanced · about 1.72×',performance:'Performance · 2×','ultra-performance':'Ultra Performance · 3×'};
@@ -36,7 +37,7 @@ async function api(path, options = {}) {
   const response = await fetch(path, {credentials: 'same-origin', ...options, headers: {'Content-Type':'application/json', ...options.headers}});
   const data = await response.json().catch(() => ({detail:'The manager returned an unexpected response.'}));
   if (!response.ok) {
-    if (response.status === 401 && path !== '/api/login') window.dispatchEvent(new Event('session-expired'));
+    if (response.status === 401 && !['/api/login','/api/account/password'].includes(path) && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('session-expired'));
     throw new Error(Array.isArray(data.detail) ? data.detail.map(x => x.msg).join('. ') : data.detail || 'Request failed. Try again.');
   }
   return data;
@@ -74,23 +75,41 @@ function InputRow({item,selected,onChoose}) {
     </span></Button>
   </div>;
 }
-function Login({onLogin, initialError}) {
-  const [key,setKey] = useState(''), [error,setError] = useState(initialError), [busy,setBusy] = useState(false);
-  async function submit(event) {
-    event.preventDefault(); setBusy(true); setError('');
-    try { await api('/api/login', {method:'POST', body:JSON.stringify({token:key})}); setKey(''); await onLogin(); }
-    catch (e) { setError(e.message); }
-    finally { setBusy(false); }
-  }
+function PasswordForm({account,onSaved}) {
+  const [username,setUsername]=useState(account.username || 'admin'), [password,setPassword]=useState(''), [confirmation,setConfirmation]=useState(''), [current,setCurrent]=useState(''), [busy,setBusy]=useState(false), [error,setError]=useState('');
+  async function submit(event){event.preventDefault();setError('');if(password!==confirmation){setError('The passwords do not match. Enter them again.');return;}setBusy(true);try{await api('/api/account/password',{method:'POST',body:JSON.stringify({username,password,current_password:current})});setPassword('');setConfirmation('');setCurrent('');await onSaved();}catch(e){setError(e.message);}finally{setBusy(false);}}
+  return <form onSubmit={submit}><VStack gap={5}>
+    <TextInput label="Username" value={username} onChange={setUsername} autoComplete="username" isRequired/>
+    {!account.must_change_password && <TextInput label="Current password" type="password" value={current} onChange={setCurrent} autoComplete="current-password" isRequired/>}
+    <TextInput label="New password" type="password" value={password} onChange={setPassword} autoComplete="new-password" isRequired description="At least 6 characters."/>
+    <TextInput label="Confirm password" type="password" value={confirmation} onChange={setConfirmation} autoComplete="new-password" isRequired/>
+    {error && <Banner status="error" title={error} collapsible={false}/>}
+    <Button label="Save password" variant="primary" type="submit" isLoading={busy} isDisabled={!username || password.length<6 || !confirmation || (!account.must_change_password && !current)}/>
+  </VStack></form>;
+}
+function Login({account,onLogin,initialError}) {
+  const [username,setUsername]=useState(account?.default_login?'admin':''), [password,setPassword]=useState(''), [error,setError]=useState(initialError), [busy,setBusy]=useState(false);
+  const changing=account?.authenticated && account.must_change_password, offering=account?.authenticated && account.offer_passkey && !changing;
+  const canPasskey=account?.passkey_available && passkeysSupported();
+  async function submit(event){event.preventDefault();setBusy(true);setError('');try{await api('/api/login',{method:'POST',body:JSON.stringify({username,password})});setPassword('');await onLogin();}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function passkey(register){setBusy(true);setError('');try{await usePasskey(api,register);await onLogin();}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function skip(){setBusy(true);setError('');try{await api('/api/auth/passkeys/skip',{method:'POST'});await onLogin();}catch(e){setError(e.message);}finally{setBusy(false);}}
   return <div className="login-wrap"><main className="login"><VStack gap={8}>
     <Brand/>
-    <VStack gap={3}><Heading level={1}>Your library, improved.</Heading><Copy>Sign in to connect your library and processing devices.</Copy></VStack>
-    <form onSubmit={submit}><VStack gap={5}>
-      <TextInput label="Access key" type="password" value={key} onChange={value=>setKey(value)} autoComplete="current-password" isRequired description="Use the key generated during installation."/>
+    <VStack gap={3}><Heading level={1}>{changing?'Make it yours':offering?'Add a passkey':'Welcome to Popcorn SR'}</Heading><Copy>{changing?'Change the initial password to open your workspace.':offering?'Next time, sign in with your fingerprint, face or device PIN.':'Sign in to your workspace.'}</Copy></VStack>
+    {changing?<PasswordForm account={account} onSaved={onLogin}/>:offering?<VStack gap={5}>
+      {canPasskey?<Button label="Create a passkey" variant="primary" isLoading={busy} onClick={()=>passkey(true)}/>:<Copy>{account.passkey_url?<><a href={account.passkey_url}>Open the secure address</a> and sign in to create a passkey.</>:'Passkeys need a secure address. Set an HTTPS address for this installation, then add one in Devices & storage.'}</Copy>}
       {error && <Banner status="error" title={error} collapsible={false}/>}
-      <Button label="Open Popcorn SR" type="submit" variant="primary" isLoading={busy} isDisabled={!key}/>
-    </VStack></form>
-    <Copy type="supporting">Self-hosted. Your videos stay on your devices.</Copy>
+      <Button label="Not now" variant="ghost" isDisabled={busy} onClick={skip}/>
+    </VStack>:<form onSubmit={submit}><VStack gap={5}>
+      <TextInput label="Username" value={username} onChange={setUsername} autoComplete="username" isRequired/>
+      <TextInput label="Password" type="password" value={password} onChange={setPassword} autoComplete="current-password" isRequired/>
+      {account?.default_login && <Copy type="supporting">First sign-in: admin / admin. You’ll choose a new password next.</Copy>}
+      {error && <Banner status="error" title={error} collapsible={false}/>}
+      <Button label="Sign in" type="submit" variant="primary" isLoading={busy} isDisabled={!username || !password}/>
+      {canPasskey && account.has_passkeys && <Button label="Sign in with a passkey" variant="ghost" isDisabled={busy} onClick={()=>passkey(false)}/>}
+    </VStack></form>}
+    <Copy type="supporting">Your videos stay on your devices.</Copy>
   </VStack></main></div>;
 }
 function Jobs({jobs,onAction,onCompare}) {
@@ -353,7 +372,7 @@ function Processing({state,onAction,onNotice}) {
     <VStack gap={6} className="footnote"><VStack gap={2}><Heading level={3}>Use what your device actually supports</Heading><Copy>Encoding and AI engines appear after a real processing check. Real-ESRGAN supports Linux NVIDIA workers. RTX Video and DLSS need a separately installed, compatible processing engine.</Copy></VStack><VStack gap={2}><Heading level={3}>One device works too</Heading><Copy>Run the manager and worker together. Your library and scratch drive remain separate, even when they live on the same computer.</Copy></VStack></VStack>
   </VStack>;
 }
-function Settings({state,onLogout}) {
+function Settings({state,account,onLogout,onPasskey,onSaved}) {
   const sections=[
     ['Library',`${state.storage.library}. Mount this folder read-only. Change the host folder in your Docker configuration.`],
     ['Finished copies',`${state.storage.output} / ${bytes(state.storage.free_bytes)} available. Choose a subfolder when creating a job. Originals are never replaced.`],
@@ -362,16 +381,16 @@ function Settings({state,onLogout}) {
     ['Protected sources','This release rejects HDR and high-bit-depth input to prevent loss of color or detail. Keep your original and use a verified HDR pipeline for those files.'],
     ['Access','Keep the manager on your trusted network. Use HTTPS through a reverse proxy or VPN for remote access.'],
   ];
-  return <><PageHead title="Your workspace" copy="A small manager, connected processing, and a separate home for every finished copy."/><section className="panel">{sections.map(([title,copy])=><VStack className="row" key={title} gap={3}><Heading level={2}>{title}</Heading><Copy>{copy}</Copy>{title==='Access' && <Button label="Sign out" clickAction={onLogout}/>}</VStack>)}</section></>;
+  return <><PageHead title="Your workspace" copy="A small manager, connected processing, and a separate home for every finished copy."/><section className="panel">{sections.map(([title,copy])=><VStack className="row" key={title} gap={3}><Heading level={2}>{title}</Heading><Copy>{copy}</Copy>{title==='Access' && <VStack gap={4}><Text>Signed in as {account.username}</Text><Button label="Add a passkey" variant="secondary" onClick={onPasskey}/><Collapsible trigger="Change password"><PasswordForm account={account} onSaved={onSaved}/></Collapsible><Button label="Sign out" variant="ghost" onClick={onLogout}/></VStack>}</VStack>)}</section></>;
 }
 function App() {
-  const [state,setState]=useState(null),[loading,setLoading]=useState(true),[loginError,setLoginError]=useState(''),[view,setView]=useState('workspace'),[notice,setNotice]=useState(null),[interrupted,setInterrupted]=useState(false);
+  const [account,setAccount]=useState(null),[state,setState]=useState(null),[loading,setLoading]=useState(true),[loginError,setLoginError]=useState(''),[view,setView]=useState('workspace'),[notice,setNotice]=useState(null),[interrupted,setInterrupted]=useState(false);
   const refreshing=useRef(false), surface=useRef(null);
-  const expired=()=>{setState(null);setView('workspace');setNotice(null);};
+  const expired=()=>{setState(null);setAccount(previous=>({...previous,authenticated:false}));setView('workspace');setNotice(null);};
   async function refresh(){
     if(refreshing.current)return;
     refreshing.current=true;
-    try{const data=await api('/api/state');setState(data);setInterrupted(false);setLoginError('');}
+    try{const session=await api('/api/auth/session');setAccount(session);if(!session.authenticated || session.must_change_password || session.offer_passkey){setState(null);return;}const data=await api('/api/state');setState(data);setInterrupted(false);setLoginError('');}
     catch(e){if(state){setInterrupted(true);}else if(!e.message.includes('Sign in'))setLoginError(e.message);}
     finally{refreshing.current=false;setLoading(false);}
   }
@@ -385,7 +404,7 @@ function App() {
   }
   async function logout(){try{await api('/api/logout',{method:'POST'});expired();}catch(e){setNotice({error:true,text:e.message});}}
   if(loading)return <div className="login-wrap"><Text>Opening Popcorn SR…</Text></div>;
-  if(!state)return <Login key={loginError} onLogin={refresh} initialError={loginError}/>;
+  if(!state || account?.offer_passkey)return <Login key={String(account?.authenticated)+String(account?.must_change_password)+String(account?.offer_passkey)} account={account} onLogin={refresh} initialError={loginError}/>;
   const workers=state.workers.filter(w=>!w.revoked);
   const connected=workers.filter(w=>w.online);
   const connection=interrupted?'Connection interrupted':connected.length===1?`${connected[0].name} · Connected`:connected.length?`${connected.length} devices connected`:workers.length?'Device offline':'No processing device';
@@ -395,7 +414,7 @@ function App() {
       <Feedback message={notice}/>
       {interrupted && <Banner status="warning" title="Connection interrupted" description="Reconnecting automatically. Your saved jobs remain on the manager." collapsible={false}/>}
       <div hidden={view!=='workspace'}><Workspace state={state} refresh={refresh} onNotice={setNotice} onAction={onAction}/></div>
-      {view==='setup' && <><Processing state={state} onAction={onAction} onNotice={setNotice}/><Collapsible trigger="Storage & help" defaultIsOpen={false}><Settings state={state} onLogout={logout}/></Collapsible></>}
+      {view==='setup' && <><Processing state={state} onAction={onAction} onNotice={setNotice}/><Collapsible trigger="Storage & help" defaultIsOpen={false}><Settings state={state} account={account} onLogout={logout} onPasskey={()=>{setState(null);setAccount(previous=>({...previous,offer_passkey:true}));}} onSaved={refresh}/></Collapsible></>}
     </VStack></main></>;
 
 }

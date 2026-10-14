@@ -1,7 +1,7 @@
 {
   "name": "popcorn-sr-ui",
   "private": true,
-  "version": "0.4.1",
+  "version": "0.4.2",
   "scripts": {
     "build": "npm run build:theme && vite build && node scripts/build-ui-policy.mjs",
     "test:browser": "playwright test",

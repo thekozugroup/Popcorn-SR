@@ -17,11 +17,11 @@ from tests.conftest import pair_worker
 
 def test_auth_pairing_is_single_use_and_revocable(setup, auth):
     client, store, cfg, _ = setup
-    client.headers.pop("Authorization")
+    client.cookies.clear()
     assert client.get("/api/state").status_code == 401
-    assert client.post("/api/login", json={"token": "wrong"}).status_code == 401
-    assert client.post("/api/login", json={"token": "incorrect-\u2603"}).status_code == 401
-    assert client.post("/api/login", json={"token": cfg.admin_token}).status_code == 200
+    assert client.post("/api/login", json={"username": "admin", "password": "wrong"}).status_code == 401
+    assert client.post("/api/login", json={"username": "admin", "password": "incorrect-\u2603"}).status_code == 401
+    assert client.post("/api/login", json={"username": "admin", "password": cfg.admin_token}).status_code == 200
     assert "HttpOnly" in client.cookies.__repr__() or client.get("/api/state").status_code == 200
     credentials, payload = pair_worker(client)
     assert client.post("/api/workers/pair", json=payload).status_code == 400

@@ -8,15 +8,15 @@ The manager needs no GPU. A worker needs FFmpeg and a usable encoder. Network wo
 
 Use `unraid/popcorn-sr.xml` as a local Docker template. The CPU-only custom Unraid build can manage the library while the Spark does processing. Compose is optional and is not present on every Unraid installation.
 
-Without Compose, save the XML under Unraid's user-template directory (`/boot/config/plugins/dockerMan/templates-user/`), then use **Docker → Add Container** and select the Popcorn SR template. Set the library, output and state paths, access key and port in that form. The library mount stays read-only. Apply the template and open the container's Web UI. Create the chosen state/output folders first and use UID 99/GID 100 for ordinary Unraid share ownership. This is an installation step for the operator; acceptance tests must not change existing user templates or services.
+Without Compose, save the XML under Unraid's user-template directory (`/boot/config/plugins/dockerMan/templates-user/`), then use **Docker → Add Container** and select the Popcorn SR template. Set the library, output and state paths and port in that form. The library mount stays read-only. Apply the template and open the container's Web UI. Create the chosen state/output folders first and use UID 99/GID 100 for ordinary Unraid share ownership. This is an installation step for the operator; acceptance tests must not change existing user templates or services.
 
 If Compose is already installed, use the alternative below:
 
 1. Create separate host folders for app data and finished copies. Keep the library separate. Example: `/mnt/user/appdata/popcorn-sr`, `/mnt/user/popcorn-output`, `/mnt/user/media`.
 2. Copy `.env.example` to `.env`, set those paths and `PUID=99`, `PGID=100`. They must exist and be writable by that user, except the read-only library.
-3. Generate a key: `openssl rand -hex 32`. Put it in `.env` as `POPCORN_ADMIN_TOKEN`. Keep `.env` private and out of version control.
+3. Keep `.env` private. For passkeys, configure your HTTPS proxy and set `POPCORN_PUBLIC_URL` to the exact HTTPS address, including its port if needed.
 4. Run `docker compose up -d --no-build --pull always manager` from this checkout. Open `http://NAS-IP:8787`.
-5. Sign in, then select **Devices & storage → Connect a worker**. The code expires in ten minutes; it is not your permanent access key.
+5. Sign in with **admin / admin**, choose your username and a new password, then add a passkey or choose **Not now**. Select **Devices & storage → Connect a worker**. The one-use pairing code expires in ten minutes.
 
 The template uses the public `ghcr.io/thekozugroup/popcorn-sr:stable` image. Anonymous pulls need no GitHub account. Source builds remain available with `docker build -t popcorn-sr:dev .`. Do not expose port 8787 directly to the internet. Use a reverse proxy with HTTPS or a VPN for remote use; HTTP on a trusted LAN sends credentials/video without encryption.
 
@@ -135,3 +135,11 @@ Use `Dockerfile` for the manager, or `Dockerfile.ai` for the locked Real-ESRGAN 
 The manual **Build device packages** and **Build AI device packages** workflows remain optional fallbacks if a local builder cannot support the required platform. They run full verification before building native AMD64/ARM64 archives. Routine development uses local commands; no workflow runs automatically on pushes or tags.
 
 Check each archive against `package.json` before importing it. The `org.opencontainers.image.revision` label must match the intended commit. Docker can convert configuration IDs during archive import; compare filesystem layers, architecture and environment rather than assuming daemon image IDs will be identical. Use a dedicated test tag and remove only test resources you created. NVIDIA components are provisioned separately; an NGX package build/import does not establish GPU processing or feature availability.
+
+## Login and passkeys
+
+Fresh installations use **admin / admin**. Management and worker-pairing controls remain locked until that password is replaced. Upgrading a legacy access-key installation starts this same owner setup; saved workers and jobs remain intact. Legacy access keys no longer grant management access.
+
+Passkeys use the browser's native fingerprint, face or device-PIN prompt. Configure an HTTPS proxy and `POPCORN_PUBLIC_URL` to the exact public origin, for example `https://popcorn.example.com` or `https://your-nas.your-tailnet.ts.net:9445`. The proxy must preserve the Host header. The app does not create certificates or a proxy automatically. Password login remains available; **Devices & storage → Storage & help → Access** offers passkey enrollment and password changes. Keep the same hostname when using a saved passkey.
+
+For owner recovery, use `docker exec -it YOUR_MANAGER popcorn-sr set-login --username YOUR_USERNAME`. The command asks for the new password without displaying it. Non-interactive trusted provisioning can use `--password-stdin`; never put a password in shell arguments, Compose or an image. Recovery removes existing web sessions and passkeys, then prompts for a new passkey. Worker credentials and media remain unchanged.

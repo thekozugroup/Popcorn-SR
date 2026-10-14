@@ -53,7 +53,8 @@ def setup(tmp_path):
 @pytest.fixture
 def auth(setup):
     client, _, cfg, _ = setup
-    client.headers["Authorization"] = f"Bearer {cfg.admin_token}"
+    client.post("/api/login", json={"username": "admin", "password": "admin"}).raise_for_status()
+    client.post("/api/account/password", json={"username": "admin", "password": cfg.admin_token}).raise_for_status()
     return client
 
 

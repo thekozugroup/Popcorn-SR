@@ -15,12 +15,12 @@ Still comparisons process a video-only sample of up to five seconds, then displa
 Download the kit matching each computer from [Releases](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.4.1): **AMD64** for Unraid/x86 Linux, **ARM64** for DGX Spark. Each kit includes prebuilt manager/base-worker and native-worker images. No build on the NAS is required.
 
 1. Verify the archive and load the selected image using [release-kit instructions](docs/releases.md).
-2. Set your existing library, output and state folders, ownership IDs and private access key.
-3. Start the manager, open its Web UI and choose **Devices & storage → Connect a worker**.
+2. Set your existing library, output and state folders and ownership IDs.
+3. Start the manager and open its Web UI. Sign in with **admin / admin**, choose a new password, then add a passkey or choose **Not now**. Choose **Devices & storage → Connect a worker**.
 4. On the processing computer, configure and initialize its mounted scratch folder, then pair with the one-use code.
 5. Preview one frame or a short sample before running a batch.
 
-Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The public registry supplies **0.4.1** as `ghcr.io/thekozugroup/popcorn-sr:0.4.1` and the native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.1`. The `stable` and `ngx-stable` channels identify this release. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
+Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The accepted native worker is `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.1`. Manager 0.4.2 adds username/password and passkeys and is being verified for publication; it remains compatible with that worker. Existing 0.4.1 kits use the earlier access-key login. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
 
 ## Processing options
 

@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 import httpx
+from auth_fixture import sign_in
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -171,7 +172,8 @@ class Layout:
             self.client.close()
         port = self.compose("port", "manager", "8787").stdout.strip()
         self.client = httpx.Client(base_url="http://" + port,
-                                  headers={"Authorization": f"Bearer {self.key}"}, timeout=20)
+                                  timeout=20)
+        sign_in(self.client, self.key)
 
     def job(self, identity):
         return next(j for j in self.state()["jobs"] if j["id"] == identity)

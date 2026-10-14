@@ -449,10 +449,20 @@ async function navigate(page, name) {
   }
 }
 
+async function completeSignIn(page) {
+  const skip=page.getByRole('button',{name:'Not now',exact:true});
+  const videos=page.getByRole('heading',{name:'Videos',exact:true});
+  await expect(skip.or(videos)).toBeVisible();
+  if(await skip.isVisible())await skip.click();
+  await expect(videos).toBeVisible();
+}
+
 async function signIn(page) {
   await page.goto('/');
-  await page.getByLabel('Access key').fill('local-test-only-access-key-12345');
-  await page.getByRole('button',{name:'Open Popcorn SR'}).click();
+  await page.getByLabel(/^Username/).fill('admin');
+  await page.getByLabel(/^Password/).fill('local-test-only-password-12345');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await completeSignIn(page);
   await expect(page.getByRole('heading',{name:'Videos',exact:true})).toBeVisible();
 }
 
@@ -606,11 +616,14 @@ test('desktop preview completes on a real worker; responsive light/dark views pa
 
 test('login error, keyboard focus, and one-use pairing UI', async ({page}) => {
   await page.goto('/');
-  await page.getByLabel('Access key').fill('incorrect');
-  await page.getByRole('button',{name:'Open Popcorn SR'}).click();
-  await expect(page.getByRole('alert')).toHaveText('Access key is incorrect.');
-  await page.getByLabel('Access key').fill('local-test-only-access-key-12345');
-  await page.getByRole('button',{name:'Open Popcorn SR'}).click();
+  await page.getByLabel(/^Username/).fill('admin');
+  await page.getByLabel(/^Password/).fill('incorrect');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await expect(page.getByRole('alert')).toHaveText('Username or password is incorrect.');
+  await page.getByLabel(/^Username/).fill('admin');
+  await page.getByLabel(/^Password/).fill('local-test-only-password-12345');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await completeSignIn(page);
   await navigate(page,'Processing');
   await page.getByRole('button',{name:'Connect a worker',exact:true}).click();
   await expect(page.locator('#pair-code')).toContainText(/.{16,}/);

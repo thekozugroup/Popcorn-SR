@@ -44,7 +44,7 @@ class WorkerUpdates:
             return result
         controller = read_message(self.directory / "controller.json")
         updated = controller.get("updated_at", 0)
-        result["enabled"] = isinstance(updated, (int, float)) and 0 <= time.time() - updated < 180
+        result["enabled"] = isinstance(updated, int | float) and 0 <= time.time() - updated < 180
         result["automatic"] = controller.get("automatic") is True
         result["draining"] = self.draining()
         host = read_message(self.directory / "status.json")

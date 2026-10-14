@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 import httpx
+from auth_fixture import sign_in
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("host_updater", ROOT / "scripts/update-worker.py")
@@ -137,7 +138,8 @@ def main():
                    "--mount", f"type=bind,src={root}/output,dst=/output", args.image)
             created_containers.append(manager)
             port = docker("port", manager, "8787/tcp").rsplit(":", 1)[1]
-            with httpx.Client(base_url="http://127.0.0.1:" + port, headers={"Authorization": "Bearer " + key}, timeout=60, trust_env=False) as client:
+            with httpx.Client(base_url="http://127.0.0.1:" + port, timeout=60, trust_env=False) as client:
+                sign_in(client, key)
                 wait(lambda: client.get("/health").is_success if docker("inspect", "--format", "{{.State.Running}}", manager) == "true" else False)
                 pair = client.post("/api/pair-codes").json()["code"]
                 environment.write_text(f"POPCORN_IMAGE={baseline}\nPOPCORN_PAIR_CODE={pair}\n")
