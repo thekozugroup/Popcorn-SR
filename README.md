@@ -14,7 +14,7 @@ Still comparisons process a video-only sample of up to five seconds, then displa
 
 ## Install the published Docker preview
 
-The current public manager is **0.4.3**, with a read-only library picker, username/password login and optional passkeys. The accepted native DLSS worker remains **0.4.1**. Docker selects the matching AMD64 or ARM64 image automatically; no build on the NAS is required.
+The current public manager is **0.4.4**, with linked comparison zoom/panning, preview deletion, a read-only library picker, username/password login and optional passkeys. The accepted native DLSS worker remains **0.4.1**. Docker selects the matching AMD64 or ARM64 image automatically; no build on the NAS is required.
 
 1. Install the manager through the [Unraid template or Compose instructions](docs/deployment.md).
 2. Set your existing library, output and state folders and ownership IDs.
@@ -22,7 +22,7 @@ The current public manager is **0.4.3**, with a read-only library picker, userna
 4. On the processing computer, configure and initialize its mounted scratch folder, then pair with the one-use code.
 5. Preview one frame or a short sample before running a batch.
 
-Use UID/GID **99/100** for ordinary Unraid share ownership. The public registry supplies `ghcr.io/thekozugroup/popcorn-sr:0.4.3` on the `stable` channel and `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.1` on `ngx-stable`. Earlier [0.4.1 offline kits](docs/releases.md) remain available and retain their older access-key login; update the manager to use the new flow. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
+Use UID/GID **99/100** for ordinary Unraid share ownership. The public registry supplies `ghcr.io/thekozugroup/popcorn-sr:0.4.4` on the `stable` channel and `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.1` on `ngx-stable`. Earlier [0.4.1 offline kits](docs/releases.md) remain available and retain their older access-key login; update the manager to use the new flow. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
 
 ## Choose Jellyfin videos
 
@@ -55,7 +55,9 @@ Ethernet through a router/switch or reachable direct Ethernet works. 1 GbE is us
 
 ## Verification and development
 
-Manager 0.4.3 at `d8535b9225586b933f87c525b0ca64b541a61d49` passes 171 Python tests on Mac and packaged Linux, all 14 Chromium workflows, 18 Compose layouts and both manager-platform paired Docker checks with a 0.4.1 worker. Named-source processing, blocked source writes, frame/full continuation, audio and 4K validation pass. Installed read-only movie/show browsing, original-frame reads, owner/pairing preservation and desktop/tablet/phone checks pass. The native worker is unchanged. [0.4.3 acceptance](https://github.com/thekozugroup/Popcorn-SR/releases/download/v0.4.3/acceptance.json).
+Manager 0.4.4 at `3179bae3f6210dd39dd54fdeb9d152b7c3d59276` passes 182 Python tests on Mac and packaged Linux, all 16 Chromium workflows, 18 Compose layouts and both manager-platform paired Docker checks with a 0.4.1 worker. Linked picture coordinates, keyboard/touch controls and safe preview deletion pass; originals and full outputs remain intact. Installed Atlas/Spark DLSS processing, unequal-resolution letterboxed panning, resize/fullscreen/Fit, preview deletion and desktop/tablet/phone checks pass. Versioned/stable images and public receipt downloads match anonymously. Atlas preserves its owner/passkeys, pairing, existing and newly added jobs, mounts and native updater; temporary test files are removed. The native worker is unchanged. Generated clips verify operation, not film quality or throughput. [0.4.4 acceptance](https://github.com/thekozugroup/Popcorn-SR/releases/download/v0.4.4/acceptance.json).
+
+Prior manager 0.4.3 at `d8535b9225586b933f87c525b0ca64b541a61d49` passes 171 Python tests on Mac and packaged Linux, all 14 Chromium workflows, 18 Compose layouts and both manager-platform paired Docker checks with a 0.4.1 worker. Named-source processing, blocked source writes, frame/full continuation, audio and 4K validation pass. Installed read-only movie/show browsing, original-frame reads, owner/pairing preservation and desktop/tablet/phone checks pass. [0.4.3 acceptance](https://github.com/thekozugroup/Popcorn-SR/releases/download/v0.4.3/acceptance.json).
 
 Prior manager 0.4.2 was built from `ab557e46ef199d51c7a4eed909440439a2f0dfe5`. All 168 Python cases pass on Mac and Linux; the Linux QA overlay adds only the diagnostic `ps` tool. Twelve existing browser workflows and a genuine WebAuthn registration/sign-in workflow pass, including rejection of altered origins/signatures and replay. Both manager platforms pass real paired CPU delivery, frame/full continuation, audio preservation and concurrent 4K validation within 512 MiB. Compose restart/recovery passes; anonymous versioned and stable pulls match both committed filesystems. Installed HTTPS owner setup and desktop/tablet/phone UI checks pass while the accepted Spark worker stays running. A physical user passkey is created at first sign-in. [0.4.2 acceptance](https://github.com/thekozugroup/Popcorn-SR/releases/download/v0.4.2/acceptance.json).
 
