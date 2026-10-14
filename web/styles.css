@@ -38,6 +38,11 @@
   .io-pane { display: flex; flex-direction: column; }
   .pane-heading { min-height: 76px; padding: 16px 24px; border-bottom: 1px solid var(--color-border); }
   .folder-bar { padding: 10px 24px; border-bottom: 1px solid var(--color-border); min-height: 44px; }
+  .library-tools { padding: 16px 24px; border-bottom: 1px solid var(--color-border); }
+  .library-fields { display: grid; grid-template-columns: minmax(120px, .7fr) minmax(0, 1.3fr); gap: 16px; }
+  .library-breadcrumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; flex: 1; }
+  .library-breadcrumbs > .path { flex: 1; }
+  .library-selection { padding: 4px 24px; min-height: 52px; border-bottom: 1px solid var(--color-border); }
   .pane-content { max-height: 360px; min-height: 196px; overflow-y: auto; flex: 1; }
   .selected-file { background: var(--color-background-muted); }
   .file-row { padding: 4px 12px; transition: background-color 125ms ease-out; }
@@ -92,6 +97,7 @@
     .page-head { flex-direction: column; gap: 16px; }
   }
   @media (max-width: 767px) {
+    .library-fields { grid-template-columns: 1fr; }
     .workspace { padding: 24px 20px 48px; }
     .page-head { flex-direction: column; gap: 16px; }
     .io-grid, .settings-grid, .form-grid, .worker-layout { grid-template-columns: 1fr; }

@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -124,7 +125,7 @@ def check_frame_preview(client, root, original):
 Path("evidence").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").resolve()) as temp:
     root = Path(temp)
-    for name in ("library", "output", "manager-state", "worker-state", "scratch"):
+    for name in ("library", "movies", "output", "manager-state", "worker-state", "scratch"):
         (root / name).mkdir(mode=0o777)
         (root / name).chmod(0o777)
     (root / "scratch" / ".popcorn-scratch").write_text(identity)
@@ -155,8 +156,11 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
         check=True,
     )
     original = hashlib.sha256(clip.read_bytes()).hexdigest()
+    shutil.copyfile(clip, root / "movies" / "selected.mkv")
     environment = root / "manager.env"
-    environment.write_text(f"POPCORN_ADMIN_TOKEN={key}\nPOPCORN_RESERVE_MIB=0\n")
+    environment.write_text(f"POPCORN_ADMIN_TOKEN={key}\nPOPCORN_RESERVE_MIB=0\nPOPCORN_EXTRA_LIBRARIES=" + json.dumps([
+        {"id": "movies", "name": "Movies", "path": "/sources/movies"}
+    ]) + "\n")
     environment.chmod(0o600)
     try:
         docker("network", "create", network)
@@ -188,6 +192,8 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
             f"{root / 'manager-state'}:/state",
             "-v",
             f"{root / 'library'}:/library:ro",
+            "-v",
+            f"{root / 'movies'}:/sources/movies:ro",
             "-v",
             f"{root / 'output'}:/output",
             args.image,
@@ -256,7 +262,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
             response = client.post(
                 "/api/jobs",
                 json={
-                    "path": "sample.mkv",
+                    "path": "@sources/movies/selected.mkv",
                     "recipe": {"scale": 2, "denoise": True, "output_directory": "verified"},
                 },
             )
@@ -270,6 +276,9 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 time.sleep(1)
             assert job["status"] == "completed", job
             assert hashlib.sha256(clip.read_bytes()).hexdigest() == original
+            assert hashlib.sha256((root / "movies" / "selected.mkv").read_bytes()).hexdigest() == original
+            # Attempt writes in the actual container namespace, not only API guards.
+            docker("exec", manager, "python", "-c", "import errno; from pathlib import Path;\nfor root in ['/library', '/sources/movies']:\n try: (Path(root)/'.popcorn-write-check').write_text('refuse')\n except OSError as error: assert error.errno == errno.EROFS\n else: raise AssertionError('Source mount is writable')")
             output = root / "output" / job["result"]["path"]
             assert output.is_file()
             assert (
@@ -289,6 +298,8 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 "worker_capabilities": state["workers"][0]["capabilities"],
                 "result": job["result"],
                 "original_unchanged": True,
+                "named_library_roundtrip": True,
+                "source_mounts_read_only": True,
                 "scratch_cleaned": True,
                 "manager_4k_validation": validation,
                 "frame_comparison": comparison,

@@ -3,6 +3,54 @@ import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 fs.mkdirSync('evidence/screenshots',{recursive:true});
 
+test('read-only library picker navigates shows, preserves cross-library selections and previews a real source', async ({page}) => {
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await signIn(page);
+  const input=page.getByRole('region',{name:'Input',exact:true});
+  await input.getByRole('combobox',{name:'Library',exact:true}).click();
+  await page.getByRole('option',{name:'TV shows',exact:true}).click();
+  await input.getByLabel('Filter this folder',{exact:true}).fill('not present');
+  await expect(input.getByText('No matches in this folder',{exact:true})).toBeVisible();
+  await input.getByLabel('Filter this folder',{exact:true}).fill('COAST');
+  await input.getByRole('button',{name:'The coastline',exact:true}).click();
+  await input.getByRole('button',{name:'Season 01',exact:true}).click();
+  await input.getByRole('button',{name:/The coastline S01E01\.mkv/}).click();
+  await expect(input.getByText('1 selected',{exact:true})).toBeVisible();
+  await input.getByRole('button',{name:'Up a folder',exact:true}).click();
+  await expect(input.getByText('1 selected',{exact:true})).toBeVisible();
+  await input.getByRole('combobox',{name:'Library',exact:true}).click();
+  await page.getByRole('option',{name:'Movies',exact:true}).click();
+  await input.getByRole('button',{name:'A quiet morning (2026)',exact:true}).click();
+  await input.getByRole('button',{name:/A quiet morning\.mkv/}).click();
+  await expect(input.getByText('2 selected',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Add 2 videos to queue',exact:true})).toBeEnabled();
+  await input.getByRole('button',{name:'All folders',exact:true}).click();
+  await input.getByRole('button',{name:'Clear selection',exact:true}).click();
+  await input.getByRole('button',{name:'A quiet morning (2026)',exact:true}).click();
+  await input.getByRole('button',{name:/A quiet morning\.mkv/}).click();
+  await page.getByRole('button',{name:'Preview frame',exact:true}).click();
+  await expect(page.locator('.frame-pair img')).toHaveCount(2,{timeout:30000});
+  await expect.poll(()=>page.locator('.frame-pair img').evaluateAll(images=>images.every(image=>image.complete && image.naturalWidth))).toBeTruthy();
+  const state=await (await page.request.get('/api/state')).json();
+  const preview=state.jobs.find(job=>job.path==='@sources/movies/A quiet morning (2026)/A quiet morning.mkv' && job.status==='completed');
+  expect(preview).toBeTruthy();
+  fs.mkdirSync('evidence/library-20261013',{recursive:true});
+  for(const [width,height,mode] of [[1440,1100,'light'],[820,1100,'dark'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    expect((await accessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0);});
+    if(width===1440) await page.locator('.io-grid').screenshot({path:'evidence/library-20261013/picker-panels.png',animations:'disabled'});
+    await page.screenshot({path:`evidence/library-20261013/picker-${width}-${mode}.png`,fullPage:true,animations:'disabled'});
+  }
+  await page.getByRole('button',{name:'Run full video',exact:true}).click();
+  await expect.poll(async()=>{
+    const jobs=(await (await page.request.get('/api/state')).json()).jobs;
+    return jobs.some(job=>job.path===preview.path && !job.recipe.preview_seconds && job.status==='completed');
+  },{timeout:30000}).toBeTruthy();
+  expect(errors).toEqual([]);
+});
+
 test('worker updates have a simple idle-safe action and recovery state (UI fixture; no container replacement)', async ({page}) => {
   let pending=false, phase='current', draining=false, enabled=true, requested=false;
   await page.route('**/api/state',async route=>{
@@ -106,8 +154,9 @@ test('one workspace selects input, keeps settings across setup, and returns a re
     return Math.abs(chip.y+chip.height/2-button.y-button.height/2);
   });
   expect(alignment).toBeLessThan(1);
-  await expect(page.getByRole('navigation')).toHaveCount(0);
-  await expect(page.getByRole('combobox')).toHaveCount(3);
+  await expect(page.getByRole('navigation')).toHaveCount(1);
+  await expect(page.getByRole('navigation',{name:'Library folders',exact:true})).toHaveCount(1);
+  await expect(page.getByRole('region',{name:'Upscaling settings',exact:true}).getByRole('combobox')).toHaveCount(3);
   await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeDisabled();
   const icon=await page.request.get(await page.locator('link[rel=icon]').getAttribute('href'));
   expect(icon.ok()).toBeTruthy();
@@ -128,7 +177,7 @@ test('one workspace selects input, keeps settings across setup, and returns a re
   await expect(page.getByLabel('Save copies to')).toHaveValue('simple-workspace');
   await expect(page.getByRole('combobox',{name:'Output size',exact:true})).toContainText('Three times');
   await page.getByRole('button',{name:'More options',exact:true}).click();
-  await expect(page.getByRole('combobox')).toHaveCount(3);
+  await expect(page.getByRole('region',{name:'Upscaling settings',exact:true}).getByRole('combobox')).toHaveCount(3);
   const [response]=await Promise.all([
     page.waitForResponse(r=>r.url().endsWith('/api/jobs') && r.request().method()==='POST'),
     page.getByRole('button',{name:'Add to queue',exact:true}).click(),

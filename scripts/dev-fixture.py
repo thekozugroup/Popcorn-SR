@@ -10,7 +10,7 @@ from pathlib import Path
 
 import uvicorn
 
-from popcorn_sr.config import Settings
+from popcorn_sr.config import Library, Settings
 from popcorn_sr.server import create_app
 from popcorn_sr.worker import Worker
 
@@ -46,9 +46,17 @@ with tempfile.TemporaryDirectory(prefix="popcorn-browser-") as temp:
     )
     # A second generated input makes the actual batch path reviewable.
     shutil.copyfile(library / "A clearer picture.mkv", library / "Another moment.mkv")
+    movies, shows = root / "movies", root / "shows"
+    movie = movies / "A quiet morning (2026)"
+    season = shows / "The coastline" / "Season 01"
+    movie.mkdir(parents=True)
+    season.mkdir(parents=True)
+    shutil.copyfile(library / "A clearer picture.mkv", movie / "A quiet morning.mkv")
+    shutil.copyfile(library / "A clearer picture.mkv", season / "The coastline S01E01.mkv")
     app = create_app(
         Settings(
-            root / "state", library, root / "output", "local-test-only-access-key-12345", reserve_bytes=0, public_url="http://localhost:18877"
+            root / "state", library, root / "output", "local-test-only-access-key-12345", reserve_bytes=0, public_url="http://localhost:18877",
+            library_name="Test clips", libraries=(Library("movies", "Movies", movies), Library("shows", "TV shows", shows)),
         )
     )
     app.state.auth.provision("admin", "local-test-only-password-12345")

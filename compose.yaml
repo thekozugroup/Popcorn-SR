@@ -8,6 +8,8 @@ services:
       - "${POPCORN_BIND:-0.0.0.0}:${POPCORN_PORT:-8787}:8787"
     environment:
       POPCORN_PUBLIC_URL: "${POPCORN_PUBLIC_URL:-}"
+      POPCORN_LIBRARY_NAME: "${POPCORN_LIBRARY_NAME:-Your library}"
+      POPCORN_EXTRA_LIBRARIES: "${POPCORN_EXTRA_LIBRARIES:-[]}"
     volumes:
       - type: bind
         source: "${STATE_PATH:?Set STATE_PATH}"

@@ -318,17 +318,32 @@ function Recipe({paths,state,onCreated,compareJob}) {
   </VStack></section></>;
 }
 function Workspace({state,onNotice,refresh,onAction}) {
-  const [directory,setDirectory]=useState('.'),[offset,setOffset]=useState(0),[listing,setListing]=useState(null),[error,setError]=useState(''),[revision,setRevision]=useState(0),[selected,setSelected]=useState([]),[compareJob,setCompareJob]=useState(null);
-  useEffect(()=>{let live=true;setListing(null);setError('');api(`/api/library?directory=${encodeURIComponent(directory)}&offset=${offset}`).then(data=>{if(live)setListing(data);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[directory,offset,revision]);
-  function folder(path){setDirectory(path);setOffset(0);setSelected([]);setCompareJob(null);}
+  const [directory,setDirectory]=useState('.'),[offset,setOffset]=useState(0),[search,setSearch]=useState(''),[listing,setListing]=useState(null),[error,setError]=useState(''),[revision,setRevision]=useState(0),[selected,setSelected]=useState([]),[compareJob,setCompareJob]=useState(null);
+  const libraries=state.storage.libraries || [{id:'default',name:'Your library',directory:'.'}];
+  const library=libraries.find(item=>item.directory!=='.' && (directory===item.directory || directory.startsWith(item.directory+'/'))) || libraries[0];
+  const relative=directory===library.directory?'':library.directory==='.'?directory:directory.slice(library.directory.length+1);
+  const crumbs=relative.split('/').filter(Boolean);
+  useEffect(()=>{let live=true;setListing(null);setError('');const timer=setTimeout(()=>api(`/api/library?directory=${encodeURIComponent(directory)}&offset=${offset}&search=${encodeURIComponent(search)}`).then(data=>{if(live)setListing(data);}).catch(e=>{if(live)setError(e.message);}),180);return()=>{live=false;clearTimeout(timer);};},[directory,offset,revision,search]);
+  function folder(path){setDirectory(path);setOffset(0);setSearch('');}
   async function created(preview,clear=true,queuedPath=null){if(queuedPath)setSelected(current=>current.filter(p=>p!==queuedPath));if(clear){setSelected([]);setCompareJob(null);}await refresh();onNotice({text:preview?'Preview queued.':'Video queued. Your original is preserved.'});}
   return <VStack gap={6}>
     <div className="workspace-title"><Heading level={1}>Videos</Heading><Copy>Select videos, compare a frame, then queue your copies.</Copy></div>
     <div className="io-grid">
       <section className="panel io-pane" aria-label="Input"><HStack className="pane-heading" hAlign="between" gap={3}><Heading level={2}>Input</Heading><Button label="Refresh" variant="ghost" onClick={()=>setRevision(v=>v+1)}/></HStack>
-        <HStack className="folder-bar" hAlign="between" gap={3} wrap="wrap"><Text type="supporting" color="secondary" className="path min-w-0">{directory==='.'?'Your library':directory}</Text><HStack gap={2}>{listing?.items.filter(item=>!item.directory).length>1 && <Button label={listing.items.filter(item=>!item.directory).every(item=>selected.includes(item.path))?'Clear page':'Select page'} variant="ghost" onClick={()=>{const files=listing.items.filter(item=>!item.directory).map(item=>item.path);setSelected(current=>files.every(file=>current.includes(file))?current.filter(file=>!files.includes(file)):[...new Set([...current,...files])]);}}/>}{directory!=='.' && <Button label="Up a folder" variant="ghost" onClick={()=>folder(directory.split('/').slice(0,-1).join('/') || '.')}/>}</HStack></HStack>
+        <VStack className="library-tools" gap={3}>
+          <div className="library-fields">
+          <Selector label="Library" value={library.directory} options={libraries.map(item=>({value:item.directory,label:item.name}))} onChange={folder} width="100%"/>
+          <TextInput label="Filter this folder" value={search} onChange={value=>{setSearch(value);setOffset(0);}} placeholder="Movie, show or episode name" maxLength={120} width="100%"/>
+          </div>
+          <Copy type="supporting">Browse originals. Copies go to a separate output folder.</Copy>
+        </VStack>
+        <HStack className="folder-bar" hAlign="between" gap={2} wrap="wrap">
+          <nav className="library-breadcrumbs" aria-label="Library folders"><Button label="All folders" variant="ghost" onClick={()=>folder(library.directory)} isDisabled={!crumbs.length}/>{crumbs.map((name,index)=><React.Fragment key={index}><Icon icon="chevronRight" size="sm" color="secondary"/>{index===crumbs.length-1?<Text type="supporting" className="path" aria-current="page">{name}</Text>:<Button label={name} variant="ghost" onClick={()=>folder([library.directory==='.'?'':library.directory,...crumbs.slice(0,index+1)].filter(Boolean).join('/'))}/>}</React.Fragment>)}</nav>
+          {crumbs.length>0 && <Button label="Up a folder" variant="ghost" onClick={()=>folder(crumbs.length===1?library.directory:directory.split('/').slice(0,-1).join('/'))}/>}
+        </HStack>
+        <HStack className="library-selection" hAlign="between" gap={2} wrap="wrap"><Text type="supporting" color="secondary" role="status">{selected.length?`${selected.length} selected`:'Choose videos to test'}</Text><HStack gap={1}>{selected.length>0 && <Button label="Clear selection" variant="ghost" onClick={()=>{setSelected([]);setCompareJob(null);}}/>}{listing?.items.filter(item=>!item.directory).length>1 && <Button label={listing.items.filter(item=>!item.directory).every(item=>selected.includes(item.path))?'Clear page':'Select page'} variant="ghost" onClick={()=>{const files=listing.items.filter(item=>!item.directory).map(item=>item.path);setSelected(current=>files.every(file=>current.includes(file))?current.filter(file=>!files.includes(file)):[...new Set([...current,...files])]);}}/>}</HStack></HStack>
         <div className="pane-content">
-          {error?<Empty title="Library unavailable" copy={error}/>:!listing?<Empty title="Loading your library…" copy="Reading your videos."/>:!listing.items.length?<Empty title="No videos here" copy="Choose another folder, or check your library mount in Devices & storage."/>:listing.items.map(item=><InputRow key={`${item.path}:${revision}`} item={item} selected={selected.includes(item.path)} onChoose={()=>item.directory?folder(item.path):setSelected(current=>current.includes(item.path)?current.filter(p=>p!==item.path):[...current,item.path])}/>)}
+          {error?<Empty title="Library unavailable" copy={error}/>:!listing?<Empty title="Loading your library…" copy="Reading your videos."/>:!listing.items.length?<Empty title={search?'No matches in this folder':'No videos here'} copy={search?'Try another name, or clear the filter to see all folders and videos.':'Choose another folder or library. Check its read-only mount in Devices & storage if videos are missing.'}/>:listing.items.map(item=><InputRow key={`${item.path}:${revision}`} item={item} selected={selected.includes(item.path)} onChoose={()=>item.directory?folder(item.path):setSelected(current=>current.includes(item.path)?current.filter(p=>p!==item.path):[...current,item.path])}/>)}
         </div>
         {listing?.total>100 && <HStack className="row" gap={3} hAlign="between" wrap="wrap"><Button label="Previous" variant="ghost" isDisabled={!offset} onClick={()=>setOffset(v=>Math.max(0,v-100))}/><Copy type="supporting">{offset+1}–{Math.min(offset+100,listing.total)} of {listing.total}</Copy><Button label="Next" variant="ghost" isDisabled={offset+100>=listing.total} onClick={()=>setOffset(v=>v+100)}/></HStack>}
       </section>
@@ -374,14 +389,14 @@ function Processing({state,onAction,onNotice}) {
 }
 function Settings({state,account,onLogout,onPasskey,onSaved}) {
   const sections=[
-    ['Library',`${state.storage.library}. Mount this folder read-only. Change the host folder in your Docker configuration.`],
+    ['Library',`${(state.storage.libraries || [{name:'Your library'}]).map(item=>item.name).join(', ')}. Choose a library in Input, then open its folders and select videos. Add library folders as read-only Docker mounts; see the library guide.`],
     ['Finished copies',`${state.storage.output} / ${bytes(state.storage.free_bytes)} available. Choose a subfolder when creating a job. Originals are never replaced.`],
     ['Temporary storage',"Each worker owns its scratch drive. Video downloads, intermediates and uploads use that drive; small pairing credentials use its state folder. Check the host’s swap and Docker storage configuration to keep those writes off the built-in drive too."],
     ['Network','Direct Ethernet or a shared router/switch works. A plain USB-C cable does not establish a network between ordinary host ports. Wi-Fi works, with transfer speed and reliability depending on your network.'],
     ['Protected sources','This release rejects HDR and high-bit-depth input to prevent loss of color or detail. Keep your original and use a verified HDR pipeline for those files.'],
     ['Access','Keep the manager on your trusted network. Use HTTPS through a reverse proxy or VPN for remote access.'],
   ];
-  return <><PageHead title="Your workspace" copy="A small manager, connected processing, and a separate home for every finished copy."/><section className="panel">{sections.map(([title,copy])=><VStack className="row" key={title} gap={3}><Heading level={2}>{title}</Heading><Copy>{copy}</Copy>{title==='Access' && <VStack gap={4}><Text>Signed in as {account.username}</Text><Button label="Add a passkey" variant="secondary" onClick={onPasskey}/><Collapsible trigger="Change password"><PasswordForm account={account} onSaved={onSaved}/></Collapsible><Button label="Sign out" variant="ghost" onClick={onLogout}/></VStack>}</VStack>)}</section></>;
+  return <><PageHead title="Your workspace" copy="A small manager, connected processing, and a separate home for every finished copy."/><section className="panel">{sections.map(([title,copy])=><VStack className="row" key={title} gap={3}><Heading level={2}>{title}</Heading><Copy>{copy}</Copy>{title==='Library' && <Button label="Library guide" variant="ghost" href="https://github.com/thekozugroup/Popcorn-SR/blob/main/docs/library.md" target="_blank" rel="noreferrer"/>}{title==='Access' && <VStack gap={4}><Text>Signed in as {account.username}</Text><Button label="Add a passkey" variant="secondary" onClick={onPasskey}/><Collapsible trigger="Change password"><PasswordForm account={account} onSaved={onSaved}/></Collapsible><Button label="Sign out" variant="ghost" onClick={onLogout}/></VStack>}</VStack>)}</section></>;
 }
 function App() {
   const [account,setAccount]=useState(null),[state,setState]=useState(null),[loading,setLoading]=useState(true),[loginError,setLoginError]=useState(''),[view,setView]=useState('workspace'),[notice,setNotice]=useState(null),[interrupted,setInterrupted]=useState(false);

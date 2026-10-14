@@ -39,11 +39,10 @@ from .models import Failure, Heartbeat, JobCreate, PairRequest
 def create_app(settings: Settings | None = None):
     cfg = settings or Settings.from_env()
     store = Store(cfg.state)
+    for root in (cfg.library, *(item.path for item in cfg.libraries)):
+        if cfg.output.is_relative_to(root) or root.is_relative_to(cfg.output):
+            raise RuntimeError("Library and output must be separate folders. Mount originals read-only.")
     cfg.output.mkdir(parents=True, exist_ok=True)
-    if cfg.library.resolve() == cfg.output.resolve() or cfg.output.resolve().is_relative_to(
-        cfg.library.resolve()
-    ):
-        raise RuntimeError("Library and output must be separate folders. Mount originals read-only.")
     authentication = Authentication(store, cfg.public_url)
     media_slots = asyncio.Semaphore(1)
     metadata_cache = OrderedDict()
@@ -165,6 +164,7 @@ def create_app(settings: Settings | None = None):
             "jobs": [public_job(j) for j in store.jobs()],
             "storage": {
                 "library": str(cfg.library),
+                "libraries": cfg.library_choices(),
                 "output": str(cfg.output),
                 "free_bytes": shutil.disk_usage(cfg.output).free,
             },
@@ -178,22 +178,22 @@ def create_app(settings: Settings | None = None):
         }
 
     @app.get("/api/library", dependencies=[Depends(admin)])
-    def library(directory: str = ".", offset: int = 0):
+    def library(directory: str = ".", offset: int = 0, search: str = Query("", max_length=120)):
         if offset < 0:
             raise HTTPException(400, "Invalid page.")
         try:
-            folder = beneath(cfg.library, directory)
+            folder = cfg.source(directory)
             if not folder.is_dir():
                 raise ValueError("Folder does not exist. Check the library mount.")
             items = []
             for entry in folder.iterdir():
-                if entry.is_symlink() or entry.name.startswith("."):
+                if entry.is_symlink() or entry.name.startswith(".") or search.casefold() not in entry.name.casefold():
                     continue
                 if entry.is_dir() or entry.suffix.lower() in VIDEO_EXTENSIONS:
                     items.append(
                         {
                             "name": entry.name,
-                            "path": str(entry.relative_to(cfg.library)),
+                            "path": entry.name if directory == "." else str(Path(directory) / entry.name),
                             "directory": entry.is_dir(),
                             "size": 0 if entry.is_dir() else entry.stat().st_size,
                             "modified_ns": 0 if entry.is_dir() else entry.stat().st_mtime_ns,
@@ -253,7 +253,7 @@ def create_app(settings: Settings | None = None):
 
     async def queue_job(body: JobCreate, expected_source=None, require_compatible=False):
         try:
-            path = beneath(cfg.library, body.path, file=True)
+            path = cfg.source(body.path, file=True)
             if path.suffix.lower() not in VIDEO_EXTENSIONS:
                 raise ValueError("Choose a supported video file.")
             beneath(cfg.output, body.recipe.output_directory)
@@ -406,7 +406,7 @@ def create_app(settings: Settings | None = None):
     def source(identity: str, request: Request, item: Annotated[dict, Depends(worker)]):
         job = owned(identity, item, request.headers.get("x-job-lease", ""))
         try:
-            path = beneath(cfg.library, job["path"], file=True)
+            path = cfg.source(job["path"], file=True)
             stat = path.stat()
             if stat.st_size != job["source"]["size"] or stat.st_mtime_ns != job["source"]["mtime_ns"]:
                 raise ValueError("Source changed since this job was queued. Create a new job.")
@@ -486,7 +486,7 @@ def create_app(settings: Settings | None = None):
     @app.get("/api/library/metadata", dependencies=[Depends(admin)])
     async def library_metadata(path: str):
         try:
-            original = beneath(cfg.library, path, file=True)
+            original = cfg.source(path, file=True)
             if original.suffix.lower() not in VIDEO_EXTENSIONS:
                 raise ValueError("Choose a supported video file.")
             # Shares can change beneath us. Validate containment and identity
@@ -511,7 +511,7 @@ def create_app(settings: Settings | None = None):
     @app.get("/api/library/info", dependencies=[Depends(admin)])
     async def library_info(path: str):
         try:
-            original = beneath(cfg.library, path, file=True)
+            original = cfg.source(path, file=True)
             if original.suffix.lower() not in VIDEO_EXTENSIONS:
                 raise ValueError("Choose a supported video file.")
             info = await media_call(probe, original)
@@ -524,7 +524,7 @@ def create_app(settings: Settings | None = None):
     @app.get("/api/library/frame", dependencies=[Depends(admin)])
     async def library_frame(path: str, seconds: Annotated[float, Query(ge=0, allow_inf_nan=False)] = 0):
         try:
-            original = beneath(cfg.library, path, file=True)
+            original = cfg.source(path, file=True)
             if original.suffix.lower() not in VIDEO_EXTENSIONS:
                 raise ValueError("Choose a supported video file.")
             info = await media_call(probe, original)
@@ -542,7 +542,7 @@ def create_app(settings: Settings | None = None):
         if job["recipe"].get("hdr"):
             raise HTTPException(409, "Review this HDR preview on an HDR display.")
         try:
-            original = beneath(cfg.library, job["path"], file=True)
+            original = cfg.source(job["path"], file=True)
             stat = original.stat()
             if stat.st_size != job["source"]["size"] or stat.st_mtime_ns != job["source"]["mtime_ns"]:
                 raise ValueError("Source changed. Create a new preview before comparing.")

@@ -21,8 +21,11 @@ def main():
         "POPCORN_NGX_BUNDLE": str(fixtures / "sdk"),
         "POPCORN_NGX_DRIVER": str(fixtures / "driver.so"),
         "UPDATE_CONTROL_PATH": str(fixtures / "updates"),
+        "MOVIES_PATH": str(fixtures / "movies"),
+        "TV_PATH": str(fixtures / "shows"),
     })
     layouts = [("manager", ["compose.yaml"])]
+    layouts.append(("manager/library", ["compose.yaml", "compose.library.yaml"]))
     for topology, base in (
         ("paired", ["compose.worker.yaml"]),
         ("single", ["compose.yaml", "compose.single.yaml"]),
@@ -49,7 +52,7 @@ def main():
             for mount in service["volumes"]:
                 # Compose 2 omits false fields; Compose 5 emits them explicitly.
                 assert not mount.get("bind", {}).get("create_host_path", False), f"{name}: automatic host folders"
-                if mount["target"] in {"/library", "/opt/ngx", "/opt/ngx-driver/libnvidia-ngx.so.1"}:
+                if mount["target"] in {"/library", "/opt/ngx", "/opt/ngx-driver/libnvidia-ngx.so.1"} or mount["target"].startswith("/sources/"):
                     assert mount["read_only"], f"{name}: writable source/runtime"
         if "/ngx" in name:
             worker = services["worker"]

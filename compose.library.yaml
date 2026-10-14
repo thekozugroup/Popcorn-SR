@@ -1,0 +1,16 @@
+# Optional Jellyfin folder picker. Compose with compose.yaml on the manager.
+services:
+  manager:
+    environment:
+      POPCORN_EXTRA_LIBRARIES: '[{"id":"movies","name":"Movies","path":"/sources/movies"},{"id":"shows","name":"TV shows","path":"/sources/shows"}]'
+    volumes:
+      - type: bind
+        source: "${MOVIES_PATH:?Set MOVIES_PATH to your existing movie folder}"
+        target: /sources/movies
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${TV_PATH:?Set TV_PATH to your existing shows folder}"
+        target: /sources/shows
+        read_only: true
+        bind: {create_host_path: false}
