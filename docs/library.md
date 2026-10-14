@@ -8,7 +8,7 @@ Popcorn reads the same video folders Jellyfin uses. It does not need Jellyfin cr
 4. Set your enhancement and resolution, then use **Preview frame** to compare one frame. Review a short motion sample too before a long job.
 5. Use **Run full video**, **Run full batch**, or **Add to queue**. Finished copies appear in **Output queue** and the output folder. Keep testing separate from Jellyfin's watched media folders.
 
-On the owner's Atlas installation, the choices are Test clips, Movies and TV shows. The original movie/show folders are read-only; all results remain under `/mnt/user/Z-Popcorn-SR-Test/output`. Jellyfin will not automatically import these results unless that test folder is added to one of its libraries.
+Keep the testing output folder outside every source library. Jellyfin will not automatically import finished tests unless you add that output folder to one of its watched libraries.
 
 ## Docker Compose
 

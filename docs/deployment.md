@@ -8,7 +8,7 @@ The manager needs no GPU. A worker needs FFmpeg and a usable encoder. Network wo
 
 Use `unraid/popcorn-sr.xml` as a local Docker template. The CPU-only custom Unraid build can manage the library while the Spark does processing. Compose is optional and is not present on every Unraid installation.
 
-Without Compose, save the XML under Unraid's user-template directory (`/boot/config/plugins/dockerMan/templates-user/`), then use **Docker → Add Container** and select the Popcorn SR template. Set the library, output and state paths and port in that form. The library mount stays read-only. Apply the template and open the container's Web UI. Create the chosen state/output folders first and use UID 99/GID 100 for ordinary Unraid share ownership. This is an installation step for the operator; acceptance tests must not change existing user templates or services.
+Without Compose, save the XML under Unraid's user-template directory (`/boot/config/plugins/dockerMan/templates-user/`), then use **Docker → Add Container** and select the Popcorn SR template. Set the library, output and state paths and port in that form. The library mount stays read-only. To browse existing Jellyfin movie/show folders without changing the test library, follow [the library picker guide](library.md). Apply the template and open the container's Web UI. Create the chosen state/output folders first and use UID 99/GID 100 for ordinary Unraid share ownership. This is an installation step for the operator; acceptance tests must not change existing user templates or services.
 
 If Compose is already installed, use the alternative below:
 
