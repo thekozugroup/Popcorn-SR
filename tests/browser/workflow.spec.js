@@ -125,8 +125,9 @@ test('resolution rules preserve mixed-batch intent, previews and original/final 
     return state.jobs.filter(job=>job.recipe.resolution_rules && !job.recipe.preview_seconds && job.status==='completed').length;
   },{timeout:30000}).toBe(2);
   const full=(await (await page.request.get('/api/state')).json()).jobs.filter(job=>job.recipe.resolution_rules && !job.recipe.preview_seconds);
+  expect(full).toHaveLength(2);
   expect(full.every(job=>job.recipe.scale===1 && job.recipe.resolution_rules['720']==='1080')).toBeTruthy();
-  await expect(output.getByRole('link',{name:'Download copy',exact:true})).toHaveCount(2,{timeout:10000});
+  for(const job of full)await expect(output.locator(`[data-job-id="${job.id}"]`).getByRole('link',{name:'Download copy',exact:true})).toBeVisible({timeout:10000});
   for(const [width,height,mode] of [[1440,1100,'light'],[768,1024,'dark'],[390,844,'dark']]) {
     await page.setViewportSize({width,height});await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
     expect((await accessibility(page)).violations).toEqual([]);
@@ -742,6 +743,7 @@ test('linked comparison zoom inspects matching detail, pans either side, resets 
   await comparison.getByRole('button',{name:'Zoom in',exact:true}).click();
   await expect.poll(async()=>(await readView())[0].zoom).toBe(4);
   for(const index of [0,1]) {
+    await viewports.nth(index).scrollIntoViewIfNeeded();
     const box=await viewports.nth(index).boundingBox(), before=await matched();
     await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
     await page.mouse.move(box.x+box.width/2+50,box.y+box.height/2-25,{steps:5});await page.mouse.up();
