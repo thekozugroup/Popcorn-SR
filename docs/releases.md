@@ -1,6 +1,6 @@
 # Releases
 
-Manager 0.4.2 adds owner login, mandatory replacement of the initial **admin / admin** password and optional passkeys. It is compatible with the accepted native worker 0.4.1. This manager update is being verified locally; public stable promotion follows installed acceptance. Follow [login setup](deployment.md#login-and-passkeys) for HTTPS and recovery. The archive instructions below describe the prior 0.4.1 kit, which retains its earlier access-key login.
+Manager 0.4.2 adds owner login, mandatory replacement of the initial **admin / admin** password and optional passkeys. It is compatible with the accepted native worker 0.4.1. The versioned manager image `ghcr.io/thekozugroup/popcorn-sr:0.4.2` and `stable` channel are published for AMD64/ARM64 after local and installed acceptance. This release uses registry images; no replacement archive kit is published. Follow [login setup](deployment.md#login-and-passkeys) for HTTPS and recovery. The archive instructions below describe the prior 0.4.1 kit, which retains its earlier access-key login.
 
 ## Prior verified Docker release kits
 
@@ -17,7 +17,7 @@ cd popcorn-sr-0.4.1-linux-amd64
 
 Use `./load.sh ngx` on the NVIDIA worker or `./load.sh all` on a single host. The loader checks the kit's file hashes, host architecture, immutable image revision and filesystem layers. It refuses to replace an existing different image with the same version tag. It only loads the selected images: it does not start services, create media/state/scratch folders, mount drives or change configuration. Images consume space in Docker's own data store.
 
-Copy `.env.example` to a private `.env`, fill in the actual paths/UID/GID, then append the image selections:
+Copy `.env.example` to a private `.env`, fill in the actual paths/UID/GID and the legacy access key required by that older kit, then append the image selections:
 
 ```sh
 cat images.env >> .env
