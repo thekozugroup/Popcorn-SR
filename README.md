@@ -6,7 +6,9 @@ Popcorn Super Resolution runs as a lightweight Docker manager plus a processing 
 
 ## Preview before a batch
 
-The workspace puts input on the left, the output queue on the right and settings underneath. Select a video or batch, choose a video and time, then **Preview frame**. Compare large Original/Enhanced images or **Expand preview**, then choose **Run full video** or **Run full batch**. Changing the frame or processing settings requires a fresh comparison. Completed previews reopen from the queue.
+The workspace puts input on the left, the output queue on the right and settings underneath. Select a video or batch, choose a video and time, then **Preview frame**. Compare large Original/Enhanced images or **Expand preview**. **Zoom in** enlarges both images together; drag either image to inspect the same detail. **Fit** resets the view. Double-click a detail or scroll while zoomed; keyboard arrows pan, +/− zoom and 0 resets. Magnification is relative to the fitted frame and does not change the output.
+
+Choose **Run full video** or **Run full batch** after reviewing. Changing the frame or processing settings requires a fresh comparison. Completed previews reopen from the queue. **Delete preview** removes that sample and its queue entry; originals and full-length copies remain. Finish or cancel an active preview first. Comparison PNGs are generated on demand rather than saved as extra files; deleting the preview also clears the displayed comparison.
 
 Still comparisons process a video-only sample of up to five seconds, then display its first picture. Review the downloadable video sample for motion. Full runs restore the normal audio/subtitle/attachment/chapter checks and verify the saved source again.
 

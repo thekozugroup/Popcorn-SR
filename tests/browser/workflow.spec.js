@@ -609,16 +609,20 @@ test('desktop preview completes on a real worker; responsive light/dark views pa
   await expect(page.getByLabel('Save copies to')).toHaveValue('previews/check');
   await expect(page.getByRole('combobox',{name:'Processing device',exact:true})).toContainText(workers[0].name);
   await page.evaluate(() => scrollTo(0,0));
-  await page.getByRole('button',{name:'Preview 5 seconds'}).click();
+  const [previewResponse]=await Promise.all([
+    page.waitForResponse(response=>response.url().endsWith('/api/jobs') && response.request().method()==='POST'),
+    page.getByRole('button',{name:'Preview 5 seconds'}).click(),
+  ]);
+  const preview=await previewResponse.json(), previewRow=page.locator(`[data-job-id="${preview.id}"]`);
   await expect(page.getByRole('heading',{name:'Output queue',exact:true})).toBeVisible();
-  await expect(page.getByRole('link',{name:'Download preview'})).toBeVisible({timeout:30000});
-  const download = await page.request.get(await page.getByRole('link',{name:'Download preview'}).getAttribute('href'));
+  await expect(previewRow.getByRole('link',{name:'Download preview'})).toBeVisible({timeout:30000});
+  const download = await page.request.get(await previewRow.getByRole('link',{name:'Download preview'}).getAttribute('href'));
   expect(download.ok()).toBeTruthy();
   expect((await download.body()).length).toBeGreaterThan(1000);
   await page.evaluate(() => scrollTo(0,0));
   const [continued] = await Promise.all([
     page.waitForResponse(r => r.url().endsWith('/full') && r.request().method() === 'POST'),
-    page.locator('#jobs').getByRole('button',{name:'Enhance full video'}).click()
+    previewRow.getByRole('button',{name:'Enhance full video'}).click()
   ]);
   expect(continued.ok()).toBeTruthy();
   const full = await continued.json();
@@ -711,6 +715,136 @@ test('an explicit DLSS choice survives missing support without switching to resi
   available=true;
   await expect(page.getByRole('button',{name:'Add to queue',exact:true})).toBeEnabled({timeout:6000});
   await expect(enhancement).toContainText('DLSS video upscaling');
+});
+
+test('linked comparison zoom inspects matching detail, pans either side, resets and keeps expanded views', async ({page}) => {
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  page.on('console',message=>{if(message.type()==='error' && /content security|violates|refused/i.test(message.text()))errors.push(message.text());});
+  await signIn(page);
+  await page.getByRole('button',{name:'A clearer picture.mkv',exact:true}).click();
+  const comparison=page.getByRole('region',{name:'Frame comparison',exact:true});
+  await comparison.getByRole('button',{name:'Preview frame',exact:true}).click();
+  await expect(comparison.getByRole('button',{name:'Run full video',exact:true})).toBeEnabled({timeout:30000});
+  const viewports=comparison.locator('.frame-image');
+  const readView=()=>viewports.evaluateAll(panes=>panes.map(pane=>{
+    const image=pane.querySelector('img'), matrix=new DOMMatrix(getComputedStyle(image).transform);
+    const fit=Math.min(pane.clientWidth/image.naturalWidth,pane.clientHeight/image.naturalHeight);
+    return {zoom:matrix.a,x:.5-matrix.e/(image.naturalWidth*fit*matrix.a),y:.5-matrix.f/(image.naturalHeight*fit*matrix.a)};
+  }));
+  const matched=async()=>{
+    const views=await readView();expect(views[0].zoom).toBeCloseTo(views[1].zoom,4);
+    expect(views[0].x).toBeCloseTo(views[1].x,4);expect(views[0].y).toBeCloseTo(views[1].y,4);
+    expect(views.every(view=>[view.zoom,view.x,view.y].every(Number.isFinite))).toBeTruthy();return views[0];
+  };
+  await expect(comparison.getByRole('button',{name:'Zoom out',exact:true})).toBeDisabled();
+  await comparison.getByRole('button',{name:'Zoom in',exact:true}).click();
+  await comparison.getByRole('button',{name:'Zoom in',exact:true}).click();
+  await expect.poll(async()=>(await readView())[0].zoom).toBe(4);
+  for(const index of [0,1]) {
+    const box=await viewports.nth(index).boundingBox(), before=await matched();
+    await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
+    await page.mouse.move(box.x+box.width/2+50,box.y+box.height/2-25,{steps:5});await page.mouse.up();
+    await expect.poll(async()=>(await readView())[0].x).toBeLessThan(before.x-.01);
+    expect((await matched()).y).toBeGreaterThan(before.y);
+  }
+  // A wheel zoom stays anchored on the pointed picture detail on both sides.
+  const box=await viewports.nth(1).boundingBox(), before=await matched();
+  await viewports.nth(1).evaluate(pane=>pane.addEventListener('wheel',event=>{
+    const rect=pane.getBoundingClientRect(), image=pane.querySelector('img');
+    const fit=Math.min(pane.clientWidth/image.naturalWidth,pane.clientHeight/image.naturalHeight);
+    window.zoomAnchor={x:(event.clientX-rect.left-pane.clientWidth/2)/(image.naturalWidth*fit),y:(event.clientY-rect.top-pane.clientHeight/2)/(image.naturalHeight*fit)};
+  },{once:true}));
+  await page.mouse.move(box.x+box.width*.65,box.y+box.height*.4);
+  await page.mouse.wheel(0,-100);
+  await expect.poll(async()=>(await readView())[0].zoom).toBeGreaterThan(4);
+  const after=await matched(), anchor=await page.evaluate(()=>window.zoomAnchor);
+  expect(after.x+anchor.x/after.zoom).toBeCloseTo(before.x+anchor.x/before.zoom,4);
+  expect(after.y+anchor.y/after.zoom).toBeCloseTo(before.y+anchor.y/before.zoom,4);
+  await viewports.nth(1).focus();await page.keyboard.press('ArrowRight');
+  await expect.poll(async()=>(await readView())[0].x).toBeGreaterThan(after.x);
+  await page.keyboard.press('=');await expect.poll(async()=>(await readView())[0].zoom).toBe(8);
+  await expect(comparison.getByRole('button',{name:'Zoom in',exact:true})).toBeDisabled();
+  await page.waitForResponse(response=>response.url().endsWith('/api/state') && response.ok());
+  expect((await matched()).zoom).toBe(8);
+  // Resize and the manager's recurring state refresh must keep the inspected detail.
+  fs.mkdirSync('evidence/linked-zoom-20261014',{recursive:true});
+  for(const [width,height,mode] of [[1440,1100,'light'],[820,1100,'dark'],[390,844,'dark']]) {
+    await page.setViewportSize({width,height});await page.emulateMedia({colorScheme:mode,reducedMotion:'reduce'});
+    await matched();await expect.poll(async()=>(await readView())[0].zoom).toBe(8);
+    expect((await accessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    if(width===390) {
+      await viewports.nth(1).scrollIntoViewIfNeeded();
+      const mobile=await viewports.nth(1).boundingBox(), initial=await matched();
+      const touch=await page.context().newCDPSession(page);
+      await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:mobile.x+mobile.width/2,y:mobile.y+mobile.height/2}]});
+      await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:mobile.x+mobile.width/2+35,y:mobile.y+mobile.height/2}]});
+      await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await touch.detach();
+      await expect.poll(async()=>(await readView())[0].x).toBeLessThan(initial.x);await matched();
+    }
+    await page.evaluate(()=>document.activeElement?.blur());
+    await page.waitForTimeout(100);
+    await comparison.screenshot({path:`evidence/linked-zoom-20261014/zoom-${width}-${mode}.png`,animations:'disabled'});
+  }
+  await page.setViewportSize({width:1440,height:1100});await page.emulateMedia({colorScheme:'light'});
+  await comparison.getByRole('button',{name:'Expand preview',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>document.fullscreenElement?.getAttribute('aria-label'))).toBe('Frame comparison');
+  await matched();expect((await readView())[0].zoom).toBe(8);
+  await comparison.getByRole('button',{name:'Exit expanded preview',exact:true}).click();
+  await comparison.getByRole('button',{name:'Fit',exact:true}).click();
+  await expect.poll(async()=>(await readView())[0]).toEqual({zoom:1,x:.5,y:.5});await matched();
+  const resetBox=await viewports.nth(0).boundingBox();
+  await viewports.nth(0).dblclick({position:{x:resetBox.width*.6,y:resetBox.height*.4}});
+  await expect.poll(async()=>(await readView())[0].zoom).toBe(2);await matched();
+  await viewports.nth(0).focus();await page.keyboard.press('0');
+  await expect.poll(async()=>(await readView())[0].zoom).toBe(1);
+  await comparison.getByRole('button',{name:'Zoom in',exact:true}).click();
+  const time=comparison.getByRole('spinbutton',{name:'Frame at',exact:true});await time.fill('1');await time.press('Tab');
+  await expect(comparison.getByLabel('Comparison magnification',{exact:true})).toHaveText('1×');
+  await expect(comparison.getByRole('button',{name:'Run full video',exact:true})).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
+test('delete preview clears either view while the original and full copy remain usable', async ({page}) => {
+  await signIn(page);
+  await page.getByRole('button',{name:'A clearer picture.mkv',exact:true}).click();
+  const comparison=page.getByRole('region',{name:'Frame comparison',exact:true});
+  const [response]=await Promise.all([
+    page.waitForResponse(response=>response.url().endsWith('/api/jobs') && response.request().method()==='POST'),
+    comparison.getByRole('button',{name:'Preview frame',exact:true}).click(),
+  ]);
+  const preview=await response.json();
+  await expect(comparison.getByRole('button',{name:'Run full video',exact:true})).toBeEnabled({timeout:30000});
+  const original=await (await page.request.get('/api/library/frame?path=A%20clearer%20picture.mkv&seconds=0')).body();
+  const [continued]=await Promise.all([
+    page.waitForResponse(response=>response.url().endsWith(`/${preview.id}/full`) && response.request().method()==='POST'),
+    comparison.getByRole('button',{name:'Run full video',exact:true}).click(),
+  ]);
+  const full=await continued.json(), fullRow=page.locator(`[data-job-id="${full.id}"]`);
+  await expect(fullRow.getByRole('link',{name:'Download copy',exact:true})).toBeVisible({timeout:30000});
+  await expect(fullRow.getByRole('button',{name:'Delete preview',exact:true})).toHaveCount(0);
+  const copy=await (await page.request.get(`/api/jobs/${full.id}/download`)).body();
+  const previewRow=page.locator(`[data-job-id="${preview.id}"]`);
+  await previewRow.getByRole('button',{name:'Compare frame',exact:true}).click();
+  await expect(comparison.getByRole('button',{name:'Run full video',exact:true})).toBeEnabled();
+  await comparison.getByRole('button',{name:'Delete preview',exact:true}).click();
+  await expect(previewRow).toHaveCount(0);
+  await expect(comparison.getByRole('img',{name:/Enhanced frame/})).toHaveCount(0);
+  await expect(comparison.getByRole('button',{name:'Run full video',exact:true})).toBeDisabled();
+  expect((await page.request.get(`/api/jobs/${preview.id}/download`)).status()).toBe(404);
+  expect(await (await page.request.get(`/api/jobs/${full.id}/download`)).body()).toEqual(copy);
+  expect(await (await page.request.get('/api/library/frame?path=A%20clearer%20picture.mkv&seconds=0')).body()).toEqual(original);
+  const [next]=await Promise.all([
+    page.waitForResponse(response=>response.url().endsWith('/api/jobs') && response.request().method()==='POST'),
+    comparison.getByRole('button',{name:'Preview frame',exact:true}).click(),
+  ]);
+  const second=await next.json(), secondRow=page.locator(`[data-job-id="${second.id}"]`);
+  await expect(secondRow.getByRole('button',{name:'Delete preview',exact:true})).toBeVisible({timeout:30000});
+  await secondRow.getByRole('button',{name:'Delete preview',exact:true}).click();
+  await expect(secondRow).toHaveCount(0);
+  await expect(comparison.getByRole('img',{name:/Enhanced frame/})).toHaveCount(0);
+  await expect(fullRow.getByRole('link',{name:'Download copy',exact:true})).toBeVisible();
 });
 
 test('large real frame comparison reviews a batch, invalidates edits, and continues saved full settings', async ({page}) => {

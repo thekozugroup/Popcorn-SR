@@ -73,7 +73,16 @@
   .frame-pair figure { margin: 0; min-width: 0; }
   .frame-pair figcaption { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 12px; }
   .frame-image { aspect-ratio: 16 / 9; background: var(--color-background-muted); display: grid; place-items: center; overflow: hidden; }
-  .frame-image img { width: 100%; height: 100%; object-fit: contain; }
+  .frame-inspector { display: flex; flex-direction: column; gap: 16px; }
+  .comparison-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
+  .comparison-zoom { flex-shrink: 0; }
+  .zoom-value { min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
+  .frame-image { touch-action: pan-y pinch-zoom; }
+  .frame-image[data-zoomed="true"] { cursor: grab; touch-action: none; }
+  .frame-image[data-dragging] { cursor: grabbing; }
+  .frame-image:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+  .frame-image img { width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .frame-image p { padding: 24px; text-align: center; }
   .job-row { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
   .job-status { flex-shrink: 0; font-variant-numeric: tabular-nums; }

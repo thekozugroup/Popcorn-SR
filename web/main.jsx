@@ -18,6 +18,7 @@ import {Badge} from '@astryxdesign/core/Badge';
 import {popcornTheme} from './themes/popcorn.js';
 import './styles.css';
 import {passkeysSupported, usePasskey} from './passkeys.js';
+import {FrameComparison} from './FrameComparison.jsx';
 
 const engines = {resize: 'Conventional resizing', realesrgan: 'Real-ESRGAN AI upscaling', 'rtx-vsr': 'RTX Video Super Resolution', 'dlss-sr': 'DLSS video upscaling · experimental', dlss5: 'DLSS 5 neural rendering · experimental'};
 const dlssModes = {dlaa:'DLAA · keep source size',quality:'Quality · 1.5×',balanced:'Balanced · about 1.72×',performance:'Performance · 2×','ultra-performance':'Ultra Performance · 3×'};
@@ -121,6 +122,7 @@ function Jobs({jobs,onAction,onCompare}) {
       {job.error && <Banner status="error" title={job.error} collapsible={false}/>}
       <HStack gap={2} wrap="wrap">
         {job.status==='completed'?<><Button href={`/api/jobs/${job.id}/download`} label={`Download ${job.recipe.preview_seconds?'preview':'copy'}`}/>{!!job.recipe.preview_seconds && <>{!job.recipe.hdr && <Button label="Compare frame" onClick={()=>onCompare(job)}/>} {job.recipe.preview_frame_time==null && <Button label="Enhance full video" clickAction={()=>onAction(job.id,'full')}/>}</>}</>:['failed','cancelled'].includes(job.status)?<Button label="Retry" clickAction={()=>onAction(job.id,'retry')}/>:<Button variant="ghost" label="Cancel" clickAction={()=>onAction(job.id,'cancel')}/>}
+        {!!job.recipe.preview_seconds && ['completed','failed','cancelled'].includes(job.status) && <Button label="Delete preview" variant="ghost" clickAction={()=>onAction(job.id,'preview')}/>}
         <Collapsible trigger={<Text type="supporting">Details</Text>} defaultIsOpen={false}><VStack gap={2} paddingBlockStart={2}>
           <Copy type="supporting">{engines[job.recipe.engine] || job.recipe.engine} · {codecNames[job.recipe.codec] || job.recipe.codec} / {job.recipe.output_width?`${job.recipe.output_width} × ${job.recipe.output_height} px`:job.recipe.engine==='dlss-sr' && job.recipe.dlss_mode?dlssModes[job.recipe.dlss_mode]:`${job.recipe.scale}×`}</Copy>
           {job.recipe.engine==='rtx-vsr' && <Copy type="supporting">VSR quality: {job.recipe.vsr_quality?vsrLevels[job.recipe.vsr_quality]:'Worker default'}{job.recipe.vsr_strength!=null?` · Strength: ${Math.round(job.recipe.vsr_strength*100)}%`:''}</Copy>}
@@ -134,7 +136,7 @@ function Jobs({jobs,onAction,onCompare}) {
     </article>)}
   </div>;
 }
-function Recipe({paths,state,onCreated,compareJob}) {
+function Recipe({paths,state,onCreated,compareJob,onAction}) {
   const [chosen,setChosen]=useState(null), [frameTime,setFrameTime]=useState(0), [info,setInfo]=useState(null), [frameError,setFrameError]=useState(''), [review,setReview]=useState(null), [loaded,setLoaded]=useState({});
   const path=paths.includes(chosen)?chosen:paths[0] || null;
   const panel=useRef(null);
@@ -245,6 +247,11 @@ function Recipe({paths,state,onCreated,compareJob}) {
     finally{setBusy(false);}
   }
   const reviewedJob=review && state.jobs.find(j=>j.id===review.id);
+  const seenReview=useRef(null);
+  useEffect(()=>{
+    if(reviewedJob)seenReview.current=reviewedJob.id;
+    else if(review && seenReview.current===review.id){setReview(null);setLoaded({});setFrameError('');}
+  },[reviewedJob,review?.id]);
   const effectiveMatch=!reviewedJob || (reviewedJob.target===(worker || null) && Object.entries(effectiveRecipe).every(([key,value])=>rulesEnabled && ['scale','dlss_mode'].includes(key) || JSON.stringify(reviewedJob.recipe[key])===JSON.stringify(value)));
   const currentReview=review && review.path===path && review.time===frameTime && review.selection===JSON.stringify(desired) && effectiveMatch;
   const comparisonReady=currentReview && reviewedJob?.status==='completed';
@@ -259,18 +266,19 @@ function Recipe({paths,state,onCreated,compareJob}) {
         <NumberInput label="Frame at" value={frameTime} onChange={v=>{setFrameTime(v);setLoaded({});setFrameError('');}} min={0} max={info?Math.max(0,info.duration-.05):undefined} step={1} units={info?'seconds':undefined} isWheelEnabled={false} width="100%" isDisabled={!info}/>
         <Button label="Preview frame" onClick={()=>submit(5,true)} isLoading={busy} isDisabled={!canPreview || !info || !Number.isFinite(frameTime) || frameTime<0 || frameTime>=info.duration || hdr}/>
       </div>
-      <div className="frame-pair">
-        {[['Original',originalURL,info],['Enhanced',enhancedURL,reviewedJob?.result]].map(([label,url,dimensions])=><figure key={label}>
-          <figcaption><Text weight="medium">{label}</Text>{url && dimensions && <Text type="supporting" color="secondary">{dimensions.width} × {dimensions.height}</Text>}</figcaption>
-          <div className="frame-image">{url?<img key={url} src={url} alt={`${label} frame from ${path.split('/').pop()} at ${frameTime} seconds`} onLoad={()=>setLoaded(v=>({...v,[label]:url}))} onError={()=>{setLoaded(v=>({...v,[label]:null}));setFrameError('Frame unavailable. Choose another time or create a new preview.');}}/>:<Copy type="supporting">{label==='Original'?'Choose a time in this video.':reviewedJob && currentReview && !['failed','cancelled'].includes(reviewedJob.status)?'Processing your preview…':'Your processed frame appears here.'}</Copy>}</div>
-        </figure>)}
-      </div>
+      <FrameComparison key={`${path}:${frameTime}:${review?.id || ''}`} description={`frame from ${path.split('/').pop()} at ${frameTime} seconds`}
+        frames={[{label:'Original',url:originalURL,dimensions:info,placeholder:'Choose a time in this video.'},{label:'Enhanced',url:enhancedURL,dimensions:reviewedJob?.result,placeholder:reviewedJob && currentReview && !['failed','cancelled'].includes(reviewedJob.status)?'Processing your preview…':'Your processed frame appears here.'}]}
+        onLoad={(label,url)=>setLoaded(value=>({...value,[label]:url}))}
+        onError={label=>{setLoaded(value=>({...value,[label]:null}));setFrameError('Frame unavailable. Choose another time or create a new preview.');}}/>
       {frameError && <Banner status="error" title={frameError} collapsible={false}/>}
       {currentReview && reviewedJob?.error && <Banner status="error" title={reviewedJob.error} collapsible={false}/>}
       {currentReview && reviewedJob && ['queued','running'].includes(reviewedJob.status) && <Copy role="status">{reviewedJob.stage}{reviewedJob.status==='running'?` · ${Math.floor(reviewedJob.progress)}%`:''}</Copy>}
       {review && !currentReview && <Copy role="status">The frame or settings changed. Preview again to compare this selection.</Copy>}
       {hdr && <Copy>Review HDR in a video preview on an HDR display. Still comparison supports SDR.</Copy>}
-      <div className="recipe-actions"><Copy type="supporting">{paths.length>1?`${paths.length} videos selected. This frame previews ${path.split('/').pop()}.`:'Preview uses a short video sample. Your original stays untouched.'}</Copy><Button label={paths.length>1?'Run full batch':'Run full video'} variant="primary" onClick={()=>submit(0,false,true)} isLoading={busy} isDisabled={!canPreview || !comparisonReady || loaded.Original!==originalURL || loaded.Enhanced!==enhancedURL}/></div>
+      <div className="recipe-actions"><Copy type="supporting">{paths.length>1?`${paths.length} videos selected. This frame previews ${path.split('/').pop()}.`:'Preview uses a short video sample. Your original stays untouched.'}</Copy><HStack gap={2} wrap="wrap">
+        {reviewedJob && ['completed','failed','cancelled'].includes(reviewedJob.status) && <Button label="Delete preview" variant="ghost" clickAction={async()=>{if(await onAction(review.id,'preview')){setReview(null);setLoaded({});setFrameError('');}}}/>}
+        <Button label={paths.length>1?'Run full batch':'Run full video'} variant="primary" onClick={()=>submit(0,false,true)} isLoading={busy} isDisabled={!canPreview || !comparisonReady || loaded.Original!==originalURL || loaded.Enhanced!==enhancedURL}/>
+      </HStack></div>
     </VStack></section>}
     <section className="recipe" aria-label="Upscaling settings"><VStack gap={5}>
     <Heading level={2}>Upscaling settings</Heading>
@@ -349,7 +357,7 @@ function Workspace({state,onNotice,refresh,onAction}) {
       </section>
       <section className="panel io-pane" aria-label="Output queue"><HStack className="pane-heading" hAlign="between" gap={3}><Heading level={2}>Output queue</Heading><Text type="supporting" color="secondary">{state.jobs.length?`${state.jobs.length} ${state.jobs.length===1?'video':'videos'}`:'No jobs yet'}</Text></HStack><Jobs jobs={state.jobs} onAction={onAction} onCompare={job=>{setSelected(current=>current.includes(job.path)?current:[...current,job.path]);setCompareJob(job);}}/></section>
     </div>
-    <Recipe paths={selected} state={state} onCreated={created} compareJob={compareJob}/>
+    <Recipe paths={selected} state={state} onCreated={created} compareJob={compareJob} onAction={onAction}/>
   </VStack>;
 }
 function Processing({state,onAction,onNotice}) {
@@ -414,8 +422,8 @@ function App() {
   function navigate(next){setView(next);setNotice(null);}
   useEffect(()=>{surface.current?.focus({preventScroll:true});},[view]);
   async function onAction(id,action){
-    try{await api(['revoke','update'].includes(action)?`/api/workers/${id}/${action}`:`/api/jobs/${id}/${action}`,{method:'POST'});await refresh();if(action==='full')setNotice({text:'Full video queued using your preview settings. Your original is preserved.'});if(action==='update')setNotice({text:'Update check requested. The current job finishes before this device restarts.'});}
-    catch(e){setNotice({error:true,text:e.message});}
+    try{await api(['revoke','update'].includes(action)?`/api/workers/${id}/${action}`:`/api/jobs/${id}/${action}`,{method:action==='preview'?'DELETE':'POST'});await refresh();if(action==='full')setNotice({text:'Full video queued using your preview settings. Your original is preserved.'});if(action==='update')setNotice({text:'Update check requested. The current job finishes before this device restarts.'});if(action==='preview')setNotice({text:'Preview deleted. Your original and full-length outputs are kept.'});return true;}
+    catch(e){setNotice({error:true,text:e.message});return false;}
   }
   async function logout(){try{await api('/api/logout',{method:'POST'});expired();}catch(e){setNotice({error:true,text:e.message});}}
   if(loading)return <div className="login-wrap"><Text>Opening Popcorn SR…</Text></div>;

@@ -20,6 +20,10 @@ The header connection indicator is a compact Astryx badge with a semantic tinted
 
 When inputs are selected, show one large Original/Enhanced frame comparison between the input/queue and settings. A batch picker appears only for multiple inputs; a time picker selects the frame. Expand the comparison without adding navigation or a modal. Use actual processing, invalidate changed frame/settings, and make full continuation available after both images load. Keep audiovisual samples for motion/HDR review; still comparison is SDR-only.
 
+Fit / linked zoom (up to 8×) and dragging either picture inspect the same picture coordinates on both sides, regardless of resolution. Double-click zooms into a detail; scroll zooms while enlarged. Keyboard controls and touch dragging offer the same inspection. Reset on a different frame or preview; keep the view during polling, resize and expanded preview. Magnification is relative to the fitted frame and does not alter the output.
+
+Delete preview is available in the comparison and queue for finished, failed or cancelled samples. Delete only the job's generated sample and queue entry; preserve originals, full-length outputs and unrelated files. Clear the displayed comparison after deletion. Frames are generated on demand with no persistent PNG cache.
+
 ## Family identity
 Use Popcorn Batch's three-circle triangular mark. Batch colors the top circle blue-500; SR colors the lower-right circle teal-500 (#14b8a6). This is a brand detail; actions/focus remain blue-500. Neutral circles/tile invert with the theme. The favicon uses the fixed dark tile.
 

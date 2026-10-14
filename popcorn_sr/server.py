@@ -34,6 +34,7 @@ from .media import (
     video_duration,
 )
 from .models import Failure, Heartbeat, JobCreate, PairRequest
+from .preview_cleanup import remove_preview
 
 
 def create_app(settings: Settings | None = None):
@@ -379,6 +380,25 @@ def create_app(settings: Settings | None = None):
     @app.post("/api/jobs/{identity}/cancel", dependencies=[Depends(admin)])
     def cancel(identity: str):
         store.cancel(identity)
+        return {"ok": True}
+
+    @app.delete("/api/jobs/{identity}/preview", dependencies=[Depends(admin)])
+    def delete_preview(identity: str):
+        with store.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT * FROM jobs WHERE id=?", (identity,)).fetchone()
+            if not row:
+                raise HTTPException(404, "Preview is no longer available.")
+            job = store.unpack(row)
+            if not job["recipe"]["preview_seconds"]:
+                raise HTTPException(409, "Only previews can be deleted here. Full-length outputs are kept.")
+            if job["status"] not in ("completed", "failed", "cancelled"):
+                raise HTTPException(409, "Cancel or finish this preview before deleting it.")
+            try:
+                remove_preview(cfg.output, job)
+            except ValueError as exc:
+                raise HTTPException(409, str(exc)) from exc
+            db.execute("DELETE FROM jobs WHERE id=?", (identity,))
         return {"ok": True}
 
     @app.post("/api/jobs/{identity}/retry", dependencies=[Depends(admin)])

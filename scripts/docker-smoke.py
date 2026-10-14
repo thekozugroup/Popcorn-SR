@@ -118,8 +118,18 @@ def check_frame_preview(client, root, original):
     assert hashlib.sha256(client.get(f"/api/jobs/{full['id']}/download").content).hexdigest() == full["result"]["sha256"]
     assert hashlib.sha256((root / "library" / "sample.mkv").read_bytes()).hexdigest() == original
     assert not list((root / "scratch").glob("job-*"))
+    sample = root / "output" / preview["result"]["path"]
+    assert sample.is_file()
+    client.delete(f"/api/jobs/{preview['id']}/preview").raise_for_status()
+    assert not sample.exists()
+    assert not any(job["id"] == preview["id"] for job in client.get("/api/state").json()["jobs"])
+    assert client.get(f"/api/jobs/{preview['id']}/download").status_code == 404
+    assert client.delete(f"/api/jobs/{full['id']}/preview").status_code == 409
+    assert hashlib.sha256(client.get(f"/api/jobs/{full['id']}/download").content).hexdigest() == full["result"]["sha256"]
+    assert hashlib.sha256((root / "library" / "sample.mkv").read_bytes()).hexdigest() == original
     return {"actual_cpu_worker": True, "selected_seconds": .5, "preview": preview["result"],
-            "full": full["result"], "frames_and_full_audio_verified": True}
+            "full": full["result"], "frames_and_full_audio_verified": True,
+            "preview_deleted_original_and_full_preserved": True}
 
 
 Path("evidence").mkdir(exist_ok=True)
