@@ -12,7 +12,7 @@ Still comparisons process a video-only sample of up to five seconds, then displa
 
 ## Install the published Docker preview
 
-Download the kit matching each computer from [Releases](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.3.1): **AMD64** for Unraid/x86 Linux, **ARM64** for DGX Spark. Each kit includes prebuilt manager/base-worker and native-worker images. No build on the NAS is required.
+Download the kit matching each computer from [Releases](https://github.com/thekozugroup/Popcorn-SR/releases/tag/v0.4.1): **AMD64** for Unraid/x86 Linux, **ARM64** for DGX Spark. Each kit includes prebuilt manager/base-worker and native-worker images. No build on the NAS is required.
 
 1. Verify the archive and load the selected image using [release-kit instructions](docs/releases.md).
 2. Set your existing library, output and state folders, ownership IDs and private access key.
@@ -20,13 +20,13 @@ Download the kit matching each computer from [Releases](https://github.com/theko
 4. On the processing computer, configure and initialize its mounted scratch folder, then pair with the one-use code.
 5. Preview one frame or a short sample before running a batch.
 
-Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The public registry supplies **0.3.1** as `ghcr.io/thekozugroup/popcorn-sr:0.3.1` and the native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.3.1`; published channels require anonymous verification. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
+Use UID/GID **99/100** for ordinary Unraid share ownership. The loader only imports images; it does not change NAS templates, mount drives or start services. Use the kit's image selections and `--pull never`. The public registry supplies **0.4.1** as `ghcr.io/thekozugroup/popcorn-sr:0.4.1` and the native worker as `ghcr.io/thekozugroup/popcorn-sr:ngx-0.4.1`. The `stable` and `ngx-stable` channels identify this release. [Detailed deployment](docs/deployment.md) includes manual Unraid installation, paired and single-host layouts.
 
 ## Processing options
 
 Choose **H.264**, **H.265 / HEVC** or **AV1** independently of the enhancement. Upscaling changes frames; encoding compresses those frames into the finished Matroska (`.mkv`) copy. H.264 offers broad player compatibility; check HEVC/AV1 support on your players. Available codecs and enhancement controls require real worker processing checks.
 
-Development 0.4.1 adds **Resolution rules** for mixed batches: for example, 720p→1080p and 1080p→4K. Each file keeps its aspect ratio; input rows show original dimensions/format, and output rows show final dimensions/format. Saved previews use the same rule for the full run. Both manager and worker must support the feature. [How resolution rules work](docs/resolution-rules.md).
+Version 0.4.1 adds **Resolution rules** for mixed batches: for example, 720p→1080p and 1080p→4K. Each file keeps its aspect ratio; input rows show original dimensions/format, and output rows show final dimensions/format. Saved previews use the same rule for the full run. Both manager and worker must support the feature. [How resolution rules work](docs/resolution-rules.md).
 
 | Option | Current support | Additional installation |
 |---|---|---|
@@ -49,7 +49,7 @@ Ethernet through a router/switch or reachable direct Ethernet works. 1 GbE is us
 
 ## Verification and development
 
-The 0.3.1 release kits are built locally from their recorded commit, checksum-verified, reloaded and exercised through paired CPU delivery on native ARM64 and emulated AMD64. Verification includes selected-frame/full continuation, copied audio, intact originals and concurrent 4K frames within a 512-MiB manager limit. All 127 Python tests, ten browser workflows, nine Compose configurations, native syntax, UI build and dependency audit pass. Genuine Spark acceptance covers 12 SR color/codec cases, four AI exports, fresh SR/FG startup checks, three paired SR+FG frame previews and full AV1 continuation. These generated trials establish processing, timing and color preservation, not film improvement. These are preview acceptance results, not unrestricted speed or whole-library benchmarks. [Current work and exact evidence](working.md).
+The 0.4.1 release kits were built locally from `0e752f8704a8dac37a947d49110e70b7901d1a7d`, checksum-verified, reloaded and exercised through paired CPU delivery on native ARM64 and emulated AMD64. Verification includes selected-frame/full continuation, copied audio, intact originals and concurrent 4K frames within a 512-MiB manager limit. All 150 Python tests pass on Mac and Linux/FFmpeg 7, alongside twelve browser workflows, 17 Compose configurations, native syntax, UI build and dependency audit. The installed Unraid manager and Spark worker passed fresh 25 SR / nine FG / six-encoder startup checks, five paired returned samples/full copies across all three codecs, mapped 720p→1080p and 1080p→4K, and saved AV1 full continuation with original audio. Actual installed desktop/tablet/phone UI audits passed. Earlier 0.3.1 AI acceptance is separate; that optional image was not rebuilt for 0.4.1. These short trials establish processing and preservation, not whole-library quality or sustained throughput. [Public acceptance receipt](https://github.com/thekozugroup/Popcorn-SR/releases/download/v0.4.1/acceptance.json) · [Current work and exact evidence](working.md).
 
 ```sh
 uv run python scripts/verify-local.py
@@ -67,4 +67,4 @@ Popcorn SR is AGPL-3.0-or-later. NVIDIA SDKs and third-party engines retain thei
 
 SR uses [Popcorn Batch's three-circle mark](https://github.com/thekozugroup/Popcorn-Batch/blob/54170f2684f734712b6159ccc7592f3237fa6b71/web/src/app/icon.svg), highlighting the lower-right circle in Tailwind teal-500. Action colors stay blue. Rust remains a candidate for measured worker/frame-handling improvements; no rewrite or unmeasured speedup is claimed.
 
-Development main adds optional worker update requests and a host controller. Atlas will use its existing Unraid update schedule; Spark can request an idle replacement from Devices & storage or its container CLI. Actual replacement/rollback and final installation are still pending. [Update setup and boundaries](docs/updates.md).
+Atlas is installed on the public stable channel using its existing Unraid update schedule. Spark has the optional host controller enabled and can request an idle update from Devices & storage or its container CLI. Real CPU replacement/rollback and Spark's public current-version check pass; a published-release GPU replacement remains untested. Updates follow verified stable releases, rather than every source push. [Update setup and boundaries](docs/updates.md).

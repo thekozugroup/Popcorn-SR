@@ -1,6 +1,6 @@
 # Installation
 
-For prebuilt manager/native-worker archives and current registry tags, follow [Docker release kits](releases.md). Kit images use explicit local selections and `--pull never`. [Container updates](updates.md) describes Unraid’s existing update path and the optional Linux host controller available in 0.4.0.
+For prebuilt manager/native-worker archives and current registry tags, follow [Docker release kits](releases.md). Kit images use explicit local selections and `--pull never`. [Container updates](updates.md) describes Unraid’s existing update path and the optional Linux host controller installed with 0.4.1.
 
 The manager needs no GPU. A worker needs FFmpeg and a usable encoder. Network workers download from the manager and return results; they do not need an SMB/NFS share or an inbound port.
 
@@ -16,7 +16,7 @@ If Compose is already installed, use the alternative below:
 2. Copy `.env.example` to `.env`, set those paths and `PUID=99`, `PGID=100`. They must exist and be writable by that user, except the read-only library.
 3. Generate a key: `openssl rand -hex 32`. Put it in `.env` as `POPCORN_ADMIN_TOKEN`. Keep `.env` private and out of version control.
 4. Run `docker compose up -d --no-build --pull always manager` from this checkout. Open `http://NAS-IP:8787`.
-5. Sign in, then select **Processing → Connect a worker**. The code expires in ten minutes; it is not your permanent access key.
+5. Sign in, then select **Devices & storage → Connect a worker**. The code expires in ten minutes; it is not your permanent access key.
 
 The template uses the public `ghcr.io/thekozugroup/popcorn-sr:stable` image. Anonymous pulls need no GitHub account. Source builds remain available with `docker build -t popcorn-sr:dev .`. Do not expose port 8787 directly to the internet. Use a reverse proxy with HTTPS or a VPN for remote use; HTTP on a trusted LAN sends credentials/video without encryption.
 
