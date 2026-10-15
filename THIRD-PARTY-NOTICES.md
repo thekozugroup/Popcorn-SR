@@ -38,9 +38,11 @@ Astryx Core, Neutral theme and CLI 0.6.8 are MIT-licensed, copyright Meta Platfo
 
 The C++ sources and resource helpers under `native/` are independently written Popcorn SR source under `native/LICENSE` (MIT). They build against operator-provisioned NVIDIA SDK headers/wrappers and use separately installed drivers/runtimes. The NVIDIA SDK is not relicensed or included in the public source or default image. The optional Vulkan build check downloads pinned NVIDIA and Khronos headers into a temporary directory and removes them after compilation. The NGX image installs the distribution's Vulkan loader package, with its upstream terms and source identified by the package metadata.
 
-## Popcorn family mark
+## Popcorn family assets
 
-The three-circle mark in `web/main.jsx` and `web/public/popcorn-sr.svg` adapts [Popcorn Batch's icon](https://github.com/thekozugroup/Popcorn-Batch/blob/54170f2684f734712b6159ccc7592f3237fa6b71/web/src/app/icon.svg), from the same Kozu Group family. Popcorn Batch source is Apache-2.0; its license is included in `licenses/Popcorn-Batch-Apache-2.0.txt`. SR changes the highlighted circle from top to lower-right and its color from blue-500 to teal-500, and applies the SR name and theme colors.
+The supplied Popcorn Family Design Kit provides the violet Popcorn SR app icon, its monochrome Lucide popcorn silhouette and Newsreader web font. The native 1024px export is retained unchanged; smaller browser and touch icons are deterministic size exports. The previous three-circle mark is superseded. Lucide's ISC notice remains in `licenses/lucide-ISC.txt`. The appearance glyphs use the same Lucide stroke language.
+
+Newsreader is distributed locally under the SIL Open Font License 1.1, included in `licenses/Newsreader-OFL.txt`. It is used for headings; system fonts remain in controls and metadata. No remote font service is required. The family kit carries AGPL-3.0, consistent with this repository's source license.
 
 ## Password and passkey authentication
 

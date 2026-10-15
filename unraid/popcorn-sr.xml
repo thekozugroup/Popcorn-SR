@@ -9,6 +9,7 @@
   <Support>https://github.com/thekozugroup/Popcorn-SR/issues</Support>
   <Project>https://github.com/thekozugroup/Popcorn-SR</Project>
   <Overview>Lightweight video-library manager. Pair a Linux worker on a DGX Spark or NVIDIA desktop to create enhanced copies. Mount originals read-only. Sign in with admin/admin and replace the initial password. Configure an HTTPS address to use passkeys.</Overview>
+  <Icon>https://raw.githubusercontent.com/thekozugroup/Popcorn-SR/main/web/public/popcorn-sr.png</Icon>
   <WebUI>http://[IP]:[PORT:8787]/</WebUI>
   <ExtraParams>--user=99:100 --read-only --tmpfs /tmp:rw,size=64m --cap-drop=ALL --security-opt=no-new-privileges:true</ExtraParams>
   <Config Name="Web interface" Target="8787" Default="8787" Mode="tcp" Description="Web interface and worker API" Type="Port" Display="always" Required="true" Mask="false">8787</Config>

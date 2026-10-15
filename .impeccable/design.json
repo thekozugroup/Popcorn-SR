@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-12T23:24:36.966Z",
+  "generatedAt": "2026-10-15T20:19:10.236063+00:00",
   "title": "Design System: Popcorn SR",
   "extensions": {
     "colorMeta": {
@@ -377,7 +377,7 @@
       "kind": "custom",
       "refersTo": "selector",
       "description": "Appearance snapshot; runtime is the keyboard-aware Astryx Selector combobox.",
-      "html": "<button class=\"ds-selector\" type=\"button\">Twice the size (2×)<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
+      "html": "<button class=\"ds-selector\" type=\"button\">Twice the size (2\u00d7)<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
       "css": ":host{--ds-surface:#fff;--ds-ink:#18181b;--ds-muted:#52525b;--ds-line:#e4e4e7;--ds-field:#a1a1aa;--ds-fill:#1B1B1F1A;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;}@media(prefers-color-scheme:dark){:host{--ds-surface:#18181b;--ds-ink:#fafafa;--ds-muted:#a1a1aa;--ds-line:#3f3f46;--ds-field:#71717a;--ds-fill:#E1E2E833;}}.ds-selector{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;padding:8px 12px;border:1px solid var(--ds-field);border-radius:10px;background:var(--ds-surface);color:var(--ds-ink);font:400 15px/1.6 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer;}.ds-selector:hover{border-color:var(--ds-ink);}.ds-selector:focus-visible{outline:2px solid #3b82f6;outline-offset:1px;}"
     },
     {
@@ -415,10 +415,10 @@
   ],
   "narrative": {
     "northStar": "Quiet native workspace",
-    "overview": "Make remote processing feel like a simple local library task. Neutral surfaces, familiar controls and plain language let the library and its next useful action lead. The interface earns trust by distinguishing originals from finished copies and showing actual processing state.\n\nThe implemented world uses flat sections, thin dividers and one restrained action color. Recipes, worker pairing and queue actions stay inside the workspace. Motion briefly acknowledges navigation and interaction; system light/dark preference and reduced motion belong to the same world.\n\nThis is a source-led refresh of the approved world for the official Astryx migration. Frontmatter records current source values, including inherited Neutral defaults; it does not declare implementation discrepancies approved. Light-theme component defaults are paired with dark assignments in the schema-2 sidecar. Minimum targets, focus, motion and React wiring also live there because frontmatter cannot express them completely.",
+    "overview": "Make remote processing feel like a simple local library task. Neutral surfaces, familiar controls and plain language let the library and its next useful action lead. The interface earns trust by distinguishing originals from finished copies and showing actual processing state.\n\nThe implemented world uses flat sections, thin dividers and one restrained action color. Recipes, worker pairing and queue actions stay inside the workspace. Motion briefly acknowledges navigation and interaction; system light/dark preference and reduced motion belong to the same world.\n\nThis is a source-led refresh of the approved world for the official Astryx migration. Frontmatter records current source values, including inherited Neutral defaults; it does not declare implementation discrepancies approved. Light-theme component defaults are paired with dark assignments in the schema-2 sidecar. Minimum targets, focus, motion and React wiring also live there because frontmatter cannot express them completely.\n\n2026-10-15 user-requested family refinement: supplied violet SR app icon and monochrome popcorn lockup, locally bundled Newsreader headings, system-sans controls, zinc-200 light canvas / zinc-50 panels / zinc-100 toolbars, explicit persistent Light / Dark / System appearance. Dark uses zinc-950 / 900 / 800. Controls/panels explicitly use 8px/16px corners, field outlines zinc-500. The older component HTML/CSS below is historical snapshot material; web/themes/popcorn.mjs and web/styles.css remain runtime authority.",
     "keyCharacteristics": [
       "Quiet zinc surfaces with blue actions and dark action text.",
-      "Restrained system sans with a clear task hierarchy.",
+      "Newsreader headings and native system controls with a clear task hierarchy.",
       "Flat navigation, inline work and thin separators.",
       "Familiar official controls with a 44px minimum target requirement.",
       "System themes and reduced-motion-aware feedback."

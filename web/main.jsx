@@ -44,7 +44,12 @@ async function api(path, options = {}) {
   return data;
 }
 function Brand() {
-  return <span className="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="10" fill="var(--color-text-primary)"/><circle cx="16" cy="11.7" r="4.5" fill="var(--color-background-body)"/><circle cx="11" cy="20.3" r="4.5" fill="var(--color-background-body)"/><circle cx="21" cy="20.3" r="4.5" fill="#14b8a6"/></svg><span>Popcorn <small>SR</small></span></span>;
+  return <span className="brand" aria-label="Popcorn Super Resolution"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a2 2 0 0 0 0-4 2 2 0 0 0-4 0 2 2 0 0 0-4 0 2 2 0 0 0-4 0 2 2 0 0 0 0 4"/><path d="M10 22 9 8m5 14 1-14"/><path d="M20 8c.5 0 .9.4.8 1l-2.6 12c-.1.5-.7 1-1.2 1H7c-.6 0-1.1-.4-1.2-1L3.2 9c-.1-.6.3-1 .8-1Z"/></svg><span>Popcorn <small>SR</small></span></span>;
+}
+const appearanceModes=['light','dark','system'];
+function Appearance({mode,onChange}) {
+  const glyphs={light:<><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,dark:<path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/>,system:<><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></>};
+  return <div className="appearance" role="group" aria-label="Appearance">{appearanceModes.map(value=><Button key={value} label={`${value[0].toUpperCase()+value.slice(1)} theme`} tooltip={value==='system'?'Follow device appearance':`${value[0].toUpperCase()+value.slice(1)} appearance`} variant="ghost" isIconOnly aria-pressed={mode===value} onClick={()=>onChange(value)} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{glyphs[value]}</svg>}/>)}</div>;
 }
 function Copy({children, ...props}) { return <Text as="p" color="secondary" wordBreak="break-word" {...props}>{children}</Text>; }
 function PageHead({title, copy, action}) { return <div className="page-head"><VStack gap={3} className="min-w-0"><Heading level={1}>{title}</Heading><Copy>{copy}</Copy></VStack>{action}</div>; }
@@ -88,14 +93,14 @@ function PasswordForm({account,onSaved}) {
     <Button label="Save password" variant="primary" type="submit" isLoading={busy} isDisabled={!username || password.length<6 || !confirmation || (!account.must_change_password && !current)}/>
   </VStack></form>;
 }
-function Login({account,onLogin,initialError}) {
+function Login({account,onLogin,initialError,mode,onMode}) {
   const [username,setUsername]=useState(account?.default_login?'admin':''), [password,setPassword]=useState(''), [error,setError]=useState(initialError), [busy,setBusy]=useState(false);
   const changing=account?.authenticated && account.must_change_password, offering=account?.authenticated && account.offer_passkey && !changing;
   const canPasskey=account?.passkey_available && passkeysSupported();
   async function submit(event){event.preventDefault();setBusy(true);setError('');try{await api('/api/login',{method:'POST',body:JSON.stringify({username,password})});setPassword('');await onLogin();}catch(e){setError(e.message);}finally{setBusy(false);}}
   async function passkey(register){setBusy(true);setError('');try{await usePasskey(api,register);await onLogin();}catch(e){setError(e.message);}finally{setBusy(false);}}
   async function skip(){setBusy(true);setError('');try{await api('/api/auth/passkeys/skip',{method:'POST'});await onLogin();}catch(e){setError(e.message);}finally{setBusy(false);}}
-  return <div className="login-wrap"><main className="login"><VStack gap={8}>
+  return <div className="login-wrap"><div className="login-appearance"><Appearance mode={mode} onChange={onMode}/></div><main className="login"><VStack gap={8}>
     <Brand/>
     <VStack gap={3}><Heading level={1}>{changing?'Make it yours':offering?'Add a passkey':'Welcome to Popcorn SR'}</Heading><Copy>{changing?'Change the initial password to open your workspace.':offering?'Next time, sign in with your fingerprint, face or device PIN.':'Sign in to your workspace.'}</Copy></VStack>
     {changing?<PasswordForm account={account} onSaved={onLogin}/>:offering?<VStack gap={5}>
@@ -407,7 +412,7 @@ function Settings({state,account,onLogout,onPasskey,onSaved}) {
   ];
   return <><PageHead title="Your workspace" copy="A small manager, connected processing, and a separate home for every finished copy."/><section className="panel">{sections.map(([title,copy])=><VStack className="row" key={title} gap={3}><Heading level={2}>{title}</Heading><Copy>{copy}</Copy>{title==='Library' && <Button label="Library guide" variant="ghost" href="https://github.com/thekozugroup/Popcorn-SR/blob/main/docs/library.md" target="_blank" rel="noreferrer"/>}{title==='Access' && <VStack gap={4}><Text>Signed in as {account.username}</Text><Button label="Add a passkey" variant="secondary" onClick={onPasskey}/><Collapsible trigger="Change password"><PasswordForm account={account} onSaved={onSaved}/></Collapsible><Button label="Sign out" variant="ghost" onClick={onLogout}/></VStack>}</VStack>)}</section></>;
 }
-function App() {
+function App({mode,onMode}) {
   const [account,setAccount]=useState(null),[state,setState]=useState(null),[loading,setLoading]=useState(true),[loginError,setLoginError]=useState(''),[view,setView]=useState('workspace'),[notice,setNotice]=useState(null),[interrupted,setInterrupted]=useState(false);
   const refreshing=useRef(false), surface=useRef(null);
   const expired=()=>{setState(null);setAccount(previous=>({...previous,authenticated:false}));setView('workspace');setNotice(null);};
@@ -428,12 +433,12 @@ function App() {
   }
   async function logout(){try{await api('/api/logout',{method:'POST'});expired();}catch(e){setNotice({error:true,text:e.message});}}
   if(loading)return <div className="login-wrap"><Text>Opening Popcorn SR…</Text></div>;
-  if(!state || account?.offer_passkey)return <Login key={String(account?.authenticated)+String(account?.must_change_password)+String(account?.offer_passkey)} account={account} onLogin={refresh} initialError={loginError}/>;
+  if(!state || account?.offer_passkey)return <Login key={String(account?.authenticated)+String(account?.must_change_password)+String(account?.offer_passkey)} account={account} onLogin={refresh} initialError={loginError} mode={mode} onMode={onMode}/>;
   const workers=state.workers.filter(w=>!w.revoked);
   const connected=workers.filter(w=>w.online);
   const connection=interrupted?'Connection interrupted':connected.length===1?`${connected[0].name} · Connected`:connected.length?`${connected.length} devices connected`:workers.length?'Device offline':'No processing device';
   const connectionTone=interrupted?'warning':connected.length?'success':'neutral';
-  return <><a className="skip-link" href="#workspace">Skip to workspace</a><header className="app-header"><div className="header-inner"><Brand/><div className="header-actions"><Badge id="connection" className="connection-chip" variant={connectionTone} label={connection} icon={<span className={`status-dot ${connectionTone==='success'?'online':connectionTone==='warning'?'warning':''}`} aria-hidden="true"/>}/><Button label={view==='workspace'?'Devices & storage':'Back to videos'} variant="ghost" onClick={()=>navigate(view==='workspace'?'setup':'workspace')}/></div></div></header>
+  return <><a className="skip-link" href="#workspace">Skip to workspace</a><header className="app-header"><div className="header-inner"><Brand/><div className="header-actions"><Badge id="connection" className="connection-chip" variant={connectionTone} label={connection} icon={<span className={`status-dot ${connectionTone==='success'?'online':connectionTone==='warning'?'warning':''}`} aria-hidden="true"/>}/><Button label={view==='workspace'?'Devices & storage':'Back to videos'} variant="ghost" onClick={()=>navigate(view==='workspace'?'setup':'workspace')}/></div><Appearance mode={mode} onChange={onMode}/></div></header>
     <main className="workspace" id="workspace" ref={surface} tabIndex={-1}><VStack gap={6}>
       <Feedback message={notice}/>
       {interrupted && <Banner status="warning" title="Connection interrupted" description="Reconnecting automatically. Your saved jobs remain on the manager." collapsible={false}/>}
@@ -442,4 +447,14 @@ function App() {
     </VStack></main></>;
 
 }
-createRoot(document.getElementById('root')).render(<Theme theme={popcornTheme} mode="system"><App/></Theme>);
+function Root() {
+  const [mode,setMode]=useState(()=>{try{const saved=localStorage.getItem('popcorn-sr-appearance');return appearanceModes.includes(saved)?saved:'system';}catch{return 'system';}});
+  function changeMode(value){setMode(value);try{localStorage.setItem('popcorn-sr-appearance',value);}catch{/* Keep the choice for this visit when browser storage is unavailable. */}}
+  useEffect(()=>{
+    const preference=matchMedia('(prefers-color-scheme: dark)');
+    const update=()=>document.querySelector('meta[name="theme-color"]')?.setAttribute('content',(mode==='dark' || (mode==='system' && preference.matches))?'#18181b':'#f4f4f5');
+    update();preference.addEventListener('change',update);return()=>preference.removeEventListener('change',update);
+  },[mode]);
+  return <Theme theme={popcornTheme} mode={mode}><App mode={mode} onMode={changeMode}/></Theme>;
+}
+createRoot(document.getElementById('root')).render(<Root/>);

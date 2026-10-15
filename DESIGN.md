@@ -3,13 +3,13 @@ name: Popcorn SR
 description: A quiet native workspace that makes remote processing feel like a simple local library task.
 colors:
   accent: "#3b82f6"
-  family-sr: "#14b8a6"
+  family-sr: "#7c3aed"
   accent-text-light: "#1d4ed8"
   accent-text-dark: "#93c5fd"
-  white-surface: "#ffffff"
-  zinc-paper: "#fafafa"
+  white-surface: "#fafafa"
+  zinc-paper: "#e4e4e7"
   zinc-subtle: "#f4f4f5"
-  zinc-divider: "#e4e4e7"
+  zinc-divider: "#d4d4d8"
   zinc-dark-muted: "#a1a1aa"
   zinc-status: "#71717a"
   zinc-muted: "#52525b"
@@ -23,17 +23,17 @@ colors:
   status-warning: "#f59e0b"
 typography:
   headline:
-    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontFamily: Newsreader, Georgia, serif
     fontSize: 2rem
     fontWeight: 600
     lineHeight: 1.2
   title:
-    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
-    fontSize: 1.375rem
+    fontFamily: Newsreader, Georgia, serif
+    fontSize: 1.25rem
     fontWeight: 600
-    lineHeight: 1.4545
+    lineHeight: 1.4
   section:
-    fontFamily: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+    fontFamily: Newsreader, Georgia, serif
     fontSize: 1.125rem
     fontWeight: 600
     lineHeight: 1.5556
@@ -69,8 +69,10 @@ typography:
     lineHeight: 1.6
 rounded:
   inner: 0.375rem
-  control: 0.625rem
-  panel: 0.75rem
+  control: 0.5rem
+  panel: 1rem
+  media: 0.625rem
+  appearance: 0.75rem
   full: 9999px
 spacing:
   field-gap: 8px
@@ -168,10 +170,10 @@ This is a source-led refresh of the approved world for the official Astryx migra
 **Key Characteristics:**
 
 - Quiet zinc surfaces with blue actions and dark action text.
-- Restrained system sans with a clear task hierarchy.
+- Newsreader headings and native system controls with a clear task hierarchy.
 - Flat navigation, inline work and thin separators.
 - Familiar official controls with a 44px minimum target requirement.
-- System themes and reduced-motion-aware feedback.
+- Persistent Light / Dark / System themes and reduced-motion-aware feedback.
 
 ### Implementation authority
 
@@ -180,7 +182,7 @@ This is a source-led refresh of the approved world for the official Astryx migra
 | `web/themes/popcorn.mjs` | Hand-authored `defineTheme` extension of official `neutralTheme`, using `neutralIconRegistry` from `@astryxdesign/theme-neutral/built`. |
 | `web/themes/popcorn.css` / `popcorn.js` | Generated stylesheet and built theme object. Inspect resolved inherited values here; regenerate rather than edit. |
 | `web/styles.css` | CSS imports/layers, workspace layout, grids, rows, responsive behavior and custom status dots. |
-| `web/main.jsx` / `web/index.html` | React controls, controlled state and entry point. `<Theme theme={popcornTheme} mode="system">` imports the compiled `popcorn.js`. |
+| `web/main.jsx` / `web/index.html` | React controls, controlled state and entry point. A persisted Light / Dark / System `<Theme>` imports the compiled `popcorn.js`. |
 | `package.json` / `package-lock.json` | Exact Astryx core, Neutral and CLI pins (0.6.8), React/React DOM (19.3.0), StyleX (0.19.0) and resolved dependency graph. |
 | `vite.config.js` / `scripts/build-ui-policy.mjs` | Vite root `web`, base `/assets/`, output `popcorn_sr/static` with `bundles`, then exact selector-sheet CSP policy generation. |
 
@@ -211,7 +213,7 @@ Neutral zinc surfaces and a single blue action/focus accent preserve the approve
 
 ### Neutral
 
-White Surface, Zinc Paper, Zinc Ink and Zinc Black define the quiet surface/text hierarchy. Supporting text, divider borders, emphasized field borders and muted fills have distinct roles. Selected navigation and secondary buttons use inherited translucent neutral fill, rather than the muted-fill token.
+The light canvas is zinc-200, panels zinc-50, and toolbars zinc-100; the dark canvas is zinc-950, panels zinc-900, and toolbars zinc-800. Popovers remain white in light mode. These roles create visible structure without decorative shadows. White Surface, Zinc Paper, Zinc Ink and Zinc Black name the source tokens. Supporting text, divider borders, emphasized field borders and muted fills have distinct roles. Selected navigation and secondary buttons use inherited translucent neutral fill, rather than the muted-fill token.
 
 | Semantic CSS assignment | Light frontmatter token | Dark frontmatter token |
 | --- | --- | --- |
@@ -221,7 +223,7 @@ White Surface, Zinc Paper, Zinc Ink and Zinc Black define the quiet surface/text
 | Supporting text | `zinc-muted` | `zinc-dark-muted` |
 | Disabled text | `zinc-status` | `zinc-dark-muted` |
 | Border/divider | `zinc-divider` | `zinc-dark-divider` |
-| Emphasized field border | `zinc-dark-muted` | `zinc-status` |
+| Emphasized field border | `zinc-status` | `zinc-status` |
 | Muted fill / progress track | `zinc-subtle` | `zinc-dark-subtle` |
 | Selected navigation / secondary button | `neutral-fill-light` | `neutral-fill-dark` |
 | Action fill / focus | `accent` | `accent` |
@@ -234,7 +236,7 @@ Custom status dots are small semantic markers (8px), always paired with words. C
 
 ## Typography
 
-**Body and heading font:** the platform system sans stack in frontmatter, configured for both official theme axes. No downloaded display font is used. `Text type="code"` uses inherited system monospace for pairing codes and literal commands.
+**Heading font:** locally bundled Newsreader from the supplied Popcorn Family Design Kit, under SIL OFL 1.1. **Body and controls:** the platform system sans stack in frontmatter. Filenames, labels and metadata retain native sans typography. `Text type="code"` uses inherited system monospace for pairing codes and literal commands.
 
 **Character:** restrained, familiar and readable. Sentence-case headings and controls establish hierarchy through size and weight. No uppercase eyebrow style is part of the reusable system.
 
@@ -246,13 +248,13 @@ The theme's base is 15px with ratio 1.2; the compiler quantizes the scale. `Head
 
 ## Layout
 
-One workspace replaces the former overview/sidebar/library/queue navigation. The header carries the family mark, truthful processing status and one Devices & storage button. Desktop input and output queue share two equal columns; upscaling settings sit underneath. On screens below 768px, input, queue and settings stack in that order. Content remains centered at 1160px with existing spacing and neutral surfaces.
+One workspace replaces the former overview/sidebar/library/queue navigation. The header carries the family mark, truthful processing status, Devices & storage and a compact Light / Dark / System appearance group. On phones, brand/appearance occupy the first row and connection/setup the second. Appearance persists per browser, is available before login, and changing it preserves selections, settings, previews and authentication. Desktop input and output queue share two equal columns; upscaling settings sit underneath. On screens below 768px, input, queue and settings stack in that order. Content remains centered at 1160px with existing spacing and neutral surfaces.
 
 The default form shows Enhancement, Output size (DLSS mode for that engine) and Video format. Add to queue is the primary action; Preview 5 seconds is secondary. More options contains device selection, destination, frame generation, HDR and engine-specific advanced controls. Verified VSR quality/custom dimensions appear only when relevant. Setup has a direct Back to videos action; the hidden workspace stays mounted so input and settings survive that visit.
 
 Input folders retain paging, refresh, parent navigation, safe relative paths and clear selected state. Queue rows lead with the filename, actual stage/status/progress and download/retry/cancel actions. Detailed method/codec/preset/frame/HDR/output information is under Details. Both lists scroll within bounded regions as content grows. There is no invented activity or diagram. The skip link targets the main landmark, and view changes focus it without scrolling.
 
-The mark uses Popcorn Batch's exact circle geometry from commit `54170f2684f734712b6159ccc7592f3237fa6b71`, with the lower-right circle teal-500 (#14b8a6) instead of Batch's top blue circle. The tile and two neutral circles invert with the theme; favicon uses a fixed zinc-900 tile. Header and login use the same geometry. Teal identifies this family member and does not replace blue action/focus feedback.
+The supplied Popcorn Family Design Kit supersedes the earlier circle mark: use its monochrome Lucide popcorn silhouette in the header/login lockup and the exact violet SR app export for browser, touch and container icons. Derivative 64px/180px PNGs change only pixel size. Icon violet is a family identifier; action/focus stays blue-500. No sidebar is introduced from the reference kit.
 
 ## Elevation & Depth
 
@@ -262,7 +264,7 @@ Ordinary panels remain flat, separated by tonal hierarchy, thin borders (1px) an
 
 ## Shapes
 
-Current compiled Neutral values are recorded in frontmatter: inner, control and panel radii. At normal root size, controls resolve to 10px and panels to 12px. PRODUCT.md's approved 8px control / 16px major-panel choices remain the target; the current theme has no radius overrides enforcing them. This is source drift, not a new direction. Progress tracks and dots are circular. No tag/chip control is currently implemented.
+Current compiled Neutral values are recorded in frontmatter: inner, control and panel radii. The theme explicitly enforces 8px controls and 16px panels. Media uses 10px corners. The appearance group uses a 12px outer corner, with 3px padding plus a 1px border around 8px controls. Progress tracks/dots are circular; the connection chip retains its compact pill shape.
 
 Theme tokens set small/medium controls to 44px and large to 48px. Overrides add button minimum height/width and non-shrinking behavior, minimum height to text-input/selector/side-nav-item/checkbox-input, and a **44px `collapsible-trigger` minimum**. The checkbox row also has a 44px minimum. These source declarations do not prove every inner combobox, checkbox label or mobile toggle target measures 44px; final rendered-target acceptance belongs to the main agent.
 
@@ -382,3 +384,8 @@ The initial render check found the removed shell no longer supplied an explicit 
 2026-10-13 library picker: preserve the Astryx Operate world. Input gains a named library selector and current-folder filter, side by side on desktop and stacked on phones. Breadcrumbs, page selection and a small selected count stay inline. Selections persist across libraries; original dimensions/format remain right-aligned. Actual generated CPU preview/full processing, light/dark desktop/tablet/phone Axe and overflow checks pass. First visual review found only a focused skip-link capture artifact, handled by blurring before screenshots; keyboard behavior is preserved. Detector findings are the pre-existing brand/pairing type advisories. In-thread finish review: ship this source/UI scope pending Docker and installed acceptance. No new visual world or NVIDIA capability claim.
 
 FlashVSR+ stays in the existing Enhancement selector. One supporting sentence explains temporal restoration, slower processing and preview-first review. Per-codec actual worker checks control exports; unavailable HDR/frame generation stays disabled. Existing Auto priority, Astryx components, palette and layout remain.
+
+
+## Family refinement — 2026-10-15
+
+Taste and Impeccable Operate refinement uses the user-supplied family assets, without importing reference navigation or changing processing. Newsreader headings, native labels, stronger neutral layers, explicit persistent themes, and consistent corners preserve the input/queue/comparison/settings workflow. Exact rendered and deployment evidence is recorded in working.md. Earlier dated review entries describe their historical UI.
