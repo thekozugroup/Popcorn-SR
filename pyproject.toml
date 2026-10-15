@@ -28,7 +28,7 @@ ai = [
 ]
 restoration = [
     "einops==0.8.2", "imageio==2.38.1", "imageio-ffmpeg==0.6.0",
-    "Pillow==12.3.0", "safetensors==0.7.0", "tqdm==4.67.3",
+    "Pillow==12.3.0", "safetensors==0.7.0", "tqdm==4.67.3", "packaging==26.3",
 ]
 
 [tool.uv.sources]
