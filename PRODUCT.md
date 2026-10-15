@@ -30,6 +30,8 @@ Use Popcorn Batch's three-circle triangular mark. Batch colors the top circle bl
 ## Delivery scope
 Available verified Linux DLSS Super Resolution and frame generation can ship without neural rendering. Neural rendering is deferred until compatible authorized SDK access exists; do not expose or substitute a pretend implementation. VSR/HDR remain gated optional integrations requiring genuine runtime checks. NAS/worker and single-device processing, storage controls and original preservation remain core.
 
+Each processing device runs one worker container. Enabled model runtimes, installers, codecs and build dependencies belong in that image; never require an inference sidecar, model server or host Python environment. Pinned model weights may live in a persistent data mount and must be installable through the worker image itself. Preserve them across image updates. Host NVIDIA drivers and separately authorized read-only SDK mounts remain explicit prerequisites. Keep a single-file published-image installation available; advanced overlays are optional.
+
 ## Honest boundaries
 AI capabilities must pass a real startup smoke check. Ordinary resizing must be labeled as resizing. Experimental DLSS rendering may alter appearance; it is separately opt-in. Windows engine binaries are user-installed and never redistributed. HDR inputs fail closed until a preservation path is verified. No silent CPU fallback from an explicitly requested GPU job.
 

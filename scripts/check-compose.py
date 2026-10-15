@@ -27,6 +27,8 @@ def main():
     })
     layouts = [("manager", ["compose.yaml"])]
     layouts.append(("manager/library", ["compose.yaml", "compose.library.yaml"]))
+    layouts.append(("spark", ["compose.spark.yaml"]))
+    layouts.append(("spark/updates", ["compose.spark.yaml", "compose.updates.yaml"]))
     for topology, base in (
         ("paired", ["compose.worker.yaml"]),
         ("single", ["compose.yaml", "compose.single.yaml"]),
@@ -44,6 +46,15 @@ def main():
             env=env, capture_output=True, text=True, check=True, timeout=30,
         )
         services = json.loads(result.stdout)["services"]
+        if name.startswith("spark"):
+            assert set(services) == {"worker"}, f"{name}: unexpected sidecar"
+            worker = services["worker"]
+            assert "build" not in worker, f"{name}: host build required"
+            assert not worker.get("ports"), f"{name}: inbound worker port"
+            assert int(worker["mem_limit"]) == int(worker["memswap_limit"]) == 32 * 1024**3
+            assert worker["logging"]["driver"] == "none"
+            models = next(m for m in worker["volumes"] if m["target"] == "/models/flashvsr")
+            assert not models.get("read_only", False), f"{name}: built-in model install blocked"
         for service in services.values():
             assert service["read_only"], f"{name}: writable container root"
             assert service["cap_drop"] == ["ALL"], f"{name}: unexpected privileges"

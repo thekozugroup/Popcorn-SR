@@ -1,3 +1,9 @@
+## Active iteration — single-container model installation (2026-10-15)
+
+Scope: keep Spark as one worker with no inference/model sidecars, provide a single published-image Compose file, allow the built-in pinned installer to write only the persistent model data mount, and preserve native DLSS, pairing, scratch identity, updates and unrelated services. No model or Python environment installation on the host. Record actual memory separately from limits; clean owned verification resources and commit/push main.
+
+Fresh read-only baseline: one Popcorn worker, final 0.5.0 runtime unchanged, all original native/FlashVSR+ capabilities ready, host updater active, no swap/OOM events. The installed container lifetime cgroup memory.peak is 16,628,097,024 bytes (15.49 GiB), covering startup and the previous ALF tests. The earlier ALF render reported 11,545,746,432 bytes (10.75 GiB) of peak CUDA allocations. These are different accounting scopes, not independent amounts to sum or a measured minimum-memory requirement. Configured container ceiling remains 32 GiB; persistent models are 7,016,472,997 bytes of disk data.
+
 ## Completed iteration — Spark video restoration 0.5.0 (2026-10-15)
 
 Scope completed: measure actual GPU use and bottlenecks, evaluate current video AI on bounded ALF samples, ship an optional measured restoration engine, preserve originals/account/jobs/services, and remove owned diagnostics. Actual UI checks used the existing signed-in Chrome profile; that preference is recorded in AGENTS.md. No Actions, host driver changes or global cleanup.

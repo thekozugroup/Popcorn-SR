@@ -30,6 +30,8 @@ In **Input → Library**, choose your mounted movie/show folder, open a movie or
 
 ## Video restoration
 
+[One-container Spark setup](docs/spark.md) uses a single published-image Compose file and the worker's built-in model installer. No model server, inference sidecar or host Python setup is needed. Models persist as ordinary application data across updates.
+
 [Measured Spark bottlenecks and AI restoration](docs/video-restoration.md) compares SeedVR2, FlashVSR+, Real-ESRGAN and native DLSS on bounded ALF samples, with explicit RTX 5080/Linux limits. The optional `restoration-stable` worker runs FlashVSR+ Turbo after genuine CUDA/codec checks and a deliberate 7.0 GB model installation. It is installed on Spark alongside the existing DLSS support. A five-second ALF preview returned to the NAS in about 150 seconds; restoration is an optional video model, not a demonstrated speed upgrade over DLSS. Review matched frames and motion before a library batch.
 
 ## Processing options

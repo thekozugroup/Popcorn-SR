@@ -92,12 +92,15 @@ A replacement needs bounded streaming, cancellation, truthful progress, exact pi
 
 ## Optional restoration worker
 
+Prefer the [single-file Spark installation](spark.md), including in-container model installation and measured memory. The overlay instructions below are for advanced/custom layouts.
+
 This method is explicit; Auto keeps the existing enhancement priority. HDR input, ten-bit input and combining restoration with HDR/frame generation are rejected. A real startup render gates each of H.264, HEVC and AV1 separately. Output dimensions are padded internally and cropped back to the requested aspect-preserving size; model padding never crops the source. GPU memory exhaustion fails the job rather than switching to CPU. Successful small checks do not guarantee enough memory for 4K.
 
-Build `Dockerfile.restoration` on a Linux ARM64/AMD64 Docker host. It includes the pinned public runtime, CUDA PyTorch and existing native-DLSS adapter; no model weights or NVIDIA SDK files are bundled. Install approximately 7.0 GB of pinned weights once in a deliberate persistent folder using:
+The published image includes the pinned public runtime, CUDA PyTorch, native-DLSS adapter and model installer; no model weights or NVIDIA SDK files are bundled. Local builds use `Dockerfile.restoration`. For an idle running worker with a writable dedicated model mount, install approximately 7.0 GB of pinned weights from inside that same container:
 
 ```sh
-python -B -m popcorn_sr.restoration_assets models /your/persistent/models/flashvsr
+docker compose -f compose.spark.yaml exec worker \
+  python -B -m popcorn_sr.restoration_assets models /models/flashvsr
 ```
 
 For a published release, set `POPCORN_RESTORATION_IMAGE=ghcr.io/thekozugroup/popcorn-sr:restoration-stable`; otherwise the overlay selects a local development build. The optional `compose.restoration.yaml` overlays `compose.worker.yaml`, or the same-machine layout, and mounts `RESTORATION_MODELS_PATH` read-only. Add `compose.ngx.yaml` before the restoration overlay if retaining separately installed DLSS. The restoration worker allows six CPU cores and 32 GiB RAM because model loading/compilation needs more memory than the native-only worker. The CUDA allocator also has a dynamic ceiling capped at 20 GiB. Keep sufficient headroom for other services; Spark's 128 GB is shared CPU/GPU memory.

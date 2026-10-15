@@ -1,0 +1,40 @@
+# One published GPU worker. Models install/run in this image; no model sidecar.
+# Set existing writable WORKER_STATE_PATH, SCRATCH_PATH and RESTORATION_MODELS_PATH.
+services:
+  worker:
+    image: "${POPCORN_RESTORATION_IMAGE:-ghcr.io/thekozugroup/popcorn-sr:restoration-stable}"
+    command: [worker]
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    gpus: all
+    cpus: 6
+    mem_limit: 32g
+    memswap_limit: 32g
+    read_only: true
+    tmpfs: ["/tmp:rw,exec,nosuid,nodev,size=1g"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    logging: {driver: none}
+    healthcheck: {disable: true}
+    environment:
+      POPCORN_MANAGER: "${POPCORN_MANAGER:?Set the NAS manager URL}"
+      POPCORN_PAIR_CODE: "${POPCORN_PAIR_CODE:-}"
+      POPCORN_WORKER_NAME: "${POPCORN_WORKER_NAME:-DGX Spark}"
+      POPCORN_FLASHVSR_ROOT: /opt/flashvsr
+      POPCORN_FLASHVSR_MODELS: /models/flashvsr
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility,graphics
+    volumes:
+      - type: bind
+        source: "${WORKER_STATE_PATH:?Set WORKER_STATE_PATH}"
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${SCRATCH_PATH:?Mount and initialize the scratch drive first}"
+        target: /scratch
+        bind: {create_host_path: false}
+      # Persistent model data, writable by the built-in pinned installer.
+      # Inference verifies hashes; it never downloads or changes model weights.
+      - type: bind
+        source: "${RESTORATION_MODELS_PATH:?Choose the persistent model folder}"
+        target: /models/flashvsr
+        bind: {create_host_path: false}

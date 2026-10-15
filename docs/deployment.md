@@ -22,6 +22,8 @@ The template uses the public `ghcr.io/thekozugroup/popcorn-sr:stable` image. Ano
 
 ## Linux worker on DGX Spark or RTX 5080 desktop
 
+For the simplest published FlashVSR+ installation on Spark, use the [single-file, one-container guide](spark.md). It installs models through the worker image itself. The generic and native/advanced layouts below remain available.
+
 Install Docker, the current NVIDIA driver and [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). Verify GPU access with NVIDIA's documented container test. GPU passthrough on Docker Desktop for macOS is not supported by this app.
 
 Clone this repository on the worker. Set these values in its own `.env`:
