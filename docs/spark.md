@@ -39,7 +39,7 @@ After the download, obtain a fresh pairing code in the NAS Web UI and add `POPCO
 docker compose -f compose.spark.yaml up -d --no-build
 ```
 
-Pairing appears before processing checks finish. Wait for verified methods, then choose **FlashVSR+ video restoration** and preview a frame and motion sample. Remove the consumed one-use code from `.env` after pairing; saved pairing survives normal replacements. No inbound Spark port or NAS library share is needed.
+Pairing appears before processing checks finish. Complete startup checks took about ten minutes on the installed Spark. Wait for verified methods, then choose **FlashVSR+ video restoration** and preview a frame and motion sample. Remove the consumed one-use code from `.env` after pairing; saved pairing survives normal replacements. No inbound Spark port or NAS library share is needed.
 
 ## Model installation in the running worker
 
@@ -62,7 +62,9 @@ Observed on the installed 0.5.0 Spark worker on 15 October 2026:
 |---|---:|---|
 | Container lifetime `memory.peak` | 15.49 GiB | Cgroup-reported system-memory peak across startup and the preceding ALF tests, including charged cache |
 | ALF render peak CUDA allocation | 10.75 GiB | PyTorch allocation high-water mark for 149 pictures, 640×480 → 1440×1080 |
-| Idle container memory | About 0.33–0.40 GiB | Snapshot range; Docker and cgroup cache accounting differ |
+| Latest restart-check peak | 14.84 GiB | Fresh complete startup checks after the model-mount change |
+| Idle Docker display | About 0.3–0.5 GiB | Excludes inactive file cache; latest snapshot was 514 MiB |
+| Idle cgroup including cache | 7.53 GiB | Immediately after verification; about 7.01 GiB was inactive file cache and can be reclaimed |
 | Container memory ceiling | 32 GiB | Limit, not a reservation or measured requirement |
 | CUDA allocator ceiling | At most 20 GiB | Additional dynamic per-process safeguard, not preallocated memory |
 | Swap / OOM events | 0 / 0 | No swap use or memory-limit kills observed |

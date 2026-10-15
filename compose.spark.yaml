@@ -15,6 +15,8 @@ services:
     security_opt: ["no-new-privileges:true"]
     cap_drop: [ALL]
     logging: {driver: none}
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
     healthcheck: {disable: true}
     environment:
       POPCORN_MANAGER: "${POPCORN_MANAGER:?Set the NAS manager URL}"

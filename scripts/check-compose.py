@@ -53,6 +53,7 @@ def main():
             assert not worker.get("ports"), f"{name}: inbound worker port"
             assert int(worker["mem_limit"]) == int(worker["memswap_limit"]) == 32 * 1024**3
             assert worker["logging"]["driver"] == "none"
+            assert worker["labels"]["com.centurylinklabs.watchtower.enable"] == "false"
             models = next(m for m in worker["volumes"] if m["target"] == "/models/flashvsr")
             assert not models.get("read_only", False), f"{name}: built-in model install blocked"
         for service in services.values():
