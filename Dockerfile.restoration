@@ -19,6 +19,11 @@ COPY popcorn_sr ./popcorn_sr
 RUN uv sync --frozen --extra ai --extra ngx --extra restoration --no-dev --no-editable --python /usr/local/bin/python \
     && /app/.venv/bin/python -B -m popcorn_sr.restoration_assets runtime /opt/flashvsr \
     && /app/.venv/bin/python -B -c "import torch, av, cv2; assert torch.__version__ == '2.13.0+cu130'; import popcorn_sr.flashvsr"
+# Triton builds its CUDA launcher C extension on the first GPU invocation.
+# Keep that toolchain inside the image; no compiler is installed on the host.
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && printf '#include <Python.h>\n' | cc -fsyntax-only -I/usr/local/include/python3.12 -x c -
 ENV PATH="/app/.venv/bin:$PATH" \
     POPCORN_FLASHVSR_ROOT=/opt/flashvsr POPCORN_FLASHVSR_MODELS=/models/flashvsr \
     POPCORN_NGX_LIBRARY=/opt/ngx/libpopcorn-dlss.so POPCORN_NGX_RUNTIME=/opt/ngx \
