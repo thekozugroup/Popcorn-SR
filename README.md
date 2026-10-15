@@ -1,5 +1,7 @@
 # Popcorn SR
 
+<img src="web/public/popcorn-sr.png" alt="Popcorn SR app icon" width="96" height="96">
+
 **Keep your library on the NAS. Process videos on the computer with the power.**
 
 Popcorn Super Resolution runs as a lightweight Docker manager plus a processing worker. Pair an Unraid NAS with a DGX Spark or NVIDIA Linux desktop, or run both services on one computer. Finished copies return to your chosen output folder. Originals remain untouched.
@@ -8,13 +10,15 @@ Popcorn Super Resolution runs as a lightweight Docker manager plus a processing 
 
 The workspace puts input on the left, the output queue on the right and settings underneath. Select a video or batch, choose a video and time, then **Preview frame**. Compare large Original/Enhanced images or **Expand preview**. **Zoom in** enlarges both images together; drag either image to inspect the same detail. **Fit** resets the view. Double-click a detail or scroll while zoomed; keyboard arrows pan, +/− zoom and 0 resets. Magnification is relative to the fitted frame and does not change the output.
 
+Choose **Light**, **Dark** or **System** appearance in the header; the choice is remembered by your browser and is also available before sign-in. The shared Popcorn family icon, locally bundled headings and layered zinc surfaces keep the same simple workspace in both themes.
+
 Choose **Run full video** or **Run full batch** after reviewing. Changing the frame or processing settings requires a fresh comparison. Completed previews reopen from the queue. **Delete preview** removes that sample and its queue entry; originals and full-length copies remain. Finish or cancel an active preview first. Comparison PNGs are generated on demand rather than saved as extra files; deleting the preview also clears the displayed comparison.
 
 Still comparisons process a video-only sample of up to five seconds, then display its first picture. Review the downloadable video sample for motion. Full runs restore the normal audio/subtitle/attachment/chapter checks and verify the saved source again.
 
 ## Install the published Docker preview
 
-The current public manager is **0.5.0**, with linked comparison zoom/panning, preview deletion, a read-only library picker, username/password login and optional passkeys. The optional **0.5.0 restoration worker** adds FlashVSR+; the native-only DLSS channel remains **0.4.1**. Docker selects the matching AMD64 or ARM64 image automatically; no build on the NAS is required.
+The current public manager is **0.5.1**, with the shared Popcorn family design, saved appearance choices, linked comparison zoom/panning, preview deletion, a read-only library picker, username/password login and optional passkeys. The optional **0.5.0 restoration worker** adds FlashVSR+; the native-only DLSS channel remains **0.4.1**. Docker selects the matching AMD64 or ARM64 image automatically; no build on the NAS is required.
 
 1. Install the manager through the [Unraid template or Compose instructions](docs/deployment.md).
 2. Set your existing library, output and state folders and ownership IDs.
