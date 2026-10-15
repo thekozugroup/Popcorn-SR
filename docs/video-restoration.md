@@ -1,6 +1,6 @@
 # Video restoration and Spark performance
 
-Evaluation date: **15 October 2026**. These are bounded device experiments, not a new production engine release or a full-episode benchmark.
+Evaluation date: **15 October 2026**. These are bounded device experiments. They do not establish full-episode throughput or library-wide image quality.
 
 ## What is slowing the installed worker
 
@@ -19,7 +19,7 @@ Fresh processes using the installed native image processed **48 generated pictur
 
 The bridge measurement includes conversion, validation, transfer, synchronous NGX execution and readback; it is **not** an isolated GPU-kernel measurement. Totals include startup, decoding and encoding, but exclude NAS transfer and manager validation. Generated pictures establish operation and stage costs, not film quality. These short cold runs cannot predict sustained library throughput.
 
-Raising the CPU quota barely helped this test. The deployed limits remain **2 CPU cores and 12 GiB**. OpenCV motion estimation itself is bounded to two threads. On a 20-core host, a busy two-core worker can therefore look lightly loaded in a whole-machine CPU display. GPU temperature and an idle utilization snapshot do not establish whether a job is configured correctly.
+Raising the CPU quota barely helped this test. The worker used **2 CPU cores and 12 GiB** during this baseline. The restoration candidate uses 6 CPU cores and 32 GiB for model loading and compilation; that change alone is not a demonstrated DLSS speedup. OpenCV motion estimation itself is bounded to two threads. On a 20-core host, a busy two-core worker can therefore look lightly loaded in a whole-machine CPU display. GPU temperature and an idle utilization snapshot do not establish whether a job is configured correctly.
 
 There is also avoidable preview overhead: the worker currently transfers and verifies the **whole source file** before clipping a selected frame or short preview. Frame generation adds further timing checks and lossless intermediate videos. Neither extra CPU quota nor a faster upscaler alone removes these costs.
 
@@ -41,16 +41,26 @@ Upstream's streaming CLI moved the denoiser weights to CPU before each decoder s
 
 Popcorn's adapter pads rather than cropping the picture, streams bounded groups, preserves individual timestamps and declared SDR color, validates every decoded output picture, and exports separately through NVENC. The 17-picture ALF sample at **1440×1080** passed H.264 in **33.18 seconds**, H.265 in **32.61 seconds**, and AV1 in **34.27 seconds**. CUDA allocation peaked at 11,078,325,248 bytes. Each process loads the model and creates its own disposable compile cache; these are cold totals excluding NAS transfer and final manager validation.
 
-A direct read-only episode extract, with 98 actual source pictures over approximately 3.24 seconds, passed AV1 at **768×576 in 32.18 seconds**. Its peak CUDA allocation was 5,777,611,776 bytes; both clock lookahead and the upstream input buffer peaked at **20 pictures**. The video adapter does not copy audio itself: the worker's preservation/remux stage must also pass installed acceptance before this becomes an advertised library workflow. A second 98-picture run at 1440×1080 passed H.265 in **91.96 seconds**, peaking at 11,545,746,432 CUDA bytes with the same 20-picture buffer. These short runs do not establish whole-episode stability or sustained throughput.
+An early diagnostic extract decoded 98 pictures and rendered AV1 at **768×576 in 32.18 seconds**, or H.265 at **1440×1080 in 91.96 seconds**, with **20-picture** peak buffering. That extraction had inconsistent picture/audio offsets and declared duration. The final preservation validator correctly rejected it; these timings are adapter diagnostics, not successful original-media deliveries or evidence of 98 unique source pictures. The corrected test samples the unmodified full original using its container clock. Whole-episode stability and sustained throughput remain unmeasured.
+
+The final packaged ARM64 image (`ec43942070277b20f48ab044819d69ea56d50cc6`) sampled the untouched full ALF source using its container clock. **149 pictures → 1440×1080 H.265 took 140.20 seconds**, plus 1.04 seconds to sample; complete sampling/render/remux/validation took **141.92 seconds**. The output contains 4.971 seconds of video and 5.016 seconds including original audio. Peak CUDA allocation was 11,545,746,432 bytes and peak buffering remained 20 pictures. Original AAC and EIA-608 packet payloads matched, with timestamps within 1 ms; the original source hash was unchanged. This exact packaged test used no injected runtime dependencies. It is a roughly 1.06-picture/second short cold run, not a full-episode benchmark.
+
+The ALF source's EIA-608 captions cannot be copied into the tested Matroska or MP4 paths. H.264/H.265 jobs therefore save a MOV copy; ordinary MOV timed text selects MP4. AV1 with EIA-608 is rejected before processing. Video-only frame comparisons remain Matroska and can use AV1. Compatible captions are copied, never silently dropped or converted. Worker startup checks verify actual caption muxing before those jobs become available.
 
 The existing Real-ESRGAN adapter also produced 17 ALF pictures at 1440×1080 in **24.75 seconds** using real CUDA and H.264 NVENC. Its per-frame approach is a separate baseline, with possible temporal flicker. All candidate timings include process startup; the FlashVSR upstream CLI measurements use 1536×1152, 13.8% more pixels than the 1440×1080 adapter tests.
+
+## Installed acceptance
+
+Atlas → Spark → Atlas returned a five-second 640×480 → 1440×1080 HEVC/MOV preview in **149.72 seconds** including transfer, processing, validation and polling. Download checksums matched. Every retained original AAC/caption packet matched its source payload; timestamps stayed within 1 ms. A separate selected-frame sample at 200 seconds and a normal UI-created 480p→1080p rule preview also returned successfully. The UI showed the actual frames, linked 2× zoom/panning and Fit reset. Fullscreen requests were rejected in this automated signed-in Chrome session; the large inline comparison and handled fallback were verified instead.
+
+Fresh startup checks retained all 25 native SR settings, nine frame-generation settings and six encoders, and added genuine H.264/HEVC/AV1 FlashVSR+ plus caption-copy support. These checks took about ten minutes. Startup verification and per-job model loading are separate costs. All three disposable previews and their records were deleted; original jobs, media, pairing, scratch/SDK identity, native updates and unrelated services were preserved. The 7.0 GB pinned model folder is a deliberate final asset; diagnostic checkpoints, media, caches and unused candidate images were removed.
 
 ## Engine candidates
 
 | Candidate | Why consider it | Current boundary |
 |---|---|---|
 | [SeedVR2](https://github.com/ByteDance-Seed/SeedVR) | Video restoration designed for degraded footage; uses surrounding frames | Real ALF CUDA inference passed through the [standalone community CLI](https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler). Slow in the tested configuration. No production Popcorn adapter yet. |
-| [FlashVSR+](https://github.com/OpenImagingLab/FlashVSR_Plus) | Newly released streaming video restoration with sparse attention | Real ARM64/GB10 Turbo Triton inference and the Popcorn adapter passed bounded ALF samples. Optional integration is under acceptance; whole-episode speed and quality remain unmeasured. |
+| [FlashVSR+](https://github.com/OpenImagingLab/FlashVSR_Plus) | Newly released streaming video restoration with sparse attention | Real ARM64/GB10 Turbo Triton inference and the Popcorn adapter passed bounded ALF samples. The optional 0.5.0 worker passed packaged/paired Spark acceptance; whole-episode speed and quality remain unmeasured. |
 | [ReCaVSR](https://github.com/kopperx/ReCaVSR) | Recent streaming restoration research | Authors report 21.2 fps at 1080p on an A100-80GB, not a Spark or RTX 5080. The released x86-64 environment and full-clip reader/writer still need ARM64 and long-video adaptation. [Paper](https://arxiv.org/abs/2609.37831). |
 | [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) | Existing lightweight Popcorn AI adapter and useful baseline | Frame-by-frame restoration can flicker. It is not a temporal video model or RTX Video Super Resolution. |
 
@@ -80,7 +90,7 @@ Model repository: `numz/SeedVR2_comfyUI`, revision `09ced71023636e9bc8cdf9cdecfb
 
 A replacement needs bounded streaming, cancellation, truthful progress, exact picture count/timing and color checks, original audio/subtitle preservation, startup capability tests and paired NAS acceptance. Keep installed capabilities unchanged until those gates pass. Test inputs, exported frames, raw logs, temporary dependencies and unused checkpoints must be removed after evaluation; never delete library originals or unrelated services/caches.
 
-## Optional restoration worker (development)
+## Optional restoration worker
 
 This method is explicit; Auto keeps the existing enhancement priority. HDR input, ten-bit input and combining restoration with HDR/frame generation are rejected. A real startup render gates each of H.264, HEVC and AV1 separately. Output dimensions are padded internally and cropped back to the requested aspect-preserving size; model padding never crops the source. GPU memory exhaustion fails the job rather than switching to CPU. Successful small checks do not guarantee enough memory for 4K.
 
@@ -90,6 +100,6 @@ Build `Dockerfile.restoration` on a Linux ARM64/AMD64 Docker host. It includes t
 python -B -m popcorn_sr.restoration_assets models /your/persistent/models/flashvsr
 ```
 
-The optional `compose.restoration.yaml` overlays `compose.worker.yaml`, or the same-machine layout, and mounts `RESTORATION_MODELS_PATH` read-only. Add `compose.ngx.yaml` before the restoration overlay if retaining separately installed DLSS. The restoration worker allows six CPU cores and 32 GiB RAM because model loading/compilation needs more memory than the native-only worker. The CUDA allocator also has a dynamic ceiling capped at 20 GiB. Keep sufficient headroom for other services; Spark's 128 GB is shared CPU/GPU memory.
+For a published release, set `POPCORN_RESTORATION_IMAGE=ghcr.io/thekozugroup/popcorn-sr:restoration-stable`; otherwise the overlay selects a local development build. The optional `compose.restoration.yaml` overlays `compose.worker.yaml`, or the same-machine layout, and mounts `RESTORATION_MODELS_PATH` read-only. Add `compose.ngx.yaml` before the restoration overlay if retaining separately installed DLSS. The restoration worker allows six CPU cores and 32 GiB RAM because model loading/compilation needs more memory than the native-only worker. The CUDA allocator also has a dynamic ceiling capped at 20 GiB. Keep sufficient headroom for other services; Spark's 128 GB is shared CPU/GPU memory.
 
 Pair normally, wait for genuine checks, choose **FlashVSR+ video restoration**, then test a short motion sample. Model weights and the installed runtime are final application assets; downloads, generated videos, compiler caches and diagnostic logs are disposable. Each restoration job puts its compiler/model caches in its owned work folder and removes them when the job ends. The host updater supports the separate `restoration-stable` image channel and refuses updates that lose verified engines or codecs. No Docker socket is given to the worker.

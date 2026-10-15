@@ -143,3 +143,7 @@ Fresh installations use **admin / admin**. Management and worker-pairing control
 Passkeys use the browser's native fingerprint, face or device-PIN prompt. Configure an HTTPS proxy and `POPCORN_PUBLIC_URL` to the exact public origin, for example `https://popcorn.example.com` or `https://your-nas.your-tailnet.ts.net:9445`. The proxy must preserve the Host header. The app does not create certificates or a proxy automatically. Password login remains available; **Devices & storage → Storage & help → Access** offers passkey enrollment and password changes. Keep the same hostname when using a saved passkey.
 
 For owner recovery, use `docker exec -it YOUR_MANAGER popcorn-sr set-login --username YOUR_USERNAME`. The command asks for the new password without displaying it. Non-interactive trusted provisioning can use `--password-stdin`; never put a password in shell arguments, Compose or an image. Recovery removes existing web sessions and passkeys, then prompts for a new passkey. Worker credentials and media remain unchanged.
+
+## Add video restoration
+
+The optional FlashVSR+ worker uses a streaming video model rather than independent picture restoration. It requires the pinned model folder, CUDA runtime and genuine per-codec startup checks. Use the published `restoration-stable` channel only after provisioning its models; adding an image alone is insufficient. [Setup, measured Spark throughput and restrictions](video-restoration.md#optional-restoration-worker). Keep the original library read-only and review a frame plus motion sample before a full run.

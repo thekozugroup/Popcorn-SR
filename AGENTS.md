@@ -7,3 +7,4 @@ Run `uv run ruff check .`, `uv run pytest`, `npm run build`, and the Docker smok
 Prefer local builds and tests. Keep GitHub workflows manual; use them only when local execution is unavailable and the user requests the fallback.
 Never overwrite library originals. Never claim GPU/AI support from a device name or a mock test.
 Record current scope and evidence in working.md. No credentials or local media in commits.
+Use the existing signed-in Chrome profile for interactive UI checks; do not use a blank profile.
