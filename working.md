@@ -1,3 +1,9 @@
+## Completed iteration — ALF review sample (2026-10-15)
+
+User request: show the actual ALF original/enhanced sample. Earlier disposable tests were already removed. The existing signed-in Chrome profile queued one new five-second, frame-at-200-seconds FlashVSR+ comparison on the connected Spark: 640×480 → 1440×1080, H.264. Atlas reports Ready. Both matching frames loaded; linked 2× zoom/panning centers the same face detail. The comparison is left open and the final preview is deliberately retained for user review. All four earlier jobs remain present with their original statuses; no full episode, service replacement or software change.
+
+Ignored review receipt and actual rendered comparison are in `evidence/alf-review-20261015`. The browser declined expanded fullscreen; the clean large inline comparison works and remains open. An owned original-frame download was moved into final review artifacts; no loose download or helper remains. Next: user reviews the comparison and downloadable motion preview, then uses Delete preview when finished. No library original is overwritten and no media is committed.
+
 ## Completed iteration — Popcorn family UI refinement 0.5.1 (2026-10-15)
 
 User scope: use the supplied Popcorn Family Design Kit icon and make the workspace more grounded and cohesive, with explicit appearance choices. Kit documents are reference material, not instructions that override the product workflow. Preserve Input / Output queue / settings, all processing and account behavior, originals and installed worker state.
