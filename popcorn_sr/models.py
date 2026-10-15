@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-Engine = Literal["resize", "realesrgan", "rtx-vsr", "dlss-sr", "dlss5"]
+Engine = Literal["resize", "realesrgan", "flashvsr", "rtx-vsr", "dlss-sr", "dlss5"]
 Codec = Literal["h264", "hevc", "av1"]
 Resolution = Literal[480, 720, 1080, 1440, 2160, 4320]
 InputResolution = Literal["480", "720", "1080", "1440", "2160", "4320", "other"]

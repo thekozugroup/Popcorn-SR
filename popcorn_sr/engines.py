@@ -41,6 +41,15 @@ def adapter_command(engine: str, source: Path, output: Path, recipe: dict, info:
             "--model",
             os.environ["POPCORN_ESRGAN_MODEL"],
         ]
+    if engine == "flashvsr":
+        return [
+            os.environ.get("POPCORN_AI_PYTHON", sys.executable), "-m", "popcorn_sr.flashvsr",
+            "--input", str(source.resolve()), "--output", str(output.resolve()),
+            "--width", str(width), "--height", str(height),
+            "--codec", recipe["codec"], "--quality", str(recipe["quality"]),
+            "--runtime", os.environ["POPCORN_FLASHVSR_ROOT"],
+            "--models", os.environ["POPCORN_FLASHVSR_MODELS"],
+        ]
     custom = os.environ.get(
         {"dlss-sr": "POPCORN_DLSS_COMMAND", "dlss5": "POPCORN_DLSS5_COMMAND"}.get(engine, "")
     )
@@ -315,6 +324,8 @@ def detect_capabilities(scratch: Path, stopped=None):
     configured = {}
     if os.environ.get("POPCORN_ESRGAN_MODEL"):
         configured["realesrgan"] = True
+    if os.environ.get("POPCORN_FLASHVSR_ROOT") and os.environ.get("POPCORN_FLASHVSR_MODELS"):
+        configured["flashvsr"] = True
     if os.environ.get("POPCORN_DLSS_COMMAND") or (
         os.environ.get("POPCORN_NGX_LIBRARY") and os.environ.get("POPCORN_NGX_RUNTIME")
     ):
@@ -329,7 +340,7 @@ def detect_capabilities(scratch: Path, stopped=None):
         configured["rtx-vsr"] = True
     if os.environ.get("POPCORN_VISUAL_ENHANCER") and platform.system() == "Windows":
         configured.update({"rtx-vsr": True, "dlss-sr": True, "dlss5": True})
-    dlss_settings, vsr_settings = {}, {}
+    dlss_settings, vsr_settings, restoration_settings = {}, {}, {}
     for engine in configured:
         if stopped is not None and stopped.is_set():
             raise ValueError("Worker initialization stopped.")
@@ -380,6 +391,20 @@ def detect_capabilities(scratch: Path, stopped=None):
             ):
                 raise ValueError("Engine test output failed decoding.")
             engines.append(engine)
+            if engine == "flashvsr":
+                restoration_settings = {"codecs": ["h264"]}
+                for codec in ("hevc", "av1"):
+                    if f"{codec}_nvidia" not in encoders:
+                        continue
+                    candidate = folder / f"result-{codec}.mkv"
+                    if run_check(
+                        adapter_command(engine, source, candidate, recipe | {"codec": codec}, info),
+                        timeout=180, scratch=scratch, stopped=stopped,
+                    ):
+                        # The adapter validates every decoded picture and clock before publishing.
+                        checked = probe(candidate)
+                        if (checked["width"], checked["height"]) == expected and checked["codec"] == codec:
+                            restoration_settings["codecs"].append(codec)
             if engine == "rtx-vsr" and os.environ.get("POPCORN_NVIDIA_VFX") == "1":
                 report = folder / "settings.json"
                 codecs = ",".join(codec for codec in ("h264", "hevc", "av1") if f"{codec}_nvidia" in encoders)
@@ -537,6 +562,7 @@ def detect_capabilities(scratch: Path, stopped=None):
         "notes": notes,
         "dlss_sr": dlss_settings,
         "rtx_vsr": vsr_settings,
+        "flashvsr": restoration_settings,
         "dlss_frame_generation": frame_generation,
         "rtx_hdr": hdr,
         "resolution_rules": True,

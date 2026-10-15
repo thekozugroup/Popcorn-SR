@@ -28,6 +28,10 @@ Use UID/GID **99/100** for ordinary Unraid share ownership. The public registry 
 
 In **Input → Library**, choose your mounted movie/show folder, open a movie or show/season, and select videos. **Filter this folder** narrows names without scanning the whole library. Selections stay across folders; originals remain read-only and finished copies go to your separate output mount. Use [the library guide](docs/library.md) to add Jellyfin folders through Unraid or the optional `compose.library.yaml` overlay. No Jellyfin credentials or import copy is needed.
 
+## Video restoration evaluation
+
+[Measured Spark bottlenecks and AI restoration](docs/video-restoration.md) compares SeedVR2, FlashVSR+, Real-ESRGAN and native DLSS on bounded ALF samples, with explicit RTX 5080/Linux limits. The optional FlashVSR+ development adapter is undergoing packaged and installed acceptance; the published stable deployment below is unchanged.
+
 ## Processing options
 
 Choose **H.264**, **H.265 / HEVC** or **AV1** independently of the enhancement. Upscaling changes frames; encoding compresses those frames into the finished Matroska (`.mkv`) copy. H.264 offers broad player compatibility; check HEVC/AV1 support on your players. Available codecs and enhancement controls require real worker processing checks.

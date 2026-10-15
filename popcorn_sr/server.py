@@ -172,6 +172,7 @@ def create_app(settings: Settings | None = None):
             "engine_notes": {
                 "resize": "Lanczos resizing. Works without an AI runtime.",
                 "realesrgan": "Open-source AI restoration. Per-frame processing can introduce temporal flicker; preview first.",
+                "flashvsr": "FlashVSR+ temporal video restoration. Slow and may change detail; compare a short motion preview first. Requires an installed, verified CUDA runtime.",
                 "rtx-vsr": "AI upscaling through a separately installed RTX Video engine.",
                 "dlss-sr": "Experimental video DLSS. Estimated motion and flat depth can affect detail; compare a preview.",
                 "dlss5": "Experimental neural rendering. May change the appearance of the original.",

@@ -1,0 +1,30 @@
+# Native DLSS plus optional FlashVSR+ on Linux NVIDIA GPUs. Models stay on
+# a separate read-only persistent mount; the image contains no model weights.
+FROM python:3.12-slim-trixie
+LABEL org.opencontainers.image.title="Popcorn SR Restoration Worker" \
+      org.opencontainers.image.source="https://github.com/thekozugroup/Popcorn-SR" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later AND Apache-2.0"
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 UV_NO_CACHE=1
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libvulkan1 libegl1 ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -u 1000 -m popcorn \
+    && mkdir /state /scratch && chown popcorn:popcorn /state /scratch
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN pip install uv==0.8.22 \
+    && uv sync --frozen --extra ai --extra ngx --extra restoration --no-dev --no-install-project --python /usr/local/bin/python
+COPY LICENSE THIRD-PARTY-NOTICES.md ./
+COPY licenses ./licenses
+COPY popcorn_sr ./popcorn_sr
+RUN uv sync --frozen --extra ai --extra ngx --extra restoration --no-dev --no-editable --python /usr/local/bin/python \
+    && /app/.venv/bin/python -B -m popcorn_sr.restoration_assets runtime /opt/flashvsr \
+    && /app/.venv/bin/python -B -c "import torch, av, cv2; assert torch.__version__ == '2.13.0+cu130'; import popcorn_sr.flashvsr"
+ENV PATH="/app/.venv/bin:$PATH" \
+    POPCORN_FLASHVSR_ROOT=/opt/flashvsr POPCORN_FLASHVSR_MODELS=/models/flashvsr \
+    POPCORN_NGX_LIBRARY=/opt/ngx/libpopcorn-dlss.so POPCORN_NGX_RUNTIME=/opt/ngx \
+    POPCORN_NGX_DLSSG_LIBRARY=/opt/ngx/libpopcorn-dlssg.so \
+    LD_LIBRARY_PATH=/opt/ngx-driver:/opt/ngx:/usr/local/nvidia/lib:/usr/local/nvidia/lib64 \
+    NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=compute,video,utility,graphics
+USER 1000:1000
+ENTRYPOINT ["/usr/bin/tini", "--", "popcorn-sr"]
+CMD ["worker"]

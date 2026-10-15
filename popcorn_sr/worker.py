@@ -375,7 +375,7 @@ class Worker:
         if frame_preview or (recipe["engine"] != "resize" and recipe["preview_seconds"]):
             # Clip before invoking external engines; the heavy engine never reads the full preview source.
             engine_source = folder / "preview-source.mkv"
-            interpreter = os.environ.get("POPCORN_AI_PYTHON" if recipe["engine"] in {"rtx-vsr", "realesrgan"} else "POPCORN_NGX_PYTHON", sys.executable)
+            interpreter = os.environ.get("POPCORN_AI_PYTHON" if recipe["engine"] in {"rtx-vsr", "realesrgan", "flashvsr"} else "POPCORN_NGX_PYTHON", sys.executable)
             await self.process(
                 [interpreter, "-m", "popcorn_sr.preview_sample", "--input", str(source),
                  "--output", str(engine_source), "--start", str(recipe.get("preview_frame_time") or 0),

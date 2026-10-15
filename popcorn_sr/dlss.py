@@ -30,6 +30,12 @@ def compatible_recipe(recipe, capabilities, source=None):
         return False
     if f"{recipe['codec']}_{recipe['encoder']}" not in capabilities.get("encoders", []):
         return False
+    if recipe["engine"] == "flashvsr" and (
+        recipe["encoder"] != "nvidia"
+        or recipe["codec"] not in capabilities.get("flashvsr", {}).get("codecs", [])
+        or recipe.get("frame_generation") or recipe.get("hdr")
+    ):
+        return False
     if recipe.get("resolution_rules") is not None or recipe.get("target_resolution") is not None:
         if not capabilities.get("resolution_rules"):
             return False

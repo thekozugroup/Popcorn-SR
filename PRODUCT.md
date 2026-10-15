@@ -32,3 +32,5 @@ Available verified Linux DLSS Super Resolution and frame generation can ship wit
 
 ## Honest boundaries
 AI capabilities must pass a real startup smoke check. Ordinary resizing must be labeled as resizing. Experimental DLSS rendering may alter appearance; it is separately opt-in. Windows engine binaries are user-installed and never redistributed. HDR inputs fail closed until a preservation path is verified. No silent CPU fallback from an explicitly requested GPU job.
+
+Video-specific restoration is an explicit enhancement choice. FlashVSR+ describes its slower processing and possible detail changes beside the method. Keep the current Auto priority, independently gate each verified export codec, and keep unavailable HDR/frame-generation combinations disabled. Preview motion before committing a library.

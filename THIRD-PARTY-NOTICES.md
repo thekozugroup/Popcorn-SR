@@ -10,6 +10,10 @@ Popcorn SR source is AGPL-3.0-or-later unless a file states otherwise.
 
 The optional official RealESRGAN_x4plus checkpoint is downloaded from [Real-ESRGAN v0.1.0](https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.1.0) only when the operator runs `scripts/fetch-model.py`. Copyright (c) 2021, Xintao Wang. BSD-3-Clause terms are included in `licenses/Real-ESRGAN-BSD-3-Clause.txt`. Model SHA-256: `4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1`.
 
+## FlashVSR+
+
+The optional restoration image downloads [OpenImagingLab/FlashVSR_Plus](https://github.com/OpenImagingLab/FlashVSR_Plus), revision `a08fb184a84cc2157c4f271234555fcda7902c87`, after verifying its archive SHA-256. Its Apache-2.0 license remains at `/opt/flashvsr/LICENSE` in that image. No weights are embedded. The optional asset installer downloads Turbo checkpoints from [ruchangyao/FlashVSR_plus](https://huggingface.co/ruchangyao/FlashVSR_plus), revision `46b79520946ac67dec94d1566490690953c7debc`, and verifies each checksum. Operator-installed weights retain their upstream terms. Popcorn supplies its own bounded frame transport, original timestamp/color validation, NVENC export and a scoped resident-weight policy; the upstream runtime is kept unmodified.
+
 ## NVIDIA runtimes
 
 NVIDIA VFX/RTX Video, DLSS, PyTorch NGC images, CUDA and NVENC APIs retain NVIDIA's licenses. Popcorn SR does not bundle their proprietary models/DLLs/shared libraries in its source or default image. `Dockerfile.ai` installs pinned CUDA PyTorch wheels and their dependencies, which retain their respective terms. Operators install VFX separately and must review the applicable SDK terms before redistribution.

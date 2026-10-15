@@ -21,7 +21,7 @@ def main():
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     subprocess.run([
         "git", "diff", "--quiet", "HEAD", "--", "popcorn_sr", "native", "web",
-        "Dockerfile", "Dockerfile.ngx", "Dockerfile.ai", "pyproject.toml", "uv.lock",
+        "Dockerfile", "Dockerfile.ngx", "Dockerfile.ai", "Dockerfile.restoration", "pyproject.toml", "uv.lock",
     ], check=True)
     if subprocess.check_output([
         "git", "ls-files", "--others", "--exclude-standard", "--", "popcorn_sr", "native", "web",
@@ -57,7 +57,7 @@ def main():
         with temporary.open("rb") as stream:
             archive_hash = hashlib.file_digest(stream, "sha256").hexdigest()
         files = list(Path("popcorn_sr").glob("*.py")) + list(Path("native").glob("*.cpp")) + list(Path("native").glob("*.hpp"))
-        files += [Path(name) for name in ("Dockerfile", "Dockerfile.ngx", "Dockerfile.ai", "pyproject.toml", "uv.lock")]
+        files += [Path(name) for name in ("Dockerfile", "Dockerfile.ngx", "Dockerfile.ai", "Dockerfile.restoration", "pyproject.toml", "uv.lock")]
         data = {
             "schema": 1,
             "source_commit": commit,

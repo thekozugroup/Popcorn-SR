@@ -428,7 +428,7 @@ def ffmpeg_command(source: Path, output: Path, recipe: dict, info: dict, *, vide
         "-fps_mode", "passthrough",
         # Keep input timestamp precision instead of rounding a leading audio
         # offset to the encoder's nominal frame period (notably FFmpeg 6).
-        "-enc_time_base:v", "-1",
+        "-enc_time_base:v", "demux",
     ]
     if recipe["preview_seconds"]:
         cmd += ["-t", str(recipe["preview_seconds"])]

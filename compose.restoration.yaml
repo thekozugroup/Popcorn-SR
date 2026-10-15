@@ -1,0 +1,23 @@
+# Optional video restoration. Layer over the paired or single-host base.
+# Add compose.ngx.yaml before this file to retain separately installed DLSS.
+services:
+  worker:
+    image: "${POPCORN_RESTORATION_IMAGE:-popcorn-sr-restoration:dev}"
+    build:
+      context: .
+      dockerfile: Dockerfile.restoration
+    gpus: all
+    cpus: 6
+    mem_limit: 32g
+    memswap_limit: 32g
+    tmpfs: !override ["/tmp:rw,exec,nosuid,nodev,size=1g"]
+    environment:
+      POPCORN_FLASHVSR_ROOT: /opt/flashvsr
+      POPCORN_FLASHVSR_MODELS: /models/flashvsr
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility,graphics
+    volumes:
+      - type: bind
+        source: "${RESTORATION_MODELS_PATH:?Choose the persistent FlashVSR model folder}"
+        target: /models/flashvsr
+        read_only: true
+        bind: {create_host_path: false}

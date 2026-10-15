@@ -23,6 +23,7 @@ def main():
         "UPDATE_CONTROL_PATH": str(fixtures / "updates"),
         "MOVIES_PATH": str(fixtures / "movies"),
         "TV_PATH": str(fixtures / "shows"),
+        "RESTORATION_MODELS_PATH": str(fixtures / "models"),
     })
     layouts = [("manager", ["compose.yaml"])]
     layouts.append(("manager/library", ["compose.yaml", "compose.library.yaml"]))
@@ -30,7 +31,7 @@ def main():
         ("paired", ["compose.worker.yaml"]),
         ("single", ["compose.yaml", "compose.single.yaml"]),
     ):
-        for variant in ("cpu", "nvidia", "ai", "ngx"):
+        for variant in ("cpu", "nvidia", "ai", "ngx", "restoration"):
             files = base + ([] if variant == "cpu" else [f"compose.{variant}.yaml"])
             layouts.append((f"{topology}/{variant}", files))
             layouts.append((f"{topology}/{variant}/updates", files + ["compose.updates.yaml"]))

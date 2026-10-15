@@ -20,7 +20,7 @@ import './styles.css';
 import {passkeysSupported, usePasskey} from './passkeys.js';
 import {FrameComparison} from './FrameComparison.jsx';
 
-const engines = {resize: 'Conventional resizing', realesrgan: 'Real-ESRGAN AI upscaling', 'rtx-vsr': 'RTX Video Super Resolution', 'dlss-sr': 'DLSS video upscaling · experimental', dlss5: 'DLSS 5 neural rendering · experimental'};
+const engines = {resize: 'Conventional resizing', realesrgan: 'Real-ESRGAN AI upscaling', flashvsr: 'FlashVSR+ video restoration', 'rtx-vsr': 'RTX Video Super Resolution', 'dlss-sr': 'DLSS video upscaling · experimental', dlss5: 'DLSS 5 neural rendering · experimental'};
 const dlssModes = {dlaa:'DLAA · keep source size',quality:'Quality · 1.5×',balanced:'Balanced · about 1.72×',performance:'Performance · 2×','ultra-performance':'Ultra Performance · 3×'};
 const codecNames = {h264:'H.264',hevc:'H.265 / HEVC',av1:'AV1'};
 const vsrLevels = {'1':'Level 1 · Fast','2':'Level 2 · Balanced','3':'Level 3 · High','4':'Level 4 · Ultra'};
@@ -201,7 +201,7 @@ function Recipe({paths,state,onCreated,compareJob,onAction}) {
   const hdrWorkers=frameWorkers.filter(w=>(!vsr || w.capabilities.rtx_vsr?.lossless) && (w.capabilities.rtx_hdr?.pipelines || []).some(([e,g])=>e===engine && g===generation));
   const hdr=desired.hdr;
   const finalWorkers=hdr?hdrWorkers:frameWorkers;
-  const verified=[...new Set(finalWorkers.flatMap(w=>(w.capabilities.encoders || []).filter(c=>(!vsrControls || w.capabilities.rtx_vsr?.codecs?.includes(c.split('_')[0])) && (!hdr || (w.capabilities.rtx_hdr?.pipelines || []).some(([e,g,codec])=>e===engine && g===generation && c===`${codec}_nvidia`)))))].filter(c=>(engine==='resize' && !generation && !hdr) || c.endsWith('_nvidia'));
+  const verified=[...new Set(finalWorkers.flatMap(w=>(w.capabilities.encoders || []).filter(c=>(engine!=='flashvsr' || w.capabilities.flashvsr?.codecs?.includes(c.split('_')[0])) && (!vsrControls || w.capabilities.rtx_vsr?.codecs?.includes(c.split('_')[0])) && (!hdr || (w.capabilities.rtx_hdr?.pipelines || []).some(([e,g,codec])=>e===engine && g===generation && c===`${codec}_nvidia`)))))].filter(c=>(engine==='resize' && !generation && !hdr) || c.endsWith('_nvidia'));
   const codecs=[...new Set(verified.map(c=>c.split('_')[0]))];
   const codec=codecs.includes(desired.codec)?desired.codec:codecs[0] || 'h264';
   const encoders=verified.filter(c=>c.startsWith(`${codec}_`)).map(c=>c.split('_')[1]);
@@ -288,6 +288,7 @@ function Recipe({paths,state,onCreated,compareJob,onAction}) {
         {rulesEnabled?<VStack gap={1} className="rule-summary"><Text weight="medium">Output size</Text><Copy>By input resolution</Copy><Copy type="supporting">Set each target below.</Copy></VStack>:advancedDLSS?<Selector label="DLSS mode" value={dlssMode} onChange={v=>change('dlss_mode',v)} width="100%" options={modes.map(value=>({value,label:dlssModes[value]}))}/>:<Selector label="Output size" value={customSize?'custom':scale} onChange={v=>v==='custom'?change('size_mode','custom'):setDesired(current=>({...current,size_mode:'scale',scale:v}))} width="100%" options={[...scales.map(v=>({value:v,label:({'1':'Keep source size (1×)','2':'Twice the size (2×)','3':'Three times the size (3×)','4':'Four times the size (4×)'})[v]})),...(vsr && capable.some(w=>w.capabilities.rtx_vsr?.custom_size) || customSize?[{value:'custom',label:'Custom dimensions'}]:[])]}/>}
         <Selector label="Video format" value={codec} onChange={v=>change('codec',v)} width="100%" options={['h264','hevc','av1'].map(v=>({value:v,label:({h264:'H.264 · broad compatibility',hevc:'H.265 / HEVC · smaller files',av1:'AV1 · newer players'})[v],disabled:!codecs.includes(v)}))}/>
       </div>
+      {engine==='flashvsr' && <Copy type="supporting">Restore detail across neighboring frames. Processing can be slow and may change faces or textures. Start with a short motion preview; HDR and frame generation are unavailable with this method.</Copy>}
       <Collapsible trigger="Resolution rules" defaultIsOpen={false}><VStack gap={4} paddingBlockStart={4}>
         <div className="checkbox-row"><CheckboxInput label="Set output by input resolution" value={rulesEnabled} onChange={value=>change('size_mode',value?'rules':'scale')} isDisabled={engine==='dlss5'}/></div>
         <Copy type="supporting">Each video uses its matching rule. Cropped and portrait videos keep their shape. Unmatched resolutions keep their original size.</Copy>

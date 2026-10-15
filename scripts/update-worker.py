@@ -16,6 +16,7 @@ REPOSITORIES = {
     "ngx": "ghcr.io/thekozugroup/popcorn-sr",
     "ai": "ghcr.io/thekozugroup/popcorn-sr",
     "cpu": "ghcr.io/thekozugroup/popcorn-sr",
+    "restoration": "ghcr.io/thekozugroup/popcorn-sr",
 }
 STATES = {"checking", "current", "waiting", "installing", "validating", "updated", "rolled_back", "failed"}
 
@@ -57,9 +58,9 @@ def retains_features(previous, current):
     for key in ("engines", "encoders"):
         if not set(previous.get(key, [])).issubset(current.get(key, [])):
             return False
-    for key in ("dlss_sr", "dlss_frame_generation", "rtx_vsr", "rtx_hdr"):
+    for key in ("dlss_sr", "dlss_frame_generation", "rtx_vsr", "rtx_hdr", "flashvsr"):
         old, new = previous.get(key, {}), current.get(key, {})
-        for field in ("settings", "pipelines", "upscalers", "qualities", "temporal_qualities"):
+        for field in ("settings", "pipelines", "upscalers", "qualities", "temporal_qualities", "codecs"):
             if not all(item in new.get(field, []) for item in old.get(field, [])):
                 return False
         if new.get("maximum_factor", 0) < old.get("maximum_factor", 0):
@@ -79,11 +80,11 @@ class Updater:
         self.control = Path(self.config["control"])
         self.state = self.config_path.parent / "update-state.json"
         self.repository = REPOSITORIES[self.config["role"]]
-        self.channel = {"ngx": "ngx-stable", "ai": "ai-stable", "cpu": "stable"}[self.config["role"]]
+        self.channel = {"ngx": "ngx-stable", "ai": "ai-stable", "cpu": "stable", "restoration": "restoration-stable"}[self.config["role"]]
         seconds = self.config.get("validation_seconds", 1200)
         if type(seconds) is not int or not 1 <= seconds <= 1200:
             raise ValueError("Worker validation timeout must be between 1 and 1200 seconds.")
-        self.variable = {"ngx": "POPCORN_NGX_IMAGE", "ai": "POPCORN_AI_IMAGE", "cpu": "POPCORN_IMAGE"}[self.config["role"]]
+        self.variable = {"ngx": "POPCORN_NGX_IMAGE", "ai": "POPCORN_AI_IMAGE", "cpu": "POPCORN_IMAGE", "restoration": "POPCORN_RESTORATION_IMAGE"}[self.config["role"]]
         if not self.control.is_absolute() or not self.control.is_dir():
             raise ValueError("Update control folder is missing.")
         for key in ("compose", "environment"):

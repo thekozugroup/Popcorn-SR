@@ -17,6 +17,14 @@ host = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(host)
 
 
+def test_updates_cannot_drop_a_verified_restoration_codec():
+    before = {"initialization": "ready", "engines": ["flashvsr"], "encoders": ["h264_nvidia", "av1_nvidia"],
+              "flashvsr": {"codecs": ["h264", "av1"]}}
+    assert host.retains_features(before, before)
+    assert not host.retains_features(before, before | {"flashvsr": {"codecs": ["h264"]}})
+    assert not host.retains_features(before, before | {"flashvsr": {}})
+
+
 def test_authenticated_request_blocks_next_claim_and_ack_is_scoped(auth, setup):
     _, store, _, _ = setup
     paired, _ = pair_worker(auth, {"engines": ["resize"], "encoders": ["h264_cpu"], "updates": {"enabled": True}})

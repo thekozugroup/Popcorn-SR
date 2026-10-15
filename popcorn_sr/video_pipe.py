@@ -71,7 +71,7 @@ def encoded_video(path, width, height, rate, time_base, options, *, end_time=Non
             "ffmpeg", "-v", "error", "-nostdin", "-filter_threads", "1", "-threads", "2",
             "-f", "nut", "-i", "pipe:0", "-map", "0:v:0", "-threads", "2",
             *options, *duration_options, "-fps_mode", "passthrough",
-            "-enc_time_base", "-1", "-n", str(path),
+            "-enc_time_base", "demux", "-n", str(path),
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,

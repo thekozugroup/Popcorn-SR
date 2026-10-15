@@ -3,6 +3,40 @@ import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 fs.mkdirSync('evidence/screenshots',{recursive:true});
 
+test('FlashVSR choice explains restoration and restricts exports to verified codecs (UI fixture)', async ({page}) => {
+  let ready=true;
+  await page.route('**/api/state',async route=>{
+    const response=await route.fetch();
+    if(!response.ok()){await route.fulfill({response});return;}
+    const state=await response.json();
+    state.workers.push({id:'flash-fixture',name:'Restoration UI fixture',online:true,revoked:false,scratch:{path:'/scratch',free_bytes:1e10},capabilities:{
+      engines:['flashvsr'],encoders:['h264_nvidia','hevc_nvidia','av1_nvidia'],device:'UI fixture · no GPU processing',
+      platform:'Linux',architecture:'aarch64',flashvsr:{codecs:ready?['h264','hevc']:[]},notes:{},
+    }});
+    await route.fulfill({response,json:state});
+  });
+  await signIn(page);
+  await page.getByRole('button',{name:'A clearer picture.mkv',exact:true}).click();
+  await page.getByRole('combobox',{name:'Enhancement',exact:true}).click();
+  await page.getByRole('option',{name:'FlashVSR+ video restoration',exact:true}).click();
+  await expect(page.getByText(/Restore detail across neighboring frames/)).toBeVisible();
+  await page.getByRole('combobox',{name:'Video format',exact:true}).click();
+  await expect(page.getByRole('option',{name:'AV1 · newer players',exact:true})).toBeDisabled();
+  await page.getByRole('option',{name:'H.265 / HEVC · smaller files',exact:true}).click();
+  await moreOptions(page);
+  await expect(page.getByRole('checkbox',{name:'DLSS frame generation · experimental',exact:true})).toBeDisabled();
+  await expect(page.getByRole('checkbox',{name:'RTX Video HDR · experimental',exact:true})).toBeDisabled();
+  for(const [width,height,colorScheme] of [[1440,1100,'light'],[390,844,'dark']]){
+    await page.setViewportSize({width,height});await page.emulateMedia({colorScheme,reducedMotion:'reduce'});
+    expect((await accessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    await page.screenshot({path:`evidence/screenshots/flash-ui-fixture-${width}.png`,fullPage:true});
+  }
+  ready=false;
+  await expect(page.getByRole('button',{name:'Preview 5 seconds',exact:true})).toBeDisabled({timeout:6000});
+  await expect(page.getByRole('combobox',{name:'Enhancement',exact:true})).toContainText('FlashVSR+');
+});
+
 test('read-only library picker navigates shows, preserves cross-library selections and previews a real source', async ({page}) => {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await signIn(page);
