@@ -24,6 +24,14 @@ def scale_for_recipe(recipe):
 
 
 def compatible_recipe(recipe, capabilities, source=None):
+    if source is not None:
+        from .media import output_suffix
+
+        try:
+            if output_suffix(source, recipe) != ".mkv" and not capabilities.get("caption_copy"):
+                return False
+        except ValueError:
+            return False
     if capabilities.get("initialization", "ready") != "ready":
         return False
     if recipe["engine"] not in capabilities.get("engines", []):

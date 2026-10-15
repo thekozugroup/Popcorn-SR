@@ -128,6 +128,7 @@ def probe(path: Path) -> dict:
         "video_start_time": video.get("start_time"),
         "start_time": data.get("format", {}).get("start_time"),
         "codec": video.get("codec_name"),
+        "container_format": data.get("format", {}).get("format_name", ""),
         "pix_fmt": video.get("pix_fmt", ""),
         "bit_depth": pixel_bit_depths().get(video.get("pix_fmt", ""), 0),
         "color_transfer": video.get("color_transfer", "unknown"),
@@ -137,6 +138,7 @@ def probe(path: Path) -> dict:
         "hdr": video.get("color_transfer") in {"smpte2084", "arib-std-b67"},
         "audio_streams": sum(s.get("codec_type") == "audio" for s in streams),
         "subtitle_streams": sum(s.get("codec_type") == "subtitle" for s in streams),
+        "subtitle_codecs": [s.get("codec_name") for s in streams if s.get("codec_type") == "subtitle"],
         "attachment_streams": sum(s.get("codec_type") == "attachment" for s in streams),
         "preservation": {
             "audio": [
@@ -210,8 +212,26 @@ def frame_image(path: Path, seconds: float) -> bytes:
     return result.stdout
 
 
+def output_suffix(source, recipe):
+    """Choose a container that copies original captions without converting them."""
+    if recipe.get("preview_frame_time") is not None:
+        return ".mkv"  # Frame comparisons deliberately contain only video.
+    captions = set(source.get("subtitle_codecs", []))
+    if not captions.intersection({"eia_608", "mov_text"}):
+        return ".mkv"
+    if not captions.issubset({"eia_608", "mov_text"}) or source.get("attachment_streams", 0):
+        raise ValueError("These mixed captions or attachments cannot be copied together. Use a frame comparison; the original stays unchanged.")
+    if "eia_608" in captions:
+        if recipe["codec"] == "av1":
+            raise ValueError("This video's original closed captions need H.264 or H.265 output. Choose one of those formats, or use a frame comparison.")
+        return ".mov"
+    return ".mp4"
+
+
 def validate_output(path: Path, source: dict, recipe: dict):
     info = probe(path)
+    if output_suffix(source, recipe) != ".mkv" and "mov" not in info["container_format"].split(","):
+        raise ValueError("Output container cannot preserve the original captions. Original preserved; result rejected.")
     expected = preview_duration(source, recipe)
     if abs(info["duration"] - expected) > max(0.5, expected * 0.01):
         raise ValueError("Output duration differs from the source. Original preserved; result rejected.")
@@ -247,6 +267,8 @@ def validate_output(path: Path, source: dict, recipe: dict):
             raise ValueError("Generated output frame rate differs from the requested cadence.")
         verify_packet_cadence(path, info, target_rate)
     frame_preview = recipe.get("preview_frame_time") is not None
+    if not frame_preview and "subtitle_codecs" in source and info["subtitle_codecs"] != source["subtitle_codecs"]:
+        raise ValueError("Output changed original caption formats. Original preserved; result rejected.")
     for key in ("audio_streams", "subtitle_streams", "attachment_streams"):
         if info[key] != (0 if frame_preview else source[key]):
             raise ValueError(f"Output lost {key.replace('_', ' ')}. Original preserved; result rejected.")

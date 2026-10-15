@@ -55,6 +55,8 @@ def retains_features(previous, current):
         return False
     if previous.get("resolution_rules") and not current.get("resolution_rules"):
         return False
+    if previous.get("caption_copy") and not current.get("caption_copy"):
+        return False
     for key in ("engines", "encoders"):
         if not set(previous.get(key, [])).issubset(current.get(key, [])):
             return False

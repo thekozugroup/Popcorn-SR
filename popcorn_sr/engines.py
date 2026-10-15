@@ -7,6 +7,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -266,6 +267,33 @@ def run_check(command, *, timeout=60, scratch=None, stopped=None):
                 )
                 process.wait()
     except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _caption_copy_check(scratch, stopped=None):
+    """Test actual caption muxing without changing caption codecs or host files."""
+    from .media import probe
+
+    with tempfile.TemporaryDirectory(prefix="check-captions-", dir=scratch) as folder:
+        folder = Path(folder)
+        (folder / "text.srt").write_text("1\n00:00:00,000 --> 00:00:00,500\nCaption\n")
+        (folder / "closed.scc").write_text("Scenarist_SCC V1.0\n\n00:00:00:00\t9420 9420 c1c2 942f 942f\n\n")
+        for name, codec, suffix in (("text.srt", "mov_text", ".mp4"), ("closed.scc", "copy", ".mov")):
+            target = folder / ("check" + suffix)
+            command = ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=size=16x16:rate=2",
+                       "-i", str(folder / name), "-map", "0:v", "-map", "1:s", "-t", "1",
+                       "-c:v", "mpeg4", "-c:s", codec, "-n", str(target)]
+            if not run_check(command, scratch=folder, stopped=stopped):
+                return False
+            if probe(target).get("subtitle_codecs") != ["mov_text" if codec != "copy" else "eia_608"]:
+                return False
+    return True
+
+
+def caption_copy_check(scratch, stopped=None):
+    try:
+        return _caption_copy_check(scratch, stopped)
+    except (OSError, ValueError, subprocess.SubprocessError):
         return False
 
 
@@ -566,4 +594,5 @@ def detect_capabilities(scratch: Path, stopped=None):
         "dlss_frame_generation": frame_generation,
         "rtx_hdr": hdr,
         "resolution_rules": True,
+        "caption_copy": caption_copy_check(scratch, stopped),
     }

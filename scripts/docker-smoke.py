@@ -90,6 +90,48 @@ def check_4k_validation(client, root):
             "cgroup": memory}
 
 
+def check_caption_copies(client, root):
+    """Run the real worker with captions that cannot be copied into Matroska."""
+    results = []
+    for kind, suffix in (("eia_608", ".mov"), ("mov_text", ".mp4")):
+        captions = root / "library" / ("captions.scc" if kind == "eia_608" else "captions.srt")
+        captions.write_text("Scenarist_SCC V1.0\n\n00:00:00:00\t9420 9420 c1c2 942f 942f\n\n00:00:01:00\t942c 942c\n\n"
+                            if kind == "eia_608" else "1\n00:00:00,000 --> 00:00:01,000\nOriginal caption\n")
+        source = root / "library" / ("captions-" + kind + suffix)
+        subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=128x96:rate=24",
+                        "-f", "lavfi", "-i", "sine=sample_rate=48000", "-i", str(captions), "-t", "3",
+                        "-map", "0:v", "-map", "1:a", "-map", "2:s", "-c:v", "libx264", "-bf", "0",
+                        "-c:a", "aac", "-c:s", "copy" if kind == "eia_608" else "mov_text", str(source)], check=True)
+        original = hashlib.sha256(source.read_bytes()).hexdigest()
+        response = client.post("/api/jobs", json={"path": source.name, "recipe": {
+            "scale": 1, "preview_seconds": 5, "output_directory": "captions",
+        }})
+        response.raise_for_status()
+        identity = response.json()["id"]
+        for _ in range(120):
+            job = next(j for j in client.get("/api/state").json()["jobs"] if j["id"] == identity)
+            if job["status"] in {"completed", "failed"}:
+                break
+            time.sleep(1)
+        assert job["status"] == "completed", job
+        output = root / "output" / job["result"]["path"]
+        assert output.suffix == suffix and job["result"]["subtitle_codecs"] == [kind]
+
+        def packets(path):
+            data = subprocess.check_output(["ffprobe", "-v", "error", "-select_streams", "s", "-show_packets",
+                                            "-show_data_hash", "sha256", "-of", "json", str(path)])
+            return [(p["pts_time"], p["data_hash"]) for p in json.loads(data)["packets"]]
+
+        assert packets(output) == packets(source)
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == original
+        assert hashlib.sha256(client.get(f"/api/jobs/{identity}/download").content).hexdigest() == job["result"]["sha256"]
+        client.delete(f"/api/jobs/{identity}/preview").raise_for_status()
+        assert not output.exists() and source.exists()
+        results.append({"caption_codec": kind, "container": suffix, "packet_bytes_and_times_preserved": True,
+                        "preview_deleted_original_preserved": True})
+    return results
+
+
 def check_frame_preview(client, root, original):
     def finished(identity):
         for _ in range(120):
@@ -297,6 +339,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
             )
             assert not list((root / "scratch").glob("job-*"))
             comparison = check_frame_preview(client, root, original)
+            captions = check_caption_copies(client, root)
             validation = check_4k_validation(client, root)
             report = {
                 "status": "passed",
@@ -313,6 +356,7 @@ with tempfile.TemporaryDirectory(prefix="popcorn-smoke-", dir=Path("evidence").r
                 "scratch_cleaned": True,
                 "manager_4k_validation": validation,
                 "frame_comparison": comparison,
+                "caption_copies": captions,
             }
             args.report.parent.mkdir(parents=True, exist_ok=True)
             args.report.write_text(json.dumps(report, indent=2) + "\n")

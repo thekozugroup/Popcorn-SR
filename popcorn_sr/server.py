@@ -27,6 +27,7 @@ from .media import (
     dimensions,
     frame_image,
     inspect_source,
+    output_suffix,
     picture_metadata,
     probe,
     sha256,
@@ -305,6 +306,11 @@ def create_app(settings: Settings | None = None):
                     "No worker has verified these settings. Connect a compatible worker or choose verified settings."
                 )
             source = await asyncio.to_thread(inspect_source, path)
+            if output_suffix(source, body.recipe.model_dump()) != ".mkv" and not any(
+                not w["revoked"] and (not body.worker_id or w["id"] == body.worker_id)
+                and w["capabilities"].get("caption_copy") for w in store.workers()
+            ):
+                raise ValueError("Update a worker before processing this video's original captions. A frame comparison is available now.")
             if body.recipe.resolution_rules is not None or body.recipe.target_resolution is not None:
                 from .models import Recipe
                 from .resolution import resolve
@@ -448,10 +454,11 @@ def create_app(settings: Settings | None = None):
         try:
             folder = beneath(cfg.output, job["recipe"]["output_directory"])
             folder.mkdir(parents=True, exist_ok=True)
-            scratch = folder / f".{identity}-{secrets.token_hex(8)}.partial.mkv"
+            suffix = output_suffix(job["source"], job["recipe"])
+            scratch = folder / f".{identity}-{secrets.token_hex(8)}.partial{suffix}"
             stem = Path(job["path"]).stem[:140]
             kind = "preview" if job["recipe"]["preview_seconds"] else "sr"
-            final = folder / f"{stem}.{kind}.{identity}.mkv"
+            final = folder / f"{stem}.{kind}.{identity}{suffix}"
             received = 0
             with scratch.open("xb") as out:
                 async for chunk in request.stream():

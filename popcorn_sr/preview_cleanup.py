@@ -2,6 +2,8 @@ import os
 import stat
 from pathlib import Path
 
+from .media import output_suffix
+
 
 def remove_preview(output: Path, job: dict):
     """Unlink only this job's generated preview, without following any symlinks."""
@@ -10,7 +12,8 @@ def remove_preview(output: Path, job: dict):
         if job["status"] == "completed":
             raise ValueError("This preview has no saved result. Check its output folder.")
         return
-    name = f"{Path(job['path']).stem[:140]}.preview.{job['id']}.mkv"
+    suffix = output_suffix(job.get("source", {}), job["recipe"])
+    name = f"{Path(job['path']).stem[:140]}.preview.{job['id']}{suffix}"
     relative = Path(job["recipe"]["output_directory"]) / name
     if relative.is_absolute() or ".." in relative.parts or result["path"] != relative.as_posix():
         raise ValueError("Preview path does not match this job. No files were removed.")

@@ -25,7 +25,7 @@ from .engines import (
     hdr_command,
     processing_command,
 )
-from .media import preserved_command, probe, validate_output
+from .media import output_suffix, preserved_command, probe, validate_output
 from .scratch import atomic_private_json, read_marker
 from .storage_plan import estimate_scratch_bytes
 from .updates import WorkerUpdates
@@ -348,7 +348,6 @@ class Worker:
 
     async def perform(self, client, job, folder):
         source = folder / ("source" + Path(job["path"]).suffix.lower())
-        output = folder / "result.mkv"
         digest = hashlib.sha256()
         received = 0
         async with client.stream(
@@ -370,6 +369,8 @@ class Worker:
             raise ValueError("Source checksum changed or transfer was incomplete. Original preserved.")
         info = await asyncio.to_thread(probe, source)
         recipe = job["recipe"]
+        suffix = output_suffix(job["source"], recipe)
+        output = folder / ("result" + suffix)
         frame_preview = recipe.get("preview_frame_time") is not None
         engine_source = source
         if frame_preview or (recipe["engine"] != "resize" and recipe["preview_seconds"]):
@@ -429,7 +430,7 @@ class Worker:
             rendered = output
         if not frame_preview and (recipe["engine"] != "resize" or generation or hdr):
             # Remux original streams ourselves: third-party exporters may discard subtitles or re-encode audio.
-            remuxed = folder / "preserved.mkv"
+            remuxed = folder / ("preserved" + suffix)
             command = await asyncio.to_thread(preserved_command, rendered, source, remuxed, recipe, info, timing)
             await self.process(command, folder, duration, progress_start=83, progress_end=85)
             rendered = remuxed
